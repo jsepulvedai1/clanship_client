@@ -1,0 +1,92 @@
+{
+  "@@locale": "es",
+  "loginTitle": "Bienvenido de nuevo",
+  "loginEmailLabel": "Correo electrónico",
+  "loginPasswordLabel": "Contraseña",
+  "loginSignInButton": "Iniciar sesión",
+  "loginWelcomeMessage": "Bienvenido {name}",
+  "@loginWelcomeMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "loginError": "Error: {message}",
+  "@loginError": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "homeGreeting": "Hola {name}",
+  "@homeGreeting": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "homeSearchPlaceholder": "¿Qué profesional buscas?",
+  "homeTagNear": "Más cercanos",
+  "homeTagTopRated": "Mejor valorados",
+  "homeViewAll": "Ver todos",
+  "profDetailHire": "Contratar ahora",
+  "profDetailAbout": "Sobre mí",
+  "profDetailStats": "Estadísticas",
+  "profDetailStats": "Estadísticas",
+  "matchingCancel": "Cancelar solicitud",
+  "matchingSearching": "Buscando match...",
+  "matchingConnecting": "Conectando con {name}",
+  "@matchingConnecting": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "matchingSuccess": "¡Match Exitoso!",
+  "matchingAccepted": "{name} ha aceptado contactarte.",
+  "@matchingAccepted": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsTitle": "Ajustes",
+  "settingsAppearance": "Apariencia",
+  "settingsDarkMode": "Modo Oscuro",
+  "settingsLanguage": "Idioma",
+  "settingsEnglish": "Inglés",
+  "settingsSpanish": "Español",
+  "chatStatusOnline": "En línea",
+  "chatInputPlaceholder": "Escribe un mensaje...",
+  "jobsTitle": "Mis Trabajos",
+  "jobsEmptyTitle": "Aún no tienes trabajos activos",
+  "jobsEmptySubtitle": "Tus matches aparecerán aquí.",
+  "jobsViewDetail": "Ver Detalle",
+  "jobsStatusPending": "Pendiente",
+  "jobsStatusActive": "Activo",
+  "jobsStatusRejected": "Rechazado",
+  "jobsStatusCompleted": "Completado",
+  "jobsRequestsTitle": "Solicitudes",
+  "jobsInProcess": "En proceso",
+  "jobsArrivalInfo": "llega en {time}",
+  "@jobsArrivalInfo": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "jobsDetailTitle": "Detalles del trabajo",
+  "jobsTotalValue": "Valor total",
+  "jobsGoToChat": "Ir al chat",
+  "jobsCancel": "Cancelar",
+  "jobsBack": "Regresar",
+  "chatActionUrgent": "Urgente",
+  "chatActionCall": "Llamar",
+  "chatActionLocation": "Ubicación"
+}

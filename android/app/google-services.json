@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "955997354464",
+    "project_id": "prueba-796ad",
+    "storage_bucket": "prueba-796ad.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:955997354464:android:402058c88c1b89a479d385",
+        "android_client_info": {
+          "package_name": "com.clanship.cliente"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAmD9Fn2bQrnQOSZUwTjwcj9reVF0NsSJs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

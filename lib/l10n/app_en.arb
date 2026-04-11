@@ -1,0 +1,92 @@
+{
+  "@@locale": "en",
+  "loginTitle": "Welcome Back",
+  "loginEmailLabel": "Email",
+  "loginPasswordLabel": "Password",
+  "loginSignInButton": "Sign In",
+  "loginWelcomeMessage": "Welcome {name}",
+  "@loginWelcomeMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "loginError": "Error: {message}",
+  "@loginError": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "homeGreeting": "Hello {name}",
+  "@homeGreeting": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "homeSearchPlaceholder": "Search for a professional...",
+  "homeTagNear": "Nearby",
+  "homeTagTopRated": "Top Rated",
+  "homeViewAll": "View all",
+  "profDetailHire": "Hire Now",
+  "profDetailAbout": "About me",
+  "profDetailStats": "Statistics",
+  "profDetailStats": "Statistics",
+  "matchingCancel": "Cancel Request",
+  "matchingSearching": "Searching for match...",
+  "matchingConnecting": "Connecting with {name}",
+  "@matchingConnecting": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "matchingSuccess": "Match Successful!",
+  "matchingAccepted": "{name} has accepted to connect.",
+  "@matchingAccepted": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsTitle": "Settings",
+  "settingsAppearance": "Appearance",
+  "settingsDarkMode": "Dark Mode",
+  "settingsLanguage": "Language",
+  "settingsEnglish": "English",
+  "settingsSpanish": "Spanish",
+  "chatStatusOnline": "Online",
+  "chatInputPlaceholder": "Type a message...",
+  "jobsTitle": "My Jobs",
+  "jobsEmptyTitle": "No active jobs yet",
+  "jobsEmptySubtitle": "Your matches will appear here.",
+  "jobsViewDetail": "View Details",
+  "jobsStatusPending": "Pending",
+  "jobsStatusActive": "Active",
+  "jobsStatusRejected": "Rejected",
+  "jobsStatusCompleted": "Completed",
+  "jobsRequestsTitle": "Requests",
+  "jobsInProcess": "In process",
+  "jobsArrivalInfo": "arriving in {time}",
+  "@jobsArrivalInfo": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "jobsDetailTitle": "Job details",
+  "jobsTotalValue": "Total Value",
+  "jobsGoToChat": "Go to chat",
+  "jobsCancel": "Cancel",
+  "jobsBack": "Back",
+  "chatActionUrgent": "Urgent",
+  "chatActionCall": "Call",
+  "chatActionLocation": "Location"
+}
