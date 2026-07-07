@@ -8,7 +8,7 @@
 PRODUCT_NAME = clanship_cliente
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.clanship.cliente
+PRODUCT_BUNDLE_IDENTIFIER = com.clanship
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2026 com.clanship. All rights reserved.

@@ -3,17 +3,17 @@
 <plist version="1.0">
 <dict>
 	<key>API_KEY</key>
-	<string>AIzaSyAh2ZzqIxVma4QkKgtES_fVoGw_nGbFo7A</string>
+	<string>AIzaSyDQnx0hmijGsDktrayV88-mc6V-DW3oVXA</string>
 	<key>GCM_SENDER_ID</key>
-	<string>955997354464</string>
+	<string>364034107308</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
 	<string>com.clanship.cliente</string>
 	<key>PROJECT_ID</key>
-	<string>prueba-796ad</string>
+	<string>clan-be918</string>
 	<key>STORAGE_BUCKET</key>
-	<string>prueba-796ad.firebasestorage.app</string>
+	<string>clan-be918.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
 	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:955997354464:ios:bd5551c03530b7f179d385</string>
+	<string>1:364034107308:ios:b4527f2cf73ff0812b3c09</string>
 </dict>
 </plist>

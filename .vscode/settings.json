@@ -1,0 +1,8 @@
+{
+    "workbench.colorCustomizations": {
+        "activityBar.background": "#0D2B45", // Un verde oscuro para Flutter
+        "titleBar.activeBackground": "#0D2B45",
+        "titleBar.activeForeground": "#ffffff",
+        "statusBar.background": "#004d40"
+    }
+}

@@ -57,6 +57,45 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profDetailStats => 'Statistics';
 
   @override
+  String profDetailReviews(String count, String reviews) {
+    return '$count ($reviews reviews)';
+  }
+
+  @override
+  String get profDetailFindMe => 'Find me on:';
+
+  @override
+  String get profDetailDocuments => 'Documents';
+
+  @override
+  String get profDetailContact => 'Contact';
+
+  @override
+  String get addressDialogTitle => 'Your address';
+
+  @override
+  String get addressDialogAdd => 'Add new address';
+
+  @override
+  String get addressDialogYes => 'Yes';
+
+  @override
+  String get addressDialogNo => 'No';
+
+  @override
+  String get favoritesTitle => 'Favorites';
+
+  @override
+  String get favoritesEmptyTitle => 'No favorites yet';
+
+  @override
+  String get favoritesEmptySubtitle =>
+      'Save your trusted professionals to find them faster next time.';
+
+  @override
+  String get favoritesExplore => 'Explore professionals';
+
+  @override
   String get matchingCancel => 'Cancel Request';
 
   @override
@@ -130,6 +169,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get jobsInProcess => 'In process';
 
   @override
+  String get jobsFinished => 'Finished';
+
+  @override
   String jobsArrivalInfo(String time) {
     return 'arriving in $time';
   }
@@ -157,4 +199,93 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get chatActionLocation => 'Location';
+
+  @override
+  String get matchingConfirmTitle => 'Before requesting!';
+
+  @override
+  String get matchingConfirmSubtitle =>
+      'Remember to confirm that this is the address to request';
+
+  @override
+  String get matchingConfirmAddressLabel => 'Confirm address';
+
+  @override
+  String get matchingConfirmWarning =>
+      'Please note that the address cannot be changed in the middle of the request. Carefully review the address to request the service';
+
+  @override
+  String get matchingConfirmAction => 'Request';
+
+  @override
+  String get settingsPersonalInfo => 'Personal Information';
+
+  @override
+  String get settingsEditData => 'Edit my data';
+
+  @override
+  String get settingsMyPlan => 'My current plan';
+
+  @override
+  String get settingsMyDocs => 'My documents';
+
+  @override
+  String get settingsVerificationStatus => 'Verification status';
+
+  @override
+  String get settingsChooseLanguage => 'Change language';
+
+  @override
+  String get settingsSupport => 'Technical support';
+
+  @override
+  String get settingsTerms => 'Terms and conditions';
+
+  @override
+  String get chatActionEnrich => 'Enrich';
+
+  @override
+  String get chatActionJob => 'Job';
+
+  @override
+  String get chatJobCreatedSuccess => 'Job request created successfully';
+
+  @override
+  String get chatJobCreatedMessage => 'I have created a job request.';
+
+  @override
+  String get chatEnrichTitle => 'Enrich Request';
+
+  @override
+  String get chatEnrichHint =>
+      'Describe the problem in more detail, add equipment brands, access, or instructions...';
+
+  @override
+  String get chatEnrichAttachPhoto => 'Attach Photo of the Problem';
+
+  @override
+  String get chatEnrichEnterDetailsError =>
+      'Please write the additional details.';
+
+  @override
+  String get chatEnrichSuccess => 'Request enriched successfully.';
+
+  @override
+  String get chatEnrichMessage =>
+      'I have enriched the request with new details.';
+
+  @override
+  String get chatEnrichConfirm => 'Confirm and Send';
+
+  @override
+  String get navHome => 'Home';
+
+  @override
+  String get navJobs => 'Jobs';
+
+  @override
+  String get navFavorites => 'Favorites';
+
+  @override
+  String get navSettings => 'Profile';
 }

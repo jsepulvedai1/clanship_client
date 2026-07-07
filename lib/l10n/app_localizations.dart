@@ -182,6 +182,78 @@ abstract class AppLocalizations {
   /// **'Statistics'**
   String get profDetailStats;
 
+  /// No description provided for @profDetailReviews.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} ({reviews} reviews)'**
+  String profDetailReviews(String count, String reviews);
+
+  /// No description provided for @profDetailFindMe.
+  ///
+  /// In en, this message translates to:
+  /// **'Find me on:'**
+  String get profDetailFindMe;
+
+  /// No description provided for @profDetailDocuments.
+  ///
+  /// In en, this message translates to:
+  /// **'Documents'**
+  String get profDetailDocuments;
+
+  /// No description provided for @profDetailContact.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact'**
+  String get profDetailContact;
+
+  /// No description provided for @addressDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your address'**
+  String get addressDialogTitle;
+
+  /// No description provided for @addressDialogAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add new address'**
+  String get addressDialogAdd;
+
+  /// No description provided for @addressDialogYes.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes'**
+  String get addressDialogYes;
+
+  /// No description provided for @addressDialogNo.
+  ///
+  /// In en, this message translates to:
+  /// **'No'**
+  String get addressDialogNo;
+
+  /// No description provided for @favoritesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorites'**
+  String get favoritesTitle;
+
+  /// No description provided for @favoritesEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No favorites yet'**
+  String get favoritesEmptyTitle;
+
+  /// No description provided for @favoritesEmptySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Save your trusted professionals to find them faster next time.'**
+  String get favoritesEmptySubtitle;
+
+  /// No description provided for @favoritesExplore.
+  ///
+  /// In en, this message translates to:
+  /// **'Explore professionals'**
+  String get favoritesExplore;
+
   /// No description provided for @matchingCancel.
   ///
   /// In en, this message translates to:
@@ -320,6 +392,12 @@ abstract class AppLocalizations {
   /// **'In process'**
   String get jobsInProcess;
 
+  /// No description provided for @jobsFinished.
+  ///
+  /// In en, this message translates to:
+  /// **'Finished'**
+  String get jobsFinished;
+
   /// No description provided for @jobsArrivalInfo.
   ///
   /// In en, this message translates to:
@@ -373,6 +451,174 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Location'**
   String get chatActionLocation;
+
+  /// No description provided for @matchingConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Before requesting!'**
+  String get matchingConfirmTitle;
+
+  /// No description provided for @matchingConfirmSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remember to confirm that this is the address to request'**
+  String get matchingConfirmSubtitle;
+
+  /// No description provided for @matchingConfirmAddressLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm address'**
+  String get matchingConfirmAddressLabel;
+
+  /// No description provided for @matchingConfirmWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Please note that the address cannot be changed in the middle of the request. Carefully review the address to request the service'**
+  String get matchingConfirmWarning;
+
+  /// No description provided for @matchingConfirmAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Request'**
+  String get matchingConfirmAction;
+
+  /// No description provided for @settingsPersonalInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Personal Information'**
+  String get settingsPersonalInfo;
+
+  /// No description provided for @settingsEditData.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit my data'**
+  String get settingsEditData;
+
+  /// No description provided for @settingsMyPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'My current plan'**
+  String get settingsMyPlan;
+
+  /// No description provided for @settingsMyDocs.
+  ///
+  /// In en, this message translates to:
+  /// **'My documents'**
+  String get settingsMyDocs;
+
+  /// No description provided for @settingsVerificationStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Verification status'**
+  String get settingsVerificationStatus;
+
+  /// No description provided for @settingsChooseLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Change language'**
+  String get settingsChooseLanguage;
+
+  /// No description provided for @settingsSupport.
+  ///
+  /// In en, this message translates to:
+  /// **'Technical support'**
+  String get settingsSupport;
+
+  /// No description provided for @settingsTerms.
+  ///
+  /// In en, this message translates to:
+  /// **'Terms and conditions'**
+  String get settingsTerms;
+
+  /// No description provided for @chatActionEnrich.
+  ///
+  /// In en, this message translates to:
+  /// **'Enrich'**
+  String get chatActionEnrich;
+
+  /// No description provided for @chatActionJob.
+  ///
+  /// In en, this message translates to:
+  /// **'Job'**
+  String get chatActionJob;
+
+  /// No description provided for @chatJobCreatedSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Job request created successfully'**
+  String get chatJobCreatedSuccess;
+
+  /// No description provided for @chatJobCreatedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'I have created a job request.'**
+  String get chatJobCreatedMessage;
+
+  /// No description provided for @chatEnrichTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enrich Request'**
+  String get chatEnrichTitle;
+
+  /// No description provided for @chatEnrichHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Describe the problem in more detail, add equipment brands, access, or instructions...'**
+  String get chatEnrichHint;
+
+  /// No description provided for @chatEnrichAttachPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Attach Photo of the Problem'**
+  String get chatEnrichAttachPhoto;
+
+  /// No description provided for @chatEnrichEnterDetailsError.
+  ///
+  /// In en, this message translates to:
+  /// **'Please write the additional details.'**
+  String get chatEnrichEnterDetailsError;
+
+  /// No description provided for @chatEnrichSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Request enriched successfully.'**
+  String get chatEnrichSuccess;
+
+  /// No description provided for @chatEnrichMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'I have enriched the request with new details.'**
+  String get chatEnrichMessage;
+
+  /// No description provided for @chatEnrichConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm and Send'**
+  String get chatEnrichConfirm;
+
+  /// No description provided for @navHome.
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
+  String get navHome;
+
+  /// No description provided for @navJobs.
+  ///
+  /// In en, this message translates to:
+  /// **'Jobs'**
+  String get navJobs;
+
+  /// No description provided for @navFavorites.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorites'**
+  String get navFavorites;
+
+  /// No description provided for @navSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get navSettings;
 }
 
 class _AppLocalizationsDelegate

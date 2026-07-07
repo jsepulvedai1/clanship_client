@@ -5,4 +5,4 @@ import 'package:clanship_cliente/core/di/injection.config.dart';
 final getIt = GetIt.instance;
 
 @InjectableInit()
-void configureDependencies() => getIt.init();
+Future<void> configureDependencies() => getIt.init();

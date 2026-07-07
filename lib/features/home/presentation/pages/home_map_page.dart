@@ -3,7 +3,10 @@ import 'dart:ui' as ui;
 import 'package:clanship_cliente/core/theme/app_colors.dart';
 import 'package:clanship_cliente/features/home/domain/entities/professional.dart';
 import 'package:clanship_cliente/features/home/presentation/pages/professional_detail_page.dart';
+import 'package:clanship_cliente/core/di/injection.dart';
+import 'package:clanship_cliente/core/network/location_service.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class HomeMapPage extends StatefulWidget {
@@ -19,6 +22,8 @@ class _HomeMapPageState extends State<HomeMapPage> {
   late GoogleMapController _mapController;
   final Set<Marker> _markers = {};
   final TextEditingController _searchController = TextEditingController();
+  final LocationService _locationService = getIt<LocationService>();
+  Position? _currentPosition;
 
   final LatLng _initialPosition = const LatLng(
     -33.4489,
@@ -29,8 +34,27 @@ class _HomeMapPageState extends State<HomeMapPage> {
   void initState() {
     super.initState();
     _createMarkers();
-    // Add listener to update markers in real-time as the user types
     _searchController.addListener(_onSearchChanged);
+    _getUserLocation();
+  }
+
+  Future<void> _getUserLocation() async {
+    try {
+      final position = await _locationService.getCurrentPosition();
+      if (mounted) {
+        setState(() {
+          _currentPosition = position;
+        });
+        _mapController.animateCamera(
+          CameraUpdate.newLatLngZoom(
+            LatLng(position.latitude, position.longitude),
+            14.5,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error getting location: $e');
+    }
   }
 
   @override
@@ -256,6 +280,7 @@ class _HomeMapPageState extends State<HomeMapPage> {
   @override
   Widget build(BuildContext context) {
     final topPadding = MediaQuery.of(context).padding.top;
+    final theme = Theme.of(context);
 
     return Scaffold(
       body: Stack(
@@ -271,6 +296,7 @@ class _HomeMapPageState extends State<HomeMapPage> {
             },
             style: _silverMapStyle,
             markers: _markers,
+            myLocationEnabled: true,
             myLocationButtonEnabled: false,
             zoomControlsEnabled: false,
             mapToolbarEnabled: false,
@@ -287,7 +313,7 @@ class _HomeMapPageState extends State<HomeMapPage> {
             child: Container(
               height: 60,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: theme.colorScheme.surface,
                 borderRadius: BorderRadius.circular(15),
                 border: Border.all(
                   color: Colors.blue.withOpacity(0.3),
@@ -295,7 +321,7 @@ class _HomeMapPageState extends State<HomeMapPage> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
+                    color: theme.shadowColor.withOpacity(0.08),
                     blurRadius: 20,
                     offset: const Offset(0, 8),
                   ),
@@ -317,16 +343,16 @@ class _HomeMapPageState extends State<HomeMapPage> {
                     child: TextField(
                       controller: _searchController,
                       autofocus: false,
-                      style: const TextStyle(
-                        color: Colors.black,
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
                         fontSize: 17,
                         fontWeight: FontWeight.w400,
                         fontFamily: 'Plus Jakarta Sans',
                       ),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: 'Buscar profesional...',
                         hintStyle: TextStyle(
-                          color: Colors.black38,
+                          color: theme.colorScheme.onSurface.withOpacity(0.38),
                           fontSize: 17,
                         ),
                         border: InputBorder.none,
@@ -380,11 +406,18 @@ class _HomeMapPageState extends State<HomeMapPage> {
             child: FloatingActionButton(
               heroTag: 'recenter_map',
               onPressed: () {
-                _mapController.animateCamera(
-                  CameraUpdate.newLatLngZoom(_initialPosition, 14.5),
-                );
+                if (_currentPosition != null) {
+                  _mapController.animateCamera(
+                    CameraUpdate.newLatLngZoom(
+                      LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+                      14.5,
+                    ),
+                  );
+                } else {
+                  _getUserLocation();
+                }
               },
-              backgroundColor: Colors.white,
+              backgroundColor: theme.colorScheme.surface,
               mini: true,
               elevation: 4,
               child: Icon(

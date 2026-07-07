@@ -9,24 +9,28 @@ class AppTypography {
     final secondaryColor = isDark ? Colors.white70 : AppColors.slate500;
 
     return TextTheme(
-      displayLarge: GoogleFonts.plusJakartaSans(
+      displayLarge: TextStyle(
+        fontFamily: 'RymanEco',
         fontSize: 32,
         fontWeight: FontWeight.bold,
         color: baseColor,
         letterSpacing: -1.0,
       ),
-      displayMedium: GoogleFonts.plusJakartaSans(
+      displayMedium: TextStyle(
+        fontFamily: 'RymanEco',
         fontSize: 28,
         fontWeight: FontWeight.bold,
         color: baseColor,
         letterSpacing: -0.5,
       ),
-      headlineLarge: GoogleFonts.plusJakartaSans(
+      headlineLarge: TextStyle(
+        fontFamily: 'RymanEco',
         fontSize: 24,
         fontWeight: FontWeight.bold,
         color: baseColor,
       ),
-      headlineMedium: GoogleFonts.plusJakartaSans(
+      headlineMedium: TextStyle(
+        fontFamily: 'RymanEco',
         fontSize: 20,
         fontWeight: FontWeight.w600,
         color: baseColor,

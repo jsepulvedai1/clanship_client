@@ -23,14 +23,62 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Either<Failure, User>> register({
+    required String email,
+    required String password,
+    required String firstName,
+    required String lastName,
+    String? phoneNumber,
+    String? address,
+    String? avatarPath,
+    double? latitude,
+    double? longitude,
+  }) async {
+    try {
+      final userModel = await remoteDataSource.register(
+        email: email,
+        password: password,
+        firstName: firstName,
+        lastName: lastName,
+        phoneNumber: phoneNumber,
+        address: address,
+        avatarPath: avatarPath,
+        latitude: latitude,
+        longitude: longitude,
+      );
+      return Right(UserMapper.toEntity(userModel));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> logout() async {
-    // Logic to clear tokens/cache
-    return const Right(null);
+    try {
+      await remoteDataSource.logout();
+      return const Right(null);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
   }
 
   @override
   Future<Either<Failure, User>> getCurrentUser() async {
-    // Logic to fetch user from local or remote
-    throw UnimplementedError();
+    try {
+      final userModel = await remoteDataSource.getCurrentUser();
+      return Right(UserMapper.toEntity(userModel));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> requestPasswordReset(String email) async {
+    try {
+      await remoteDataSource.requestPasswordReset(email);
+      return const Right(null);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
   }
 }

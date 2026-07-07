@@ -3,15 +3,21 @@ import 'package:clanship_cliente/core/theme/app_colors.dart';
 import 'package:clanship_cliente/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:clanship_cliente/features/chat/presentation/widgets/chat_bubble.dart';
 import 'package:clanship_cliente/features/home/domain/entities/professional.dart';
+import 'package:clanship_cliente/features/jobs/presentation/widgets/create_job_bottom_sheet.dart';
 import 'package:clanship_cliente/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:ui';
+import 'dart:convert';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:clanship_cliente/features/jobs/domain/repositories/job_repository.dart';
 
 class ChatPage extends StatefulWidget {
   final Professional professional;
+  final String? jobId;
 
-  const ChatPage({super.key, required this.professional});
+  const ChatPage({super.key, required this.professional, this.jobId});
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -29,11 +35,11 @@ class _ChatPageState extends State<ChatPage> {
 
     return BlocProvider(
       create: (context) =>
-          getIt<ChatBloc>()..add(LoadMessages(widget.professional.id)),
+          getIt<ChatBloc>()..add(LoadMessages(widget.professional.id, jobId: widget.jobId)),
       child: Scaffold(
         backgroundColor: _isUrgent
             ? const Color(0xFFFFF0F0)
-            : theme.scaffoldBackgroundColor,
+            : Theme.of(context).scaffoldBackgroundColor,
         extendBodyBehindAppBar: true,
         appBar: _buildAppBar(context, l10n),
         body: Column(
@@ -81,7 +87,7 @@ class _ChatPageState extends State<ChatPage> {
     return AppBar(
       backgroundColor: _isUrgent
           ? const Color(0xFFFFE5E5).withOpacity(0.7)
-          : theme.scaffoldBackgroundColor.withOpacity(0.7),
+          : Theme.of(context).scaffoldBackgroundColor.withOpacity(0.7),
       elevation: 0,
       flexibleSpace: ClipRRect(
         child: BackdropFilter(
@@ -92,7 +98,7 @@ class _ChatPageState extends State<ChatPage> {
       leading: IconButton(
         icon: Icon(
           Icons.arrow_back_ios_new_rounded,
-          color: theme.iconTheme.color,
+          color: Theme.of(context).iconTheme.color,
         ),
         onPressed: () => Navigator.pop(context),
       ),
@@ -108,7 +114,7 @@ class _ChatPageState extends State<ChatPage> {
             children: [
               Text(
                 widget.professional.name,
-                style: theme.textTheme.titleMedium?.copyWith(
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -125,7 +131,7 @@ class _ChatPageState extends State<ChatPage> {
                   const SizedBox(width: 4),
                   Text(
                     l10n.chatStatusOnline,
-                    style: theme.textTheme.bodySmall?.copyWith(
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppColors.success,
                     ),
                   ),
@@ -151,20 +157,51 @@ class _ChatPageState extends State<ChatPage> {
           _buildActionButton(
             label: l10n.chatActionUrgent,
             icon: Icons.error_outline_rounded,
-            color: _isUrgent ? AppColors.error : Colors.grey[600]!,
+            color: _isUrgent ? AppColors.error : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
             isActive: _isUrgent,
             onTap: () => setState(() => _isUrgent = !_isUrgent),
           ),
+          if (widget.jobId != null)
+            _buildActionButton(
+              label: l10n.chatActionEnrich,
+              icon: Icons.add_photo_alternate_outlined,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              onTap: () => _showEnrichJobBottomSheet(context),
+            )
+          else
+            _buildActionButton(
+              label: l10n.chatActionJob,
+              icon: Icons.work_outline_rounded,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              onTap: () async {
+                final result = await showModalBottomSheet<dynamic>(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (context) => CreateJobBottomSheet(
+                    professionalId: int.parse(widget.professional.id),
+                  ),
+                );
+                
+                if (result is String && mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(l10n.chatJobCreatedSuccess)),
+                  );
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ChatPage(
+                        professional: widget.professional,
+                        jobId: result,
+                      ),
+                    ),
+                  );
+                }
+              },
+            ),
           _buildActionButton(
             label: l10n.chatActionCall,
             icon: Icons.phone_outlined,
-            color: Colors.grey[600]!,
-            onTap: () {},
-          ),
-          _buildActionButton(
-            label: l10n.chatActionLocation,
-            icon: Icons.location_on_outlined,
-            color: Colors.grey[600]!,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
             onTap: () {},
           ),
         ],
@@ -187,7 +224,7 @@ class _ChatPageState extends State<ChatPage> {
           color: isActive ? color.withOpacity(0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isActive ? color : Colors.grey.withOpacity(0.2),
+            color: isActive ? color : Theme.of(context).dividerColor,
             width: 1,
           ),
         ),
@@ -219,22 +256,22 @@ class _ChatPageState extends State<ChatPage> {
         MediaQuery.of(context).padding.bottom + 10,
       ),
       decoration: BoxDecoration(
-        color: theme.scaffoldBackgroundColor,
-        border: Border(top: BorderSide(color: theme.dividerColor, width: 0.5)),
+        color: Theme.of(context).scaffoldBackgroundColor,
+        border: Border(top: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
       ),
       child: Row(
         children: [
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: theme.brightness == Brightness.dark
+                color: Theme.of(context).brightness == Brightness.dark
                     ? AppColors.slate900
-                    : AppColors.white,
+                    : Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(28),
                 boxShadow: [
-                  if (theme.brightness == Brightness.light)
+                  if (Theme.of(context).brightness == Brightness.light)
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
+                      color: Theme.of(context).shadowColor.withOpacity(0.04),
                       blurRadius: 10,
                       offset: const Offset(0, 2),
                     ),
@@ -242,10 +279,10 @@ class _ChatPageState extends State<ChatPage> {
               ),
               child: TextField(
                 controller: _controller,
-                style: theme.textTheme.bodyLarge,
+                style: Theme.of(context).textTheme.bodyLarge,
                 decoration: InputDecoration(
                   hintText: l10n.chatInputPlaceholder,
-                  hintStyle: TextStyle(color: theme.hintColor.withOpacity(0.4)),
+                  hintStyle: TextStyle(color: Theme.of(context).hintColor.withOpacity(0.4)),
                   border: InputBorder.none,
                   focusedBorder: InputBorder.none,
                   enabledBorder: InputBorder.none,
@@ -274,9 +311,9 @@ class _ChatPageState extends State<ChatPage> {
                   color: AppColors.primary,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.send_rounded,
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.onPrimary,
                   size: 22,
                 ),
               ),
@@ -284,6 +321,192 @@ class _ChatPageState extends State<ChatPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _showEnrichJobBottomSheet(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    final TextEditingController detailsController = TextEditingController();
+    XFile? selectedImage;
+    bool isSaving = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          l10n.chatEnrichTitle,
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: detailsController,
+                      minLines: 3,
+                      maxLines: 5,
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                      decoration: InputDecoration(
+                        hintText: l10n.chatEnrichHint,
+                        hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Image selector
+                    InkWell(
+                      onTap: () async {
+                        final ImagePicker picker = ImagePicker();
+                        final XFile? image = await picker.pickImage(
+                          source: ImageSource.gallery,
+                          imageQuality: 70,
+                        );
+                        if (image != null) {
+                          setModalState(() {
+                            selectedImage = image;
+                          });
+                        }
+                      },
+                      child: Container(
+                        height: 120,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade400),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: selectedImage == null
+                            ? Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.add_a_photo_outlined, size: 36, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    l10n.chatEnrichAttachPhoto,
+                                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
+                                  ),
+                                ],
+                              )
+                            : ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: Image.file(
+                                  File(selectedImage!.path),
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      onPressed: isSaving
+                          ? null
+                          : () async {
+                              if (detailsController.text.trim().isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(l10n.chatEnrichEnterDetailsError)),
+                                );
+                                return;
+                              }
+
+                              setModalState(() {
+                                isSaving = true;
+                              });
+
+                              try {
+                                String? base64Photo;
+                                if (selectedImage != null) {
+                                  final bytes = await selectedImage!.readAsBytes();
+                                  base64Photo = 'data:image/png;base64,${base64.encode(bytes)}';
+                                }
+
+                                final jobIdInt = int.tryParse(widget.jobId ?? '') ?? 0;
+                                if (jobIdInt > 0) {
+                                  final jobRepository = getIt<JobRepository>();
+                                  await jobRepository.enrichJob(
+                                    jobIdInt,
+                                    detailsController.text.trim(),
+                                    base64Photo,
+                                  );
+
+                                  if (mounted) {
+                                    Navigator.pop(context);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(l10n.chatEnrichSuccess)),
+                                    );
+                                    // Enviar un mensaje de aviso en el chat
+                                    context.read<ChatBloc>().add(
+                                      SendMessage(
+                                        widget.professional.id,
+                                        l10n.chatEnrichMessage,
+                                      ),
+                                    );
+                                  }
+                                }
+                              } catch (e) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error: $e')),
+                                );
+                              } finally {
+                                if (mounted) {
+                                  setModalState(() {
+                                    isSaving = false;
+                                  });
+                                }
+                              }
+                            },
+                      child: isSaving
+                          ? const Center(
+                              child: SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              ),
+                            )
+                          : Text(l10n.chatEnrichConfirm),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

@@ -41,48 +41,46 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyD6h7KEksgJ3AUyI9JNs73BHebf7DUQmGM',
-    appId: '1:955997354464:web:ab3e182836ec489e79d385',
-    messagingSenderId: '955997354464',
-    projectId: 'prueba-796ad',
-    authDomain: 'prueba-796ad.firebaseapp.com',
-    storageBucket: 'prueba-796ad.firebasestorage.app',
-    measurementId: 'G-R4DH7N4EDF',
+    apiKey: 'AIzaSyCsvW-S20Xj6JPGrT7DraL1iPIxR6m-sNQ',
+    appId: '1:364034107308:web:4e099e6a8495b9112b3c09',
+    messagingSenderId: '364034107308',
+    projectId: 'clan-be918',
+    authDomain: 'clan-be918.firebaseapp.com',
+    storageBucket: 'clan-be918.firebasestorage.app',
+    measurementId: 'G-WM1FD10R76',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAmD9Fn2bQrnQOSZUwTjwcj9reVF0NsSJs',
-    appId: '1:955997354464:android:402058c88c1b89a479d385',
-    messagingSenderId: '955997354464',
-    projectId: 'prueba-796ad',
-    storageBucket: 'prueba-796ad.firebasestorage.app',
+    apiKey: 'AIzaSyBmmBWNlohG0Lr610FXjdXQ2cRWzRXwHJ8',
+    appId: '1:364034107308:android:c271cf58f27c49752b3c09',
+    messagingSenderId: '364034107308',
+    projectId: 'clan-be918',
+    storageBucket: 'clan-be918.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyAh2ZzqIxVma4QkKgtES_fVoGw_nGbFo7A',
-    appId: '1:955997354464:ios:bd5551c03530b7f179d385',
-    messagingSenderId: '955997354464',
-    projectId: 'prueba-796ad',
-    storageBucket: 'prueba-796ad.firebasestorage.app',
+    apiKey: 'AIzaSyDQnx0hmijGsDktrayV88-mc6V-DW3oVXA',
+    appId: '1:364034107308:ios:b4527f2cf73ff0812b3c09',
+    messagingSenderId: '364034107308',
+    projectId: 'clan-be918',
+    storageBucket: 'clan-be918.firebasestorage.app',
     iosBundleId: 'com.clanship.cliente',
   );
-
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyAh2ZzqIxVma4QkKgtES_fVoGw_nGbFo7A',
-    appId: '1:955997354464:ios:bd5551c03530b7f179d385',
-    messagingSenderId: '955997354464',
-    projectId: 'prueba-796ad',
-    storageBucket: 'prueba-796ad.firebasestorage.app',
+    apiKey: 'AIzaSyDQnx0hmijGsDktrayV88-mc6V-DW3oVXA',
+    appId: '1:364034107308:ios:b4527f2cf73ff0812b3c09',
+    messagingSenderId: '364034107308',
+    projectId: 'clan-be918',
+    storageBucket: 'clan-be918.firebasestorage.app',
     iosBundleId: 'com.clanship.cliente',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyD6h7KEksgJ3AUyI9JNs73BHebf7DUQmGM',
-    appId: '1:955997354464:web:55bc35511fcfb66279d385',
-    messagingSenderId: '955997354464',
-    projectId: 'prueba-796ad',
-    authDomain: 'prueba-796ad.firebaseapp.com',
-    storageBucket: 'prueba-796ad.firebasestorage.app',
-    measurementId: 'G-3ELX55CJ1X',
+    apiKey: 'AIzaSyCsvW-S20Xj6JPGrT7DraL1iPIxR6m-sNQ',
+    appId: '1:364034107308:web:52b35a511f5d13762b3c09',
+    messagingSenderId: '364034107308',
+    projectId: 'clan-be918',
+    authDomain: 'clan-be918.firebaseapp.com',
+    storageBucket: 'clan-be918.firebasestorage.app',
+    measurementId: 'G-NVXHTGFBFQ',
   );
 }

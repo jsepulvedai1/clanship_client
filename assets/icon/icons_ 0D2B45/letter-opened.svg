@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" id="Capa_1" x="0px" y="0px" viewBox="0 0 800 800" style="enable-background:new 0 0 800 800;" xml:space="preserve">
+<path d="M600,203.4c43.3,4.3,72.5,13.9,94.3,35.7c39.1,39.1,39.1,101.9,39.1,227.6c0,125.7,0,188.6-39.1,227.6  c-39,39.1-101.9,39.1-227.6,39.1H333.3c-125.7,0-188.6,0-227.6-39.1c-39.1-39.1-39.1-101.9-39.1-227.6c0-125.7,0-188.6,39.1-227.6  c21.8-21.8,50.9-31.4,94.3-35.7" fill="none" stroke="#0D2B45" stroke-width="50" stroke-miterlimit="133.3333" />
+<path d="M333.3,200h133.3" fill="none" stroke="#0D2B45" stroke-width="50" stroke-linecap="round" stroke-miterlimit="133.3333" />
+<path d="M366.7,300h66.7" fill="none" stroke="#0D2B45" stroke-width="50" stroke-linecap="round" stroke-miterlimit="133.3333" />
+<path d="M272,393.3l-24-20c-23.6-19.7-35.4-29.5-41.7-42.9s-6.3-28.8-6.3-59.5v-37.6c0-78.6,0-117.9,24.4-142.3  c24.4-24.4,63.7-24.4,142.3-24.4h66.7c78.6,0,117.8,0,142.3,24.4C600,115.5,600,154.8,600,233.3v37.6c0,30.7,0,46.1-6.3,59.5  c-6.3,13.4-18.1,23.3-41.7,42.9l-24,20c-61.2,51-91.8,76.5-128,76.5S333.2,444.3,272,393.3z" fill="none" stroke="#0D2B45" stroke-width="50" stroke-linecap="round" stroke-miterlimit="133.3333" />
+<path d="M200,333.3l72,60c61.2,51,91.8,76.5,128,76.5s66.8-25.5,128-76.5l72-60" fill="none" stroke="#0D2B45" stroke-width="50" stroke-linecap="round" stroke-miterlimit="133.3333" />
+</svg>

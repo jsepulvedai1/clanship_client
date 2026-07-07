@@ -1,91 +1,199 @@
 import 'dart:async';
+import 'package:clanship_cliente/core/network/graphql_service.dart';
 import 'package:clanship_cliente/features/jobs/domain/entities/job_match.dart';
 import 'package:clanship_cliente/features/jobs/domain/repositories/job_repository.dart';
 import 'package:flutter/foundation.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:injectable/injectable.dart';
 
 @LazySingleton(as: JobRepository)
 class JobRepositoryImpl implements JobRepository {
   static const String _jobsBoxName = 'jobs_box';
-  
+
+  final GraphQLService _graphQLService;
   final _controller = StreamController<List<JobMatch>>.broadcast();
+
+  JobRepositoryImpl(this._graphQLService);
+
+  @override
+  Future<String> createJob(
+    int professionalId,
+    String scheduledDate,
+    String scheduledTime,
+    String description,
+    String agreedPrice,
+    String address,
+  ) async {
+    const String mutation = r'''
+      mutation CreateJob(
+        $professionalId: Int!,
+        $scheduledDate: Date!,
+        $scheduledTime: Time!,
+        $description: String!,
+        $agreedPrice: Decimal!,
+        $address: String!
+      ) {
+        createJob(
+          professionalId: $professionalId
+          scheduledDate: $scheduledDate
+          scheduledTime: $scheduledTime
+          description: $description
+          agreedPrice: $agreedPrice
+          address: $address
+        ) {
+          job {
+            id
+            status
+          }
+        }
+      }
+    ''';
+
+    final MutationOptions options = MutationOptions(
+      document: gql(mutation),
+      variables: {
+        'professionalId': professionalId,
+        'scheduledDate': scheduledDate,
+        'scheduledTime': scheduledTime,
+        'description': description,
+        'agreedPrice': agreedPrice,
+        'address': address,
+      },
+      fetchPolicy: FetchPolicy.networkOnly,
+    );
+
+    final QueryResult result = await _graphQLService.client.mutate(options);
+
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
+
+    final jobId = result.data?['createJob']?['job']?['id']?.toString();
+    if (jobId == null) {
+      throw Exception('Could not fetch new job ID');
+    }
+
+    // We could parse the response and add it to our local cache or just fetch again
+    _updateStream();
+    return jobId;
+  }
 
   @override
   Future<List<JobMatch>> getJobs() async {
-    final box = await Hive.openBox(_jobsBoxName);
-    
-    // Add mock data if empty for demonstration
-    if (box.isEmpty) {
-      final now = DateTime.now();
-      final mockJobs = [
-        JobMatch(
-          id: 'mock_1',
-          professionalId: '1',
-          professionalName: 'Julián',
-          professionalImageUrl: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?q=80&w=250&auto=format&fit=crop',
-          professionalSpecialty: 'Fontanero',
-          pricePerHour: 15000.0,
-          timestamp: now,
-          status: JobStatus.accepted,
-          rating: 4.0,
-          estimatedArrival: '00:00 Hrs.',
-          workDescription: 'Reparación de filtración en cocina y cambio de grifería. El trabajo requiere materiales básicos incluidos.',
-          totalValue: 35000.0,
-        ),
-        JobMatch(
-          id: 'mock_2',
-          professionalId: '1',
-          professionalName: 'Julián',
-          professionalImageUrl: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?q=80&w=250&auto=format&fit=crop',
-          professionalSpecialty: 'Fontanero (Emergencia)',
-          pricePerHour: 25000.0,
-          timestamp: now.subtract(const Duration(minutes: 30)),
-          status: JobStatus.accepted,
-          rating: 5.0,
-          estimatedArrival: '00:00 Hrs.',
-          workDescription: 'Emergencia por rotura de cañería principal. Intervención inmediata requerida.',
-          totalValue: 45000.0,
-        ),
-        JobMatch(
-          id: 'mock_3',
-          professionalId: '3',
-          professionalName: 'Pablo',
-          professionalImageUrl: 'https://images.unsplash.com/photo-1540569014015-19a7ee504e1a?q=80&w=250&auto=format&fit=crop',
-          professionalSpecialty: 'Carpintero',
-          pricePerHour: 12000.0,
-          timestamp: DateTime(2026, 1, 1),
-          status: JobStatus.completed,
-          rating: 4.0,
-          workDescription: 'Instalación de repisas decorativas y ajuste de puerta principal.',
-          totalValue: 28000.0,
-        ),
-      ];
-      for (final job in mockJobs) {
-        await box.add(_toMap(job));
+    const String query = r'''
+      query GetMyJobs($status: String) {
+        myJobs(status: $status) {
+          id
+          status
+          scheduledDate
+          scheduledTime
+          description
+          agreedPrice
+          address
+          professional {
+            id
+            username
+            firstName
+            lastName
+          }
+        }
       }
+    ''';
+
+    final QueryOptions options = QueryOptions(
+      document: gql(query),
+      fetchPolicy: FetchPolicy.networkOnly,
+    );
+
+    final QueryResult result = await _graphQLService.client.query(options);
+
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
+
+    final List<dynamic>? myJobs = result.data?['myJobs'];
+
+    if (myJobs == null) {
+      return [];
     }
 
     final List<JobMatch> jobs = [];
-    
-    for (var i = 0; i < box.length; i++) {
+
+    for (var jobData in myJobs) {
       try {
-        final map = Map<String, dynamic>.from(box.getAt(i) as Map);
-        // Field validation to skip corrupted entries
-        if (map['id'] == null || map['professionalName'] == null) continue;
-        
-        jobs.add(_fromMap(map));
+        final job = _mapGraphQLToJobMatch(jobData);
+        jobs.add(job);
       } catch (e) {
         if (kDebugMode) {
-          print('Skipping corrupted job entry at index $i: $e');
+          print('Error parsing job: $e');
         }
-        continue;
       }
     }
-    
+
     // Sort by timestamp descending
     jobs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
     return jobs;
+  }
+
+  JobMatch _mapGraphQLToJobMatch(Map<String, dynamic> data) {
+    JobStatus mapStatus(String? status) {
+      switch (status) {
+        case 'REQUESTED':
+          return JobStatus.pending;
+        case 'AGREED':
+        case 'IN_VISIT':
+          return JobStatus.accepted;
+        case 'FINISHED':
+          return JobStatus.completed;
+        case 'CANCELLED':
+          return JobStatus.rejected;
+        default:
+          return JobStatus.pending;
+      }
+    }
+
+    final professional = data['professional'] ?? {};
+    
+    String displayName = '';
+    final String firstName = professional['firstName']?.toString() ?? '';
+    final String lastName = professional['lastName']?.toString() ?? '';
+    if (firstName.trim().isNotEmpty) {
+      displayName = firstName.trim();
+      if (lastName.trim().isNotEmpty) {
+        displayName += ' ${lastName.trim()}';
+      }
+    } else {
+      displayName = professional['username'] ?? 'Unknown';
+    }
+
+    // Parse scheduled date/time as timestamp if possible
+    DateTime timestamp = DateTime.now();
+    try {
+      if (data['scheduledDate'] != null) {
+        String dateStr = data['scheduledDate'];
+        if (data['scheduledTime'] != null) {
+          dateStr += 'T${data['scheduledTime']}';
+        }
+        timestamp = DateTime.parse(dateStr);
+      }
+    } catch (_) {}
+
+    return JobMatch(
+      id: data['id']?.toString() ?? 'unknown',
+      professionalId: professional['id']?.toString() ?? 'unknown',
+      professionalName: displayName,
+      professionalImageUrl:
+          'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?q=80&w=250&auto=format&fit=crop',
+      professionalSpecialty: 'Profesional',
+      pricePerHour: 0.0,
+      timestamp: timestamp,
+      status: mapStatus(data['status']),
+      rating: 5.0,
+      estimatedArrival: data['scheduledTime'],
+      workDescription: data['description'],
+      totalValue: double.tryParse(data['agreedPrice']?.toString() ?? '0'),
+    );
   }
 
   @override
@@ -149,16 +257,47 @@ class JobRepositoryImpl implements JobRepository {
       professionalImageUrl: map['professionalImageUrl'] ?? '',
       professionalSpecialty: map['professionalSpecialty'] ?? '',
       pricePerHour: (map['pricePerHour'] as num?)?.toDouble() ?? 0.0,
-      timestamp: map['timestamp'] != null 
-          ? DateTime.parse(map['timestamp']) 
+      timestamp: map['timestamp'] != null
+          ? DateTime.parse(map['timestamp'])
           : DateTime.now(),
-      status: map['status'] != null 
-          ? JobStatus.values[map['status'] as int] 
+      status: map['status'] != null
+          ? JobStatus.values[map['status'] as int]
           : JobStatus.pending,
       rating: (map['rating'] as num?)?.toDouble() ?? 5.0,
       estimatedArrival: map['estimatedArrival'],
       workDescription: map['workDescription'],
       totalValue: (map['totalValue'] as num?)?.toDouble(),
     );
+  }
+
+  @override
+  Future<void> enrichJob(
+    int jobId,
+    String enrichedDetails,
+    String? photoBase64,
+  ) async {
+    const String mutation = r'''
+      mutation EnrichJob($jobId: Int!, $enrichedDetails: String!, $photoBase64: String) {
+        enrichJob(jobId: $jobId, enrichedDetails: $enrichedDetails, photoBase64: $photoBase64) {
+          success
+        }
+      }
+    ''';
+
+    final MutationOptions options = MutationOptions(
+      document: gql(mutation),
+      variables: {
+        'jobId': jobId,
+        'enrichedDetails': enrichedDetails,
+        'photoBase64': photoBase64,
+      },
+      fetchPolicy: FetchPolicy.networkOnly,
+    );
+
+    final QueryResult result = await _graphQLService.client.mutate(options);
+
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
   }
 }

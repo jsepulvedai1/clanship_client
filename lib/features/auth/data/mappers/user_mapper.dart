@@ -7,6 +7,13 @@ class UserMapper {
       id: model.id,
       email: model.email,
       name: model.name,
+      avatarPath: model.avatarPath,
+      firstName: model.firstName,
+      lastName: model.lastName,
+      phoneNumber: model.phoneNumber,
+      address: model.address,
+      latitude: model.latitude,
+      longitude: model.longitude,
     );
   }
 
@@ -15,6 +22,12 @@ class UserMapper {
       id: entity.id,
       email: entity.email,
       name: entity.name,
+      firstName: entity.firstName,
+      lastName: entity.lastName,
+      phoneNumber: entity.phoneNumber,
+      address: entity.address,
+      latitude: entity.latitude,
+      longitude: entity.longitude,
     );
   }
 }

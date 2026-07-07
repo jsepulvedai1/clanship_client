@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" id="Capa_1" x="0px" y="0px" viewBox="0 0 800 800" style="enable-background:new 0 0 800 800;" xml:space="preserve">
+<path d="M533.3,133.3c72.5,0.4,111.8,3.6,137.4,29.2C700,191.9,700,239,700,333.3v200c0,94.3,0,141.4-29.3,170.7  c-29.3,29.3-76.4,29.3-170.7,29.3H300c-94.3,0-141.4,0-170.7-29.3S100,627.6,100,533.3v-200c0-94.3,0-141.4,29.3-170.7  c25.6-25.6,64.9-28.8,137.4-29.2" fill="none" stroke="#F28C28" stroke-width="50" stroke-miterlimit="133.3333" />
+<path d="M266.7,116.7c0-27.6,22.4-50,50-50h166.7c27.6,0,50,22.4,50,50V150c0,27.6-22.4,50-50,50H316.7  c-27.6,0-50-22.4-50-50V116.7z" fill="none" stroke="#F28C28" stroke-width="50" stroke-miterlimit="133.3333" />
+<path d="M483.3,366.7L316.7,533.3 M316.7,366.7l166.7,166.7" fill="none" stroke="#F28C28" stroke-width="50" stroke-linecap="round" stroke-miterlimit="133.3333" />
+</svg>

@@ -9,7 +9,8 @@ abstract class ChatEvent {}
 
 class LoadMessages extends ChatEvent {
   final String professionalId;
-  LoadMessages(this.professionalId);
+  final String? jobId;
+  LoadMessages(this.professionalId, {this.jobId});
 }
 
 class SendMessage extends ChatEvent {
@@ -43,13 +44,24 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   final ChatRepository _repository;
   StreamSubscription? _subscription;
 
+  String? _currentRoomId;
+
   ChatBloc(this._repository) : super(ChatInitial()) {
     on<LoadMessages>((event, emit) async {
       emit(ChatLoading());
       await _subscription?.cancel();
-      _subscription = _repository.getMessages(event.professionalId).listen(
-        (messages) => add(UpdateMessages(messages)),
-      );
+
+      try {
+        final professionalIdInt = int.parse(event.professionalId);
+        final jobIdInt = event.jobId != null ? int.tryParse(event.jobId!) : null;
+        _currentRoomId = await _repository.getOrCreateChatRoom(professionalIdInt, jobId: jobIdInt);
+        
+        _subscription = _repository.getMessages(_currentRoomId!).listen(
+          (messages) => add(UpdateMessages(messages)),
+        );
+      } catch (e) {
+        emit(ChatError(e.toString()));
+      }
     });
 
     on<UpdateMessages>((event, emit) {
@@ -57,7 +69,13 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     });
 
     on<SendMessage>((event, emit) async {
-      await _repository.sendMessage(event.professionalId, event.text);
+      if (_currentRoomId != null) {
+        try {
+          await _repository.sendMessage(_currentRoomId!, event.text);
+        } catch (e) {
+          // You could emit an error state here or show a snackbar
+        }
+      }
     });
   }
 

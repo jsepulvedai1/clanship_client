@@ -9,7 +9,7 @@ class AppLocalizationsEs extends AppLocalizations {
   AppLocalizationsEs([String locale = 'es']) : super(locale);
 
   @override
-  String get loginTitle => 'Bienvenido de nuevo';
+  String get loginTitle => 'Bienvenido';
 
   @override
   String get loginEmailLabel => 'Correo electrónico';
@@ -55,6 +55,45 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get profDetailStats => 'Estadísticas';
+
+  @override
+  String profDetailReviews(String count, String reviews) {
+    return '$count ($reviews opiniones)';
+  }
+
+  @override
+  String get profDetailFindMe => 'Encuentrame en:';
+
+  @override
+  String get profDetailDocuments => 'Documentos';
+
+  @override
+  String get profDetailContact => 'Contactar';
+
+  @override
+  String get addressDialogTitle => 'Tu dirección';
+
+  @override
+  String get addressDialogAdd => 'Agregar nueva dirección';
+
+  @override
+  String get addressDialogYes => 'Si';
+
+  @override
+  String get addressDialogNo => 'No';
+
+  @override
+  String get favoritesTitle => 'Favoritos';
+
+  @override
+  String get favoritesEmptyTitle => 'No tienes favoritos aún';
+
+  @override
+  String get favoritesEmptySubtitle =>
+      'Guarda a tus profesionales de confianza para encontrarlos más rápido la próxima vez.';
+
+  @override
+  String get favoritesExplore => 'Explorar profesionales';
 
   @override
   String get matchingCancel => 'Cancelar solicitud';
@@ -130,6 +169,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get jobsInProcess => 'En proceso';
 
   @override
+  String get jobsFinished => 'Finalizadas';
+
+  @override
   String jobsArrivalInfo(String time) {
     return 'llega en $time';
   }
@@ -157,4 +199,93 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get chatActionLocation => 'Ubicación';
+
+  @override
+  String get matchingConfirmTitle => '¡Antes de solicitar!';
+
+  @override
+  String get matchingConfirmSubtitle =>
+      'Recuerda confirmar que esta es la dirección a solicitar';
+
+  @override
+  String get matchingConfirmAddressLabel => 'Confirmar dirección';
+
+  @override
+  String get matchingConfirmWarning =>
+      'Ten en cuenta que la dirección no se podrá cambiar en medio de la solicitud. Revisa con atención la dirección a solicitar el servicio';
+
+  @override
+  String get matchingConfirmAction => 'Solicitar';
+
+  @override
+  String get settingsPersonalInfo => 'Información personal';
+
+  @override
+  String get settingsEditData => 'Editar mis datos';
+
+  @override
+  String get settingsMyPlan => 'Mi plan actual';
+
+  @override
+  String get settingsMyDocs => 'Mis documentos';
+
+  @override
+  String get settingsVerificationStatus => 'Estado de verificación';
+
+  @override
+  String get settingsChooseLanguage => 'Cambiar idioma';
+
+  @override
+  String get settingsSupport => 'Soporte técnico';
+
+  @override
+  String get settingsTerms => 'Términos y condiciones';
+
+  @override
+  String get chatActionEnrich => 'Enriquecer';
+
+  @override
+  String get chatActionJob => 'Trabajo';
+
+  @override
+  String get chatJobCreatedSuccess => 'Trabajo creado exitosamente';
+
+  @override
+  String get chatJobCreatedMessage => 'He creado una solicitud de trabajo.';
+
+  @override
+  String get chatEnrichTitle => 'Enriquecer Solicitud';
+
+  @override
+  String get chatEnrichHint =>
+      'Describe el problema en mayor detalle, agrega marcas de equipos, accesos o instrucciones...';
+
+  @override
+  String get chatEnrichAttachPhoto => 'Adjuntar Foto del Problema';
+
+  @override
+  String get chatEnrichEnterDetailsError =>
+      'Por favor escribe los detalles adicionales.';
+
+  @override
+  String get chatEnrichSuccess => 'Solicitud enriquecida exitosamente.';
+
+  @override
+  String get chatEnrichMessage =>
+      'He enriquecido la solicitud con nuevos detalles.';
+
+  @override
+  String get chatEnrichConfirm => 'Confirmar y Enviar';
+
+  @override
+  String get navHome => 'Inicio';
+
+  @override
+  String get navJobs => 'Trabajos';
+
+  @override
+  String get navFavorites => 'Favoritos';
+
+  @override
+  String get navSettings => 'Perfil';
 }

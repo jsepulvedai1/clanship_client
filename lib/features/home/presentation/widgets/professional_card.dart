@@ -2,6 +2,10 @@ import 'package:clanship_cliente/core/theme/app_colors.dart';
 import 'package:clanship_cliente/features/home/domain/entities/professional.dart';
 import 'package:clanship_cliente/features/home/presentation/pages/professional_detail_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:clanship_cliente/features/favorites/presentation/bloc/favorites_bloc.dart';
+import 'package:clanship_cliente/features/favorites/presentation/bloc/favorites_event.dart';
+import 'package:clanship_cliente/features/favorites/presentation/bloc/favorites_state.dart';
 
 class ProfessionalCard extends StatelessWidget {
   final Professional professional;
@@ -23,7 +27,7 @@ class ProfessionalCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: theme.shadowColor.withOpacity(0.04),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -57,9 +61,65 @@ class ProfessionalCard extends StatelessWidget {
                   child: Stack(
                     children: [
                       Positioned.fill(
-                        child: Image.network(
-                          professional.imageUrl,
-                          fit: BoxFit.cover,
+                        child: Hero(
+                          tag: 'prof_${professional.id}',
+                          child: professional.imageUrl.isNotEmpty
+                              ? Image.network(
+                                  professional.imageUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Container(
+                                    color: Colors.white,
+                                    child: const Center(
+                                      child: Icon(
+                                        Icons.person_outline_rounded,
+                                        size: 48,
+                                        color: Color(0xFFBCC5D0),
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : Container(
+                                  color: Colors.white,
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.person_outline_rounded,
+                                      size: 48,
+                                      color: Color(0xFFBCC5D0),
+                                    ),
+                                  ),
+                                ),
+                        ),
+                      ),
+                      // Favorite Badge Overlay (Premium Touch)
+                      Positioned(
+                        top: 8,
+                        left: 8,
+                        child: BlocBuilder<FavoritesBloc, FavoritesState>(
+                          builder: (context, state) {
+                            bool isFavorite = professional.isFavorite;
+                            if (state is FavoritesLoaded) {
+                              isFavorite = state.favorites.any((p) => p.id == professional.id);
+                            }
+
+                            return GestureDetector(
+                              onTap: () {
+                                context.read<FavoritesBloc>().add(ToggleFavoriteEvent(professional));
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.6),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                                  color: isFavorite ? Colors.redAccent : Colors.white,
+                                  size: 16,
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
                       // Rating Badge Overlay (Premium Touch)

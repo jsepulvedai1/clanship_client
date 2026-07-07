@@ -1,25 +1,84 @@
 import 'package:clanship_cliente/core/theme/app_colors.dart';
 import 'package:clanship_cliente/features/home/domain/entities/professional.dart';
+import 'package:clanship_cliente/features/home/presentation/pages/professional_documents_page.dart';
 import 'package:clanship_cliente/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:clanship_cliente/features/jobs/presentation/bloc/matching_bloc.dart';
-import 'package:clanship_cliente/features/jobs/presentation/bloc/matching_event.dart';
-import 'package:clanship_cliente/features/jobs/presentation/bloc/matching_state.dart';
+import 'package:carousel_slider/carousel_slider.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:clanship_cliente/features/chat/presentation/pages/chat_page.dart';
+import 'package:clanship_cliente/core/di/injection.dart';
+import 'package:clanship_cliente/features/jobs/domain/repositories/job_repository.dart';
+import 'package:clanship_cliente/features/home/presentation/widgets/confirm_address_bottom_sheet.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:clanship_cliente/features/jobs/presentation/bloc/jobs_bloc.dart';
+import 'package:clanship_cliente/features/jobs/presentation/bloc/jobs_state.dart';
+import 'package:clanship_cliente/features/jobs/domain/entities/job_match.dart';
+import 'package:clanship_cliente/features/favorites/presentation/bloc/favorites_bloc.dart';
+import 'package:clanship_cliente/features/favorites/presentation/bloc/favorites_event.dart';
+import 'package:clanship_cliente/features/favorites/presentation/bloc/favorites_state.dart';
 
-class ProfessionalDetailPage extends StatelessWidget {
+class ProfessionalDetailPage extends StatefulWidget {
   final Professional professional;
 
   const ProfessionalDetailPage({super.key, required this.professional});
 
   @override
+  State<ProfessionalDetailPage> createState() => _ProfessionalDetailPageState();
+}
+
+class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
+  int _currentImageIndex = 0;
+
+  void _createJobAndNavigate(BuildContext context, Professional professional, String address) async {
+    final repository = getIt<JobRepository>();
+    
+    // Default values since the user doesn't fill a form yet
+    final now = DateTime.now();
+    final formattedDate = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+    final formattedTime = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:00";
+    
+    try {
+      final jobId = await repository.createJob(
+        int.parse(professional.id),
+        formattedDate,
+        formattedTime,
+        "Trabajo solicitado desde el perfil",
+        "0.00",
+        address,
+      );
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Trabajo solicitado exitosamente')),
+        );
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatPage(
+              professional: professional,
+              jobId: jobId,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al crear el trabajo: $e')),
+        );
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
           // Main Scrollable Content
@@ -27,136 +86,300 @@ class ProfessionalDetailPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Hero Header Image Section
-                Hero(
-                  tag: 'prof_${professional.id}',
-                  child: Container(
-                    height: size.height * 0.45,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      image: DecorationImage(
-                        image: NetworkImage(professional.imageUrl),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.black.withOpacity(0.3),
-                            Colors.transparent,
-                            Colors.black.withOpacity(0.2),
-                          ],
+                // Top Carousel with Rounded Corners
+                Stack(
+                  children: [
+                    Hero(
+                      tag: 'prof_${widget.professional.id}',
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(36),
+                          bottomRight: Radius.circular(36),
+                        ),
+                        child: CarouselSlider(
+                          options: CarouselOptions(
+                            height: size.height * 0.45,
+                            viewportFraction: 1.0,
+                            enableInfiniteScroll:
+                                widget.professional.galleryImages.length > 1,
+                            onPageChanged: (index, reason) {
+                              setState(() {
+                                _currentImageIndex = index;
+                              });
+                            },
+                          ),
+                          items:
+                              (widget.professional.galleryImages.isNotEmpty
+                                      ? widget.professional.galleryImages
+                                      : [widget.professional.imageUrl])
+                                  .map((url) {
+                                    return CachedNetworkImage(
+                                      imageUrl: url,
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) => Container(
+                                        color: Theme.of(context).colorScheme.surface,
+                                        child: const Center(
+                                          child: CircularProgressIndicator(
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                      ),
+                                      errorWidget: (context, url, error) => Container(
+                                        color: Theme.of(context).colorScheme.surface,
+                                        child: const Center(
+                                          child: Icon(
+                                            Icons.error_outline_rounded,
+                                            color: Colors.redAccent,
+                                            size: 40,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  })
+                                  .toList(),
                         ),
                       ),
                     ),
-                  ),
+                    // Carousel Indicators
+                    if (widget.professional.galleryImages.length > 1)
+                      Positioned(
+                        bottom: 20,
+                        left: 0,
+                        right: 0,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: widget.professional.galleryImages
+                              .asMap()
+                              .entries
+                              .map((entry) {
+                                return Container(
+                                  width: 8.0,
+                                  height: 8.0,
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 4.0,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.white.withOpacity(
+                                      _currentImageIndex == entry.key
+                                          ? 0.9
+                                          : 0.4,
+                                    ),
+                                  ),
+                                );
+                              })
+                              .toList(),
+                        ),
+                      ),
+                  ],
                 ),
 
                 Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
-                    vertical: 32,
+                    vertical: 24,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Name and Verified Badge
+                      // Name and Rating Row
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  professional.name,
-                                  style: theme.textTheme.headlineSmall
-                                      ?.copyWith(fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  professional.specialty,
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    color: AppColors.primary,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (professional.isVerified)
-                            const CircleAvatar(
-                              backgroundColor: AppColors.primary,
-                              radius: 18,
-                              child: Icon(
-                                Icons.verified_rounded,
-                                color: Colors.white,
-                                size: 20,
+                            child: Text(
+                              widget.professional.name,
+                              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: Colors.black,
                               ),
                             ),
+                          ),
+                          const SizedBox(width: 12),
+                          _buildRatingStars(widget.professional.rating),
+                          const SizedBox(width: 8),
+                          Text(
+                            l10n.profDetailReviews(
+                              widget.professional.rating.toInt().toString(),
+                              '8',
+                            ),
+                            style: const TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
                         ],
                       ),
 
-                      const SizedBox(height: 16),
-                      // Social Media Links Row
-                      _buildSocialLinks(context),
+                      const SizedBox(height: 12),
+
+                      // Distance
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.location_on_rounded,
+                            color: AppColors.primary,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${widget.professional.distance.toInt()} km',
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // Description
+                      Text(
+                        widget.professional.description,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                          height: 1.5,
+                          fontSize: 15,
+                        ),
+                      ),
 
                       const SizedBox(height: 32),
 
-                      // Stat Cards Row
+                      // Social and Documents Row
+                      Text(
+                        l10n.profDetailFindMe,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          _buildStatItem(
-                            context,
-                            Icons.star_rounded,
-                            professional.rating.toString(),
-                            'Rating',
-                            Colors.amber,
+                          _buildSocialIcon(
+                            FontAwesomeIcons.tiktok,
+                            Theme.of(context).colorScheme.onSurface,
+                            widget.professional.tiktokUrl,
                           ),
-                          _buildStatItem(
-                            context,
-                            Icons.location_on_rounded,
-                            '${professional.distance} km',
-                            'Distancia',
-                            AppColors.primary,
+                          const SizedBox(width: 16),
+                          _buildSocialIcon(
+                            FontAwesomeIcons.facebook,
+                            const Color(0xFF1877F2),
+                            widget.professional.facebookUrl,
                           ),
-                          _buildStatItem(
-                            context,
-                            Icons.work_history_rounded,
-                            '48+',
-                            'Trabajos',
-                            Colors.orange,
+                          const SizedBox(width: 16),
+                          _buildSocialIcon(
+                            FontAwesomeIcons.instagram,
+                            const Color(0xFFE4405F),
+                            widget.professional.instagramUrl,
+                          ),
+                          const Spacer(),
+                          // Documents Button
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ProfessionalDocumentsPage(
+                                    professional: widget.professional,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.surface,
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(color: Theme.of(context).dividerColor),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.visibility_outlined,
+                                    color: AppColors.primary,
+                                    size: 24,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    l10n.profDetailDocuments,
+                                    style: const TextStyle(
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ],
                       ),
 
+                      const SizedBox(height: 48),
+
+                      // Large Final Contact Button
+                      Center(
+                        child: BlocBuilder<JobsBloc, JobsState>(
+                          builder: (context, jobsState) {
+                            bool hasActiveJob = false;
+                            if (jobsState is JobsLoaded) {
+                              hasActiveJob = jobsState.jobs.any((job) =>
+                                  job.professionalId == widget.professional.id &&
+                                  (job.status == JobStatus.pending || job.status == JobStatus.accepted));
+                            }
+
+                            return SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  if (hasActiveJob) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => ChatPage(professional: widget.professional),
+                                      ),
+                                    );
+                                  } else {
+                                    ConfirmAddressBottomSheet.show(
+                                      context,
+                                      onConfirm: (confirmedAddress) {
+                                        _createJobAndNavigate(
+                                          context,
+                                          widget.professional,
+                                          confirmedAddress,
+                                        );
+                                      },
+                                    );
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 20),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                child: Text(
+                                  hasActiveJob ? l10n.jobsGoToChat : l10n.profDetailContact,
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
                       const SizedBox(height: 40),
-
-                      // About / Bio Section
-                      Text(
-                        l10n.profDetailAbout,
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        professional.description,
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: theme.textTheme.bodyLarge?.color?.withOpacity(
-                            0.7,
-                          ),
-                          height: 1.7,
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-
-                      // Extra padding for the bottom fixed Bar
-                      const SizedBox(height: 120),
                     ],
                   ),
                 ),
@@ -182,84 +405,32 @@ class ProfessionalDetailPage extends StatelessWidget {
             ),
           ),
 
-          // Fixed Bottom Hire Bar
+          // Sticky Favorite Button
           Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 34),
-              decoration: BoxDecoration(
-                color: theme.scaffoldBackgroundColor,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(30),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 25,
-                    offset: const Offset(0, -10),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Tarifa por hora',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: theme.textTheme.labelMedium?.color
-                              ?.withOpacity(0.5),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '\$${professional.pricePerHour.toInt()}',
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 32),
-                  Expanded(
-                    child: BlocBuilder<MatchingBloc, MatchingState>(
-                      builder: (context, state) {
-                        final isMatching = state is MatchingInProgress;
-                        return ElevatedButton(
-                          onPressed: isMatching
-                              ? null
-                              : () => context.read<MatchingBloc>().add(
-                                  StartInstantMatching(professional),
-                                ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 18),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            elevation: isMatching ? 0 : 4,
-                            shadowColor: AppColors.primary.withOpacity(0.4),
-                          ),
-                          child: Text(
-                            l10n.profDetailHire,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        );
-                      },
+            top: MediaQuery.of(context).padding.top + 10,
+            right: 20,
+            child: BlocBuilder<FavoritesBloc, FavoritesState>(
+              builder: (context, state) {
+                bool isFavorite = widget.professional.isFavorite;
+                if (state is FavoritesLoaded) {
+                  isFavorite = state.favorites.any((p) => p.id == widget.professional.id);
+                }
+
+                return CircleAvatar(
+                  backgroundColor: Colors.black.withOpacity(0.3),
+                  radius: 20,
+                  child: IconButton(
+                    icon: Icon(
+                      isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                      color: isFavorite ? Colors.redAccent : Colors.white,
+                      size: 20,
                     ),
+                    onPressed: () {
+                      context.read<FavoritesBloc>().add(ToggleFavoriteEvent(widget.professional));
+                    },
                   ),
-                ],
-              ),
+                );
+              },
             ),
           ),
         ],
@@ -267,104 +438,62 @@ class ProfessionalDetailPage extends StatelessWidget {
     );
   }
 
-  Widget _buildSocialLinks(BuildContext context) {
-    final hasInstagram = professional.instagramUrl != null;
-    final hasLinkedin = professional.linkedinUrl != null;
-    final hasTwitter = professional.twitterUrl != null;
-
-    if (!hasInstagram && !hasLinkedin && !hasTwitter)
-      return const SizedBox.shrink();
-
+  Widget _buildRatingStars(double rating) {
     return Row(
-      children: [
-        if (hasInstagram)
-          _buildSocialIcon(
-            context,
-            FontAwesomeIcons.instagram,
-            professional.instagramUrl!,
-            const Color(0xFFE4405F),
-          ),
-        if (hasLinkedin)
-          _buildSocialIcon(
-            context,
-            FontAwesomeIcons.linkedinIn,
-            professional.linkedinUrl!,
-            const Color(0xFF0077B5),
-          ),
-        if (hasTwitter)
-          _buildSocialIcon(
-            context,
-            FontAwesomeIcons.xTwitter,
-            professional.twitterUrl!,
-            Colors.black87,
-          ),
-      ],
+      children: List.generate(5, (index) {
+        return Icon(
+          Icons.star_rounded,
+          size: 20,
+          color: index < rating.floor() ? Colors.amber : Theme.of(context).dividerColor,
+        );
+      }),
     );
   }
 
-  Widget _buildSocialIcon(
-    BuildContext context,
-    IconData icon,
-    String url,
-    Color color,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 12),
-      child: InkWell(
-        onTap: () {
-          // Future: launch URL via url_launcher
-        },
-        borderRadius: BorderRadius.circular(12),
+  Widget _buildSocialIcon(IconData icon, Color color, String? urlString) {
+    final bool hasUrl = urlString != null && urlString.trim().isNotEmpty;
+    return GestureDetector(
+      onTap: hasUrl ? () => _launchURL(urlString) : null,
+      child: Opacity(
+        opacity: hasUrl ? 1.0 : 0.3,
         child: Container(
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withOpacity(0.2)),
+            shape: BoxShape.circle,
+            color: hasUrl ? color.withOpacity(0.1) : Colors.transparent,
           ),
-          child: FaIcon(icon, color: color, size: 18),
+          child: FaIcon(
+            icon,
+            color: hasUrl ? color : Colors.grey,
+            size: 28,
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildStatItem(
-    BuildContext context,
-    IconData icon,
-    String value,
-    String label,
-    Color color,
-  ) {
-    final theme = Theme.of(context);
-    return Container(
-      width: (MediaQuery.of(context).size.width - 72) / 3,
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: theme.colorScheme.onSurface.withOpacity(0.05),
-        ),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 26),
-          const SizedBox(height: 10),
-          Text(
-            value,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.textTheme.bodySmall?.color?.withOpacity(0.5),
-            ),
-          ),
-        ],
-      ),
-    );
+  Future<void> _launchURL(String urlString) async {
+    String processedUrl = urlString.trim();
+    if (!processedUrl.startsWith('http://') && !processedUrl.startsWith('https://')) {
+      processedUrl = 'https://$processedUrl';
+    }
+    final Uri url = Uri.parse(processedUrl);
+    try {
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('No se pudo abrir el enlace: $urlString')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al abrir enlace: $e')),
+        );
+      }
+    }
   }
 }

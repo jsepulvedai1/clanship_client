@@ -101,19 +101,19 @@ class HomeTagList extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      l10n.homeViewAll,
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: theme.colorScheme.primary,
-                      size: 22,
-                    ),
+                    // Text(
+                    //   l10n.homeViewAll,
+                    //   style: theme.textTheme.labelLarge?.copyWith(
+                    //     color: theme.colorScheme.primary,
+                    //     fontWeight: FontWeight.bold,
+                    //   ),
+                    // ),
+                    // const SizedBox(width: 4),
+                    // Icon(
+                    //   Icons.chevron_right_rounded,
+                    //   color: theme.colorScheme.primary,
+                    //   size: 22,
+                    // ),
                   ],
                 ),
               ),

@@ -16,113 +16,198 @@ class JobDetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
-    final icon = SpecialtyUIHelper.getIcon(job.professionalSpecialty);
     final color = SpecialtyUIHelper.getColor(job.professionalSpecialty);
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(theme, icon, color, l10n),
-              const SizedBox(height: 32),
-              Text(
-                l10n.jobsDetailTitle,
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                job.workDescription ?? '',
-                style: theme.textTheme.bodyLarge?.copyWith(color: Colors.grey[700], height: 1.5),
-              ),
-              const SizedBox(height: 48),
-              _buildPriceSection(theme, l10n),
-              const SizedBox(height: 40),
-              _buildActions(context, l10n, theme),
-            ],
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: Text(
+          l10n.jobsDetailTitle,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: theme.colorScheme.onSurface,
           ),
         ),
+        centerTitle: true,
+        backgroundColor: theme.scaffoldBackgroundColor,
+        elevation: 0,
+        foregroundColor: theme.appBarTheme.iconTheme?.color ?? theme.colorScheme.onSurface,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.favorite_border_rounded),
+            onPressed: () {},
+          ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildHeader(ThemeData theme, IconData icon, Color color, AppLocalizations l10n) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 100,
-          height: 100,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Icon(icon, color: Colors.white, size: 50),
-        ),
-        const SizedBox(width: 20),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
+                  // Professional Profile Card
+                  _buildProfessionalCard(theme, l10n, color),
+                  const SizedBox(height: 24),
+                  
+                  // Job Description Section
+                  _buildSectionTitle(l10n.jobsDetailTitle, theme),
+                  const SizedBox(height: 12),
+                  _buildContentCard(
+                    theme: theme,
                     child: Text(
-                      job.professionalName,
-                      style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-                      overflow: TextOverflow.ellipsis,
+                      job.workDescription ?? '',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: theme.colorScheme.onSurface,
+                        height: 1.6,
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  _buildRatingStars(job.rating),
+                  const SizedBox(height: 24),
+
+                  // Pricing Section
+                  _buildSectionTitle(l10n.jobsTotalValue, theme),
+                  const SizedBox(height: 12),
+                  _buildPriceCard(theme, l10n),
                 ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                job.professionalSpecialty,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: Colors.black.withOpacity(0.8),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 4),
-              _buildStatusInfo(l10n, theme),
-            ],
+            ),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRatingStars(double rating) {
-    return Row(
-      children: List.generate(5, (index) {
-        return Icon(
-          Icons.star_rounded,
-          size: 20,
-          color: index < rating.floor() ? const Color(0xFFFFD700) : Colors.grey[300],
-        );
-      }),
-    );
-  }
-
-  Widget _buildStatusInfo(AppLocalizations l10n, ThemeData theme) {
-    final arrival = job.estimatedArrival ?? '00:00 Hrs.';
-    return Text(
-      '${l10n.jobsInProcess}: ${l10n.jobsArrivalInfo(arrival)}',
-      style: theme.textTheme.bodyMedium?.copyWith(
-        color: Colors.black87,
-        fontWeight: FontWeight.w500,
+          
+          // Action Buttons Footer
+          _buildActionFooter(context, l10n, theme),
+        ],
       ),
     );
   }
 
-  Widget _buildPriceSection(ThemeData theme, AppLocalizations l10n) {
+  Widget _buildSectionTitle(String title, ThemeData theme) {
+    return Text(
+      title.toUpperCase(),
+      style: theme.textTheme.labelLarge?.copyWith(
+        color: theme.colorScheme.onSurface.withOpacity(0.6),
+        fontWeight: FontWeight.bold,
+        letterSpacing: 1.2,
+      ),
+    );
+  }
+
+  Widget _buildContentCard({required Widget child, required ThemeData theme}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: theme.shadowColor.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  Widget _buildProfessionalCard(ThemeData theme, AppLocalizations l10n, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: theme.shadowColor.withOpacity(0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Professional Photo or Placeholder
+          Hero(
+            tag: 'job_prof_${job.id}',
+            child: Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                image: DecorationImage(
+                  image: NetworkImage(job.professionalImageUrl),
+                  fit: BoxFit.cover,
+                ),
+                border: Border.all(color: color.withOpacity(0.2), width: 2),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  job.professionalName,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  job.professionalSpecialty,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildStatusChip(l10n, theme),
+              ],
+            ),
+          ),
+          Column(
+            children: [
+              const Icon(Icons.star_rounded, color: Colors.amber, size: 24),
+              Text(
+                job.rating.toString(),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(AppLocalizations l10n, ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+           const Icon(Icons.access_time_rounded, size: 14, color: AppColors.primary),
+           const SizedBox(width: 6),
+           Text(
+             job.estimatedArrival ?? '...',
+             style: theme.textTheme.bodySmall?.copyWith(
+               color: AppColors.primary,
+               fontWeight: FontWeight.bold,
+             ),
+           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPriceCard(ThemeData theme, AppLocalizations l10n) {
     final value = job.totalValue ?? 0.0;
     final formatter = NumberFormat.currency(
       locale: 'es_CL',
@@ -130,98 +215,102 @@ class JobDetailPage extends StatelessWidget {
       decimalDigits: 0,
     );
     
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          l10n.jobsTotalValue,
-          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w500),
-        ),
-        Text(
-          '${formatter.format(value)} CLP',
-          style: theme.textTheme.headlineMedium?.copyWith(
-            color: AppColors.primary,
-            fontWeight: FontWeight.bold,
+    return _buildContentCard(
+      theme: theme,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text(
+            'Total',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
           ),
-        ),
-      ],
+          Text(
+            '${formatter.format(value)} CLP',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: AppColors.primary,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildActions(BuildContext context, AppLocalizations l10n, ThemeData theme) {
-    return Column(
-      children: [
-        TextButton(
-          onPressed: () {
-            // Need to convert JobMatch info to Professional for ChatPage
-            final professional = Professional(
-              id: job.professionalId,
-              name: job.professionalName,
-              imageUrl: job.professionalImageUrl,
-              specialty: job.professionalSpecialty,
-              rating: job.rating,
-              pricePerHour: job.pricePerHour,
-              distance: 0.0,
-              description: job.workDescription ?? '',
-              latitude: 0.0,
-              longitude: 0.0,
-              isVerified: true,
-            );
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ChatPage(professional: professional),
+  Widget _buildActionFooter(BuildContext context, AppLocalizations l10n, ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        boxShadow: [
+          BoxShadow(
+            color: theme.shadowColor.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            // Chat Button (Primary)
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  final professional = Professional(
+                    id: job.professionalId,
+                    name: job.professionalName,
+                    imageUrl: job.professionalImageUrl,
+                    specialty: job.professionalSpecialty,
+                    rating: job.rating,
+                    pricePerHour: job.pricePerHour,
+                    distance: 0.0,
+                    description: job.workDescription ?? '',
+                    latitude: 0.0,
+                    longitude: 0.0,
+                    isVerified: true,
+                  );
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ChatPage(
+                        professional: professional,
+                        jobId: job.id,
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.chat_bubble_outline_rounded),
+                label: Text(l10n.jobsGoToChat),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 0,
+                  textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
               ),
-            );
-          },
-          child: Text(
-            l10n.jobsGoToChat,
-            style: const TextStyle(
-              color: AppColors.primary,
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
             ),
-          ),
-        ),
-        const SizedBox(height: 24),
-        SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF5277),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              elevation: 0,
+            const SizedBox(height: 12),
+            // Cancel Button (Secondary/Alert)
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: OutlinedButton(
+                onPressed: () => Navigator.pop(context),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFFF5277),
+                  side: const BorderSide(color: Color(0xFFFF5277)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                child: Text(l10n.jobsCancel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              ),
             ),
-            child: Text(l10n.jobsCancel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-          ),
+          ],
         ),
-        const SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              elevation: 0,
-            ),
-            child: Text(l10n.jobsBack, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-          ),
-        ),
-        const SizedBox(height: 20),
-        Align(
-          alignment: Alignment.centerRight,
-          child: IconButton(
-            icon: Icon(Icons.favorite_border_rounded, size: 32, color: Colors.grey[800]),
-            onPressed: () {},
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

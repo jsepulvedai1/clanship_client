@@ -1,0 +1,34 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Clanship Local (Debug)",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main_local.dart"
+        },
+        {
+            "name": "Clanship Local (PROD)",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main.dart"
+        },
+        {
+            "name": "clanshi-mobile-client",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "clanshi-mobile-client (profile mode)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "clanshi-mobile-client (release mode)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        }
+    ]
+}

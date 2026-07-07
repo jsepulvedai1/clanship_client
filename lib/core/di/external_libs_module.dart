@@ -1,21 +1,17 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:injectable/injectable.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:clanship_cliente/core/network/graphql_service.dart';
 
 @module
 abstract class ExternalLibsModule {
   @lazySingleton
   Connectivity get connectivity => Connectivity();
 
-  @lazySingleton
-  GraphQLClient get graphqlClient {
-    final HttpLink httpLink = HttpLink(
-      'https://api.antigravity.job/graphql', // Placeholder endpoint
-    );
+  @preResolve
+  Future<SharedPreferences> get prefs => SharedPreferences.getInstance();
 
-    return GraphQLClient(
-      link: httpLink,
-      cache: GraphQLCache(), // Using memory cache by default, can be HiveStore later
-    );
-  }
+  @lazySingleton
+  GraphQLClient getGraphqlClient(GraphQLService service) => service.client;
 }

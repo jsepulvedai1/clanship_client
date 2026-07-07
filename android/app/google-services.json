@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "955997354464",
-    "project_id": "prueba-796ad",
-    "storage_bucket": "prueba-796ad.firebasestorage.app"
+    "project_number": "364034107308",
+    "project_id": "clan-be918",
+    "storage_bucket": "clan-be918.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:955997354464:android:402058c88c1b89a479d385",
+        "mobilesdk_app_id": "1:364034107308:android:c271cf58f27c49752b3c09",
         "android_client_info": {
-          "package_name": "com.clanship.cliente"
+          "package_name": "com.clanship"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAmD9Fn2bQrnQOSZUwTjwcj9reVF0NsSJs"
+          "current_key": "AIzaSyBmmBWNlohG0Lr610FXjdXQ2cRWzRXwHJ8"
         }
       ],
       "services": {
