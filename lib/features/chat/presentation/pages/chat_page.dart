@@ -35,7 +35,8 @@ class _ChatPageState extends State<ChatPage> {
 
     return BlocProvider(
       create: (context) =>
-          getIt<ChatBloc>()..add(LoadMessages(widget.professional.id, jobId: widget.jobId)),
+          getIt<ChatBloc>()
+            ..add(LoadMessages(widget.professional.id, jobId: widget.jobId)),
       child: Scaffold(
         backgroundColor: _isUrgent
             ? const Color(0xFFFFF0F0)
@@ -114,9 +115,9 @@ class _ChatPageState extends State<ChatPage> {
             children: [
               Text(
                 widget.professional.name,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               Row(
                 children: [
@@ -131,9 +132,9 @@ class _ChatPageState extends State<ChatPage> {
                   const SizedBox(width: 4),
                   Text(
                     l10n.chatStatusOnline,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.success,
-                    ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppColors.success),
                   ),
                 ],
               ),
@@ -154,13 +155,6 @@ class _ChatPageState extends State<ChatPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _buildActionButton(
-            label: l10n.chatActionUrgent,
-            icon: Icons.error_outline_rounded,
-            color: _isUrgent ? AppColors.error : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-            isActive: _isUrgent,
-            onTap: () => setState(() => _isUrgent = !_isUrgent),
-          ),
           if (widget.jobId != null)
             _buildActionButton(
               label: l10n.chatActionEnrich,
@@ -181,7 +175,7 @@ class _ChatPageState extends State<ChatPage> {
                     professionalId: int.parse(widget.professional.id),
                   ),
                 );
-                
+
                 if (result is String && mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text(l10n.chatJobCreatedSuccess)),
@@ -198,12 +192,6 @@ class _ChatPageState extends State<ChatPage> {
                 }
               },
             ),
-          _buildActionButton(
-            label: l10n.chatActionCall,
-            icon: Icons.phone_outlined,
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-            onTap: () {},
-          ),
         ],
       ),
     );
@@ -257,7 +245,9 @@ class _ChatPageState extends State<ChatPage> {
       ),
       decoration: BoxDecoration(
         color: Theme.of(context).scaffoldBackgroundColor,
-        border: Border(top: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
+        border: Border(
+          top: BorderSide(color: Theme.of(context).dividerColor, width: 0.5),
+        ),
       ),
       child: Row(
         children: [
@@ -282,7 +272,9 @@ class _ChatPageState extends State<ChatPage> {
                 style: Theme.of(context).textTheme.bodyLarge,
                 decoration: InputDecoration(
                   hintText: l10n.chatInputPlaceholder,
-                  hintStyle: TextStyle(color: Theme.of(context).hintColor.withOpacity(0.4)),
+                  hintStyle: TextStyle(
+                    color: Theme.of(context).hintColor.withOpacity(0.4),
+                  ),
                   border: InputBorder.none,
                   focusedBorder: InputBorder.none,
                   enabledBorder: InputBorder.none,
@@ -344,7 +336,9 @@ class _ChatPageState extends State<ChatPage> {
               child: Container(
                 decoration: BoxDecoration(
                   color: Theme.of(context).scaffoldBackgroundColor,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(24),
+                  ),
                 ),
                 padding: const EdgeInsets.all(24),
                 child: Column(
@@ -373,10 +367,16 @@ class _ChatPageState extends State<ChatPage> {
                       controller: detailsController,
                       minLines: 3,
                       maxLines: 5,
-                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
                       decoration: InputDecoration(
                         hintText: l10n.chatEnrichHint,
-                        hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+                        hintStyle: TextStyle(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withOpacity(0.5),
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
@@ -407,11 +407,21 @@ class _ChatPageState extends State<ChatPage> {
                             ? Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.add_a_photo_outlined, size: 36, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
+                                  Icon(
+                                    Icons.add_a_photo_outlined,
+                                    size: 36,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface.withOpacity(0.6),
+                                  ),
                                   const SizedBox(height: 8),
                                   Text(
                                     l10n.chatEnrichAttachPhoto,
-                                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface.withOpacity(0.6),
+                                    ),
                                   ),
                                 ],
                               )
@@ -439,7 +449,11 @@ class _ChatPageState extends State<ChatPage> {
                           : () async {
                               if (detailsController.text.trim().isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(l10n.chatEnrichEnterDetailsError)),
+                                  SnackBar(
+                                    content: Text(
+                                      l10n.chatEnrichEnterDetailsError,
+                                    ),
+                                  ),
                                 );
                                 return;
                               }
@@ -451,11 +465,14 @@ class _ChatPageState extends State<ChatPage> {
                               try {
                                 String? base64Photo;
                                 if (selectedImage != null) {
-                                  final bytes = await selectedImage!.readAsBytes();
-                                  base64Photo = 'data:image/png;base64,${base64.encode(bytes)}';
+                                  final bytes = await selectedImage!
+                                      .readAsBytes();
+                                  base64Photo =
+                                      'data:image/png;base64,${base64.encode(bytes)}';
                                 }
 
-                                final jobIdInt = int.tryParse(widget.jobId ?? '') ?? 0;
+                                final jobIdInt =
+                                    int.tryParse(widget.jobId ?? '') ?? 0;
                                 if (jobIdInt > 0) {
                                   final jobRepository = getIt<JobRepository>();
                                   await jobRepository.enrichJob(
@@ -467,7 +484,9 @@ class _ChatPageState extends State<ChatPage> {
                                   if (mounted) {
                                     Navigator.pop(context);
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text(l10n.chatEnrichSuccess)),
+                                      SnackBar(
+                                        content: Text(l10n.chatEnrichSuccess),
+                                      ),
                                     );
                                     // Enviar un mensaje de aviso en el chat
                                     context.read<ChatBloc>().add(
@@ -495,7 +514,10 @@ class _ChatPageState extends State<ChatPage> {
                               child: SizedBox(
                                 width: 24,
                                 height: 24,
-                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
                               ),
                             )
                           : Text(l10n.chatEnrichConfirm),
