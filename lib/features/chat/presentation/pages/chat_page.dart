@@ -1,5 +1,6 @@
 import 'package:clanship_cliente/core/di/injection.dart';
 import 'package:clanship_cliente/core/theme/app_colors.dart';
+import 'package:clanship_cliente/core/utils/error_parser.dart';
 import 'package:clanship_cliente/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:clanship_cliente/features/chat/presentation/widgets/chat_bubble.dart';
 import 'package:clanship_cliente/features/home/domain/entities/professional.dart';
@@ -7,11 +8,16 @@ import 'package:clanship_cliente/features/jobs/presentation/widgets/create_job_b
 import 'package:clanship_cliente/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:clanship_cliente/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:clanship_cliente/features/auth/presentation/bloc/auth_state.dart';
 import 'dart:ui';
 import 'dart:convert';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:clanship_cliente/features/jobs/domain/repositories/job_repository.dart';
+import 'package:record/record.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:clanship_cliente/core/utils/image_cropper_helper.dart';
 
 class ChatPage extends StatefulWidget {
   final Professional professional;
@@ -26,7 +32,147 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  bool _isUrgent = false;
+  final bool _isUrgent = false;
+  final AudioRecorder _audioRecorder = AudioRecorder();
+  bool _isRecording = false;
+  String? _recordPath;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(() {
+      if (mounted) setState(() {});
+    });
+  }
+
+  Future<void> _pickAndSendImage(
+    BuildContext context,
+    ImageSource source,
+  ) async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: source,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageQuality: 70,
+      );
+      if (image == null) return;
+
+      final croppedPath = await ImageCropperHelper.cropImage(
+        imagePath: image.path,
+        isSquare: false,
+      );
+      if (croppedPath == null) return;
+
+      final File file = File(croppedPath);
+      final bytes = await file.readAsBytes();
+      final String base64Image = base64Encode(bytes);
+      final String fileName = image.name;
+
+      if (mounted) {
+        context.read<ChatBloc>().add(
+          SendMessage(
+            widget.professional.id,
+            '',
+            fileBase64: 'data:image/jpeg;base64,$base64Image',
+            fileName: fileName,
+            messageType: 'IMAGE',
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error picking and sending image: $e');
+    }
+  }
+
+  void _showAttachmentOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(
+                  Icons.camera_alt_rounded,
+                  color: AppColors.primary,
+                ),
+                title: const Text('Tomar Foto'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _pickAndSendImage(context, ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(
+                  Icons.photo_library_rounded,
+                  color: AppColors.primary,
+                ),
+                title: const Text('Elegir de Galería'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _pickAndSendImage(context, ImageSource.gallery);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _toggleRecording(BuildContext context) async {
+    try {
+      if (_isRecording) {
+        final path = await _audioRecorder.stop();
+        setState(() {
+          _isRecording = false;
+        });
+
+        if (path != null) {
+          final File file = File(path);
+          final bytes = await file.readAsBytes();
+          final String base64Audio = base64Encode(bytes);
+          final String fileName =
+              'audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
+
+          if (mounted) {
+            context.read<ChatBloc>().add(
+              SendMessage(
+                widget.professional.id,
+                '',
+                fileBase64: 'data:audio/m4a;base64,$base64Audio',
+                fileName: fileName,
+                messageType: 'AUDIO',
+              ),
+            );
+          }
+        }
+      } else {
+        if (await _audioRecorder.hasPermission()) {
+          final directory = await getTemporaryDirectory();
+          final String filePath =
+              '${directory.path}/audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
+
+          await _audioRecorder.start(
+            const RecordConfig(encoder: AudioEncoder.aacLc),
+            path: filePath,
+          );
+
+          setState(() {
+            _isRecording = true;
+            _recordPath = filePath;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error toggling recording: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,44 +183,76 @@ class _ChatPageState extends State<ChatPage> {
       create: (context) =>
           getIt<ChatBloc>()
             ..add(LoadMessages(widget.professional.id, jobId: widget.jobId)),
-      child: Scaffold(
-        backgroundColor: _isUrgent
-            ? const Color(0xFFFFF0F0)
-            : Theme.of(context).scaffoldBackgroundColor,
-        extendBodyBehindAppBar: true,
-        appBar: _buildAppBar(context, l10n),
-        body: Column(
-          children: [
-            const SizedBox(height: 110), // AppBar + ActionBar space
-            _buildActionBar(l10n),
-            Expanded(
-              child: BlocBuilder<ChatBloc, ChatState>(
-                builder: (context, state) {
-                  if (state is ChatLoading) {
-                    return const Center(child: CircularProgressIndicator());
-                  } else if (state is ChatLoaded) {
-                    final messages = state.messages.reversed.toList();
-                    return ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 20,
-                      ),
-                      reverse: true,
-                      itemCount: messages.length,
-                      itemBuilder: (context, index) {
-                        return ChatBubble(message: messages[index]);
-                      },
-                    );
-                  } else if (state is ChatError) {
-                    return Center(child: Text(state.message));
-                  }
-                  return const SizedBox.shrink();
-                },
+      child: BlocListener<ChatBloc, ChatState>(
+        listener: (context, state) {
+          if (state is JobCancelledState) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  state.byMe
+                      ? 'Has rechazado la propuesta de visita.'
+                      : 'El profesional ha cancelado o rechazado la solicitud de trabajo.',
+                ),
+                backgroundColor: AppColors.error,
+                behavior: SnackBarBehavior.floating,
               ),
-            ),
-            _buildInputBar(context, l10n),
-          ],
+            );
+            Navigator.pop(context);
+          }
+        },
+        child: Scaffold(
+          backgroundColor: _isUrgent
+              ? const Color(0xFFFFF0F0)
+              : Theme.of(context).scaffoldBackgroundColor,
+          extendBodyBehindAppBar: true,
+          appBar: _buildAppBar(context, l10n),
+          body: Column(
+            children: [
+              const SizedBox(height: 110), // AppBar + ActionBar space
+              _buildActionBar(l10n),
+              Expanded(
+                child: BlocBuilder<ChatBloc, ChatState>(
+                  builder: (context, state) {
+                    if (state is ChatLoading) {
+                      return const Center(child: CircularProgressIndicator());
+                    } else if (state is ChatLoaded) {
+                      final messages = state.messages.reversed.toList();
+                      return ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 20,
+                        ),
+                        reverse: true,
+                        itemCount: messages.length,
+                        itemBuilder: (context, index) {
+                          final msg = messages[index];
+                          String? avatarUrl;
+                          if (msg.isMe) {
+                            final authState = context.read<AuthBloc>().state;
+                            if (authState is AuthAuthenticated) {
+                              avatarUrl = authState.user.avatarPath;
+                            }
+                          } else {
+                            avatarUrl = widget.professional.imageUrl;
+                          }
+                          return ChatBubble(
+                            message: msg,
+                            senderAvatarUrl: avatarUrl,
+                            jobStatus: state.jobStatus,
+                          );
+                        },
+                      );
+                    } else if (state is ChatError) {
+                      return Center(child: Text(state.message));
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ),
+              Builder(builder: (context) => _buildInputBar(context, l10n)),
+            ],
+          ),
         ),
       ),
     );
@@ -251,6 +429,24 @@ class _ChatPageState extends State<ChatPage> {
       ),
       child: Row(
         children: [
+          GestureDetector(
+            onTap: () => _showAttachmentOptions(context),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: theme.brightness == Brightness.dark
+                    ? AppColors.slate800
+                    : AppColors.slate100,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.add_rounded,
+                color: AppColors.primary,
+                size: 24,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -267,30 +463,53 @@ class _ChatPageState extends State<ChatPage> {
                     ),
                 ],
               ),
-              child: TextField(
-                controller: _controller,
-                style: Theme.of(context).textTheme.bodyLarge,
-                decoration: InputDecoration(
-                  hintText: l10n.chatInputPlaceholder,
-                  hintStyle: TextStyle(
-                    color: Theme.of(context).hintColor.withOpacity(0.4),
-                  ),
-                  border: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 14,
-                  ),
-                ),
-              ),
+              child: _isRecording
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 14,
+                      ),
+                      alignment: Alignment.centerLeft,
+                      child: const Row(
+                        children: [
+                          Icon(Icons.mic, color: Colors.red, size: 16),
+                          SizedBox(width: 8),
+                          Text(
+                            'Grabando audio...',
+                            style: TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : TextField(
+                      controller: _controller,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                      decoration: InputDecoration(
+                        hintText: l10n.chatInputPlaceholder,
+                        hintStyle: TextStyle(
+                          color: Theme.of(context).hintColor.withOpacity(0.4),
+                        ),
+                        border: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 14,
+                        ),
+                      ),
+                    ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           Builder(
             builder: (context) => GestureDetector(
               onTap: () {
-                if (_controller.text.isNotEmpty) {
+                if (_isRecording || _controller.text.isEmpty) {
+                  _toggleRecording(context);
+                } else {
                   context.read<ChatBloc>().add(
                     SendMessage(widget.professional.id, _controller.text),
                   );
@@ -299,12 +518,16 @@ class _ChatPageState extends State<ChatPage> {
               },
               child: Container(
                 padding: const EdgeInsets.all(12),
-                decoration: const BoxDecoration(
-                  color: AppColors.primary,
+                decoration: BoxDecoration(
+                  color: _isRecording ? Colors.red : AppColors.primary,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  Icons.send_rounded,
+                  _isRecording
+                      ? Icons.stop_rounded
+                      : (_controller.text.isNotEmpty
+                            ? Icons.send_rounded
+                            : Icons.mic_rounded),
                   color: Theme.of(context).colorScheme.onPrimary,
                   size: 22,
                 ),
@@ -499,7 +722,11 @@ class _ChatPageState extends State<ChatPage> {
                                 }
                               } catch (e) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Error: $e')),
+                                  SnackBar(
+                                    content: Text(
+                                      'Error: ${getCleanErrorMessage(e)}',
+                                    ),
+                                  ),
                                 );
                               } finally {
                                 if (mounted) {
@@ -536,6 +763,7 @@ class _ChatPageState extends State<ChatPage> {
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
+    _audioRecorder.dispose();
     super.dispose();
   }
 }

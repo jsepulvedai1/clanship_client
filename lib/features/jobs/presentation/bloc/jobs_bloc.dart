@@ -15,6 +15,7 @@ class JobsBloc extends Bloc<JobsEvent, JobsState> {
     on<AddJob>(_onAddJob);
     on<DeleteJob>(_onDeleteJob);
     on<UpdateJobsList>(_onUpdateJobsList);
+    on<UpdateJobStatus>(_onUpdateJobStatus);
     
     _subscription = _repository.watchJobs().listen((jobs) {
       add(UpdateJobsList(jobs));
@@ -27,7 +28,7 @@ class JobsBloc extends Bloc<JobsEvent, JobsState> {
       final jobs = await _repository.getJobs();
       emit(JobsLoaded(jobs));
     } catch (e) {
-      emit(JobsError(e.toString()));
+      emit(JobsError('Lo sentimos, hubo un error al cargar los trabajos.'));
     }
   }
 
@@ -41,6 +42,17 @@ class JobsBloc extends Bloc<JobsEvent, JobsState> {
 
   void _onUpdateJobsList(UpdateJobsList event, Emitter<JobsState> emit) {
     emit(JobsLoaded(event.jobs));
+  }
+
+  Future<void> _onUpdateJobStatus(UpdateJobStatus event, Emitter<JobsState> emit) async {
+    emit(JobsLoading());
+    try {
+      await _repository.updateJobStatus(int.parse(event.jobId), event.status);
+      final jobs = await _repository.getJobs();
+      emit(JobsLoaded(jobs));
+    } catch (e) {
+      emit(JobsError('Lo sentimos, hubo un error al cargar los trabajos.'));
+    }
   }
 
   @override

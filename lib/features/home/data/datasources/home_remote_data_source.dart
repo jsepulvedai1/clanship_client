@@ -43,13 +43,17 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
           avatarUrl
           address
           isAvailable
+          isEmergency
           latitude
           longitude
           isFavorite
+          distance
           professionalProfile {
             specialty {
               name
               iconUrl
+              color
+              synonyms
             }
             hourlyRate
             rating
@@ -57,6 +61,16 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
             facebookUrl
             instagramUrl
             tiktokUrl
+            tags {
+              id
+              name
+              color
+            }
+            subtags {
+              id
+              name
+              color
+            }
             photos {
               id
               imageUrl
@@ -113,6 +127,7 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
           avatarUrl
           address
           isAvailable
+          isEmergency
           latitude
           longitude
           isFavorite
@@ -120,6 +135,8 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
             specialty {
               name
               iconUrl
+              color
+              synonyms
             }
             hourlyRate
             rating
@@ -127,6 +144,16 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
             facebookUrl
             instagramUrl
             tiktokUrl
+            tags {
+              id
+              name
+              color
+            }
+            subtags {
+              id
+              name
+              color
+            }
             photos {
               id
               imageUrl

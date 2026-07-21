@@ -11,6 +11,7 @@ import 'package:clanship_cliente/core/network/graphql_service.dart';
 import 'package:clanship_cliente/features/home/data/models/professional_model.dart';
 import 'package:clanship_cliente/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:clanship_cliente/features/auth/presentation/bloc/auth_state.dart';
+import 'package:clanship_cliente/features/home/presentation/widgets/services_filter_sheet.dart';
 
 class ProfessionalSearchPage extends StatefulWidget {
   final List<Professional> initialProfessionals;
@@ -18,6 +19,8 @@ class ProfessionalSearchPage extends StatefulWidget {
   final double? longitude;
   final bool initialUrgencyMode;
   final String? currentAddress;
+  final Set<int> initialSelectedTagIds;
+  final Set<int> initialSelectedSubtagIds;
 
   const ProfessionalSearchPage({
     super.key,
@@ -26,6 +29,8 @@ class ProfessionalSearchPage extends StatefulWidget {
     this.longitude,
     this.initialUrgencyMode = false,
     this.currentAddress,
+    this.initialSelectedTagIds = const {},
+    this.initialSelectedSubtagIds = const {},
   });
 
   @override
@@ -41,11 +46,123 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
   double? _activeLatitude;
   double? _activeLongitude;
 
+  final Set<int> _selectedTagIds = {};
+  final Set<int> _selectedSubtagIds = {};
+  List<dynamic> _specialties = [];
+
+  Future<void> _fetchSpecialties() async {
+    try {
+      const String specialtiesQuery = r'''
+        query GetSpecialtiesTagsAndSubTags {
+          specialties {
+            id
+            name
+            color
+            tags {
+              id
+              name
+              subtags {
+                id
+                name
+              }
+            }
+          }
+        }
+      ''';
+
+      final client = getIt<GraphQLService>().client;
+      final result = await client.query(
+        QueryOptions(
+          document: gql(specialtiesQuery),
+          fetchPolicy: FetchPolicy.networkOnly,
+        ),
+      );
+
+      if (!result.hasException && result.data != null) {
+        if (mounted) {
+          setState(() {
+            _specialties = result.data?['specialties'] as List<dynamic>? ?? [];
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching specialties for filter: $e');
+    }
+  }
+
+  void _showFiltersBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return ServicesFilterSheet(
+          specialties: _specialties,
+          initialSelectedTagIds: _selectedTagIds,
+          initialSelectedSubtagIds: _selectedSubtagIds,
+          onApply: (selectedTagIds, selectedSubtagIds) {
+            setState(() {
+              _selectedTagIds.clear();
+              _selectedTagIds.addAll(selectedTagIds);
+              _selectedSubtagIds.clear();
+              _selectedSubtagIds.addAll(selectedSubtagIds);
+            });
+            _performSearch(_searchController.text);
+          },
+        );
+      },
+    ).then((_) {
+      setState(() {});
+    });
+  }
+
+  List<Map<String, dynamic>> _resolveSelectedFilterPaths() {
+    final List<Map<String, dynamic>> paths = [];
+    for (final spec in _specialties) {
+      final specName = spec['name'] as String;
+      final tags = spec['tags'] as List<dynamic>? ?? [];
+      for (final tag in tags) {
+        final tagId = int.parse(tag['id'].toString());
+        final tagName = tag['name'] as String;
+        final subtags = tag['subtags'] as List<dynamic>? ?? [];
+
+        if (subtags.isEmpty) {
+          if (_selectedTagIds.contains(tagId)) {
+            paths.add({
+              'type': 'tag',
+              'id': tagId,
+              'text': '$specName > $tagName',
+            });
+          }
+        } else {
+          for (final subtag in subtags) {
+            final subtagId = int.parse(subtag['id'].toString());
+            final subname = subtag['name'] as String;
+            if (_selectedSubtagIds.contains(subtagId)) {
+              paths.add({
+                'type': 'subtag',
+                'id': subtagId,
+                'text': '$specName > $tagName > $subname',
+              });
+            }
+          }
+        }
+      }
+    }
+    return paths;
+  }
+
   @override
   void initState() {
     super.initState();
     _isUrgencyMode = widget.initialUrgencyMode;
     _searchResults = widget.initialProfessionals;
+
+    // Pre-load filters passed from the home filter sheet
+    _selectedTagIds.addAll(widget.initialSelectedTagIds);
+    _selectedSubtagIds.addAll(widget.initialSelectedSubtagIds);
+
+    _fetchSpecialties();
 
     final authState = context.read<AuthBloc>().state;
     double? fallbackLat;
@@ -57,7 +174,12 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
     _activeLatitude = widget.latitude ?? fallbackLat;
     _activeLongitude = widget.longitude ?? fallbackLng;
 
-    if (widget.latitude == null && _activeLatitude != null) {
+    // If filters are pre-selected or we have a location, trigger search immediately
+    if (_activeLatitude != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _performSearch('');
+      });
+    } else if (widget.latitude == null && _activeLatitude != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _performSearch('');
       });
@@ -79,20 +201,41 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
     return list;
   }
 
-  void _onSearchChanged(String text) {
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 500), () {
-      _performSearch(text);
-    });
-  }
-
   Future<void> _performSearch(String text) async {
     if (_activeLatitude == null || _activeLongitude == null) {
       if (mounted) {
         setState(() {
           final query = text.toLowerCase();
+
+          final List<String> matchingParentTags = [];
+          for (final spec in _specialties) {
+            final tags = spec['tags'] as List<dynamic>? ?? [];
+            for (final tag in tags) {
+              final tagName = tag['name'] as String;
+              final subtags = tag['subtags'] as List<dynamic>? ?? [];
+              for (final subtag in subtags) {
+                final subtagName = (subtag['name'] as String).toLowerCase();
+                if (subtagName.contains(query)) {
+                  matchingParentTags.add(tagName.toLowerCase());
+                }
+              }
+            }
+          }
+
           _searchResults = widget.initialProfessionals
-              .where((p) => p.name.toLowerCase().contains(query) || p.specialty.toLowerCase().contains(query))
+              .where(
+                (p) =>
+                    p.name.toLowerCase().contains(query) ||
+                    p.specialty.toLowerCase().contains(query) ||
+                    p.tags.any((tag) => tag.toLowerCase().contains(query)) ||
+                    p.synonyms.any(
+                      (syn) => syn.toLowerCase().contains(query),
+                    ) ||
+                    p.tags.any((t) {
+                      final cleanTag = t.toLowerCase().split('|')[0];
+                      return matchingParentTags.contains(cleanTag);
+                    }),
+              )
               .toList();
         });
       }
@@ -105,23 +248,32 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
 
     try {
       const String searchQuery = r'''
-        query SearchNearbyProfessionals($latitude: Float!, $longitude: Float!, $query: String) {
+        query SearchNearbyProfessionals($latitude: Float!, $longitude: Float!, $query: String, $tagIds: [Int], $subtagIds: [Int]) {
           nearbyProfessionals(
             latitude: $latitude, 
             longitude: $longitude, 
-            query: $query
+            query: $query,
+            tagIds: $tagIds,
+            subtagIds: $subtagIds
           ) {
             id
             username
+            firstName
+            lastName
             avatarUrl
             address
             isAvailable
+            isEmergency
             latitude
             longitude
             isFavorite
+            distance
             professionalProfile {
               specialty {
                 name
+                iconUrl
+                color
+                synonyms
               }
               hourlyRate
               rating
@@ -129,6 +281,16 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
               facebookUrl
               instagramUrl
               tiktokUrl
+              tags {
+                id
+                name
+                color
+              }
+              subtags {
+                id
+                name
+                color
+              }
               photos {
                 id
                 imageUrl
@@ -146,15 +308,19 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
       ''';
 
       final client = getIt<GraphQLService>().client;
-      final result = await client.query(QueryOptions(
-        document: gql(searchQuery),
-        variables: {
-          'latitude': _activeLatitude,
-          'longitude': _activeLongitude,
-          'query': text,
-        },
-        fetchPolicy: FetchPolicy.networkOnly,
-      ));
+      final result = await client.query(
+        QueryOptions(
+          document: gql(searchQuery),
+          variables: {
+            'latitude': _activeLatitude,
+            'longitude': _activeLongitude,
+            'query': text,
+            'tagIds': _selectedTagIds.toList(),
+            'subtagIds': _selectedSubtagIds.toList(),
+          },
+          fetchPolicy: FetchPolicy.networkOnly,
+        ),
+      );
 
       if (result.hasException) {
         throw Exception(result.exception.toString());
@@ -162,7 +328,11 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
 
       final List<dynamic> data = result.data?['nearbyProfessionals'] ?? [];
       final list = data
-          .map((json) => ProfessionalModel.fromJson(json as Map<String, dynamic>).toEntity())
+          .map(
+            (json) => ProfessionalModel.fromJson(
+              json as Map<String, dynamic>,
+            ).toEntity(),
+          )
           .toList();
 
       if (mounted) {
@@ -180,6 +350,7 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
       }
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -202,7 +373,8 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
           title: const Text('Búsqueda'),
           backgroundColor: theme.scaffoldBackgroundColor,
           elevation: 0,
-          foregroundColor: theme.appBarTheme.iconTheme?.color ?? theme.colorScheme.onSurface,
+          foregroundColor:
+              theme.appBarTheme.iconTheme?.color ?? theme.colorScheme.onSurface,
         ),
         body: Column(
           children: [
@@ -233,7 +405,9 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
                         Expanded(
                           child: BlocBuilder<AuthBloc, AuthState>(
                             builder: (context, state) {
-                              String displayAddress = widget.currentAddress ?? 'Calle 123, Villa Puerto, Puerto Montt';
+                              String displayAddress =
+                                  widget.currentAddress ??
+                                  'Calle 123, Villa Puerto, Puerto Montt';
                               if (state is AuthAuthenticated &&
                                   state.user.address != null &&
                                   state.user.address!.isNotEmpty) {
@@ -260,45 +434,193 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  // Standalone Search Bar
-                  Container(
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surface,
-                      borderRadius: BorderRadius.circular(28),
-                      border: Border.all(color: Colors.transparent, width: 2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: theme.shadowColor.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: TextField(
-                      controller: _searchController,
-                      autofocus: true,
-                      onChanged: _onSearchChanged,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        fontSize: 16,
-                        fontStyle: FontStyle.italic,
+                  // Search Bar → abre el modal de filtro al tocar
+                  GestureDetector(
+                    onTap: _showFiltersBottomSheet,
+                    child: Container(
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surface,
+                        borderRadius: BorderRadius.circular(28),
+                        border:
+                            (_selectedTagIds.isNotEmpty ||
+                                _selectedSubtagIds.isNotEmpty)
+                            ? Border.all(color: AppColors.primary, width: 1.5)
+                            : null,
+                        boxShadow: [
+                          BoxShadow(
+                            color: theme.shadowColor.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      decoration: InputDecoration(
-                        hintText: '¿Qué servicio buscas?',
-                        hintStyle: theme.textTheme.bodyLarge?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.4),
-                          fontStyle: FontStyle.italic,
-                        ),
-                        prefixIcon: const Icon(
-                          Icons.search_rounded,
-                          color: AppColors.primary,
-                          size: 28,
-                        ),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 16),
+                          Icon(
+                            Icons.search_rounded,
+                            color: AppColors.primary,
+                            size: 28,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              (_selectedTagIds.isNotEmpty ||
+                                      _selectedSubtagIds.isNotEmpty)
+                                  ? '${_selectedTagIds.length + _selectedSubtagIds.length} filtro(s) activo(s)'
+                                  : '¿Qué servicio buscas?',
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                color:
+                                    (_selectedTagIds.isNotEmpty ||
+                                        _selectedSubtagIds.isNotEmpty)
+                                    ? AppColors.primary
+                                    : theme.colorScheme.onSurface.withOpacity(
+                                        0.4,
+                                      ),
+                                fontStyle: FontStyle.italic,
+                                fontSize: 16,
+                                fontWeight:
+                                    (_selectedTagIds.isNotEmpty ||
+                                        _selectedSubtagIds.isNotEmpty)
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          // Botón tune integrado en el bar
+                          Container(
+                            margin: const EdgeInsets.only(right: 8),
+                            height: 40,
+                            width: 40,
+                            decoration: BoxDecoration(
+                              color:
+                                  (_selectedTagIds.isNotEmpty ||
+                                      _selectedSubtagIds.isNotEmpty)
+                                  ? AppColors.primary
+                                  : theme.colorScheme.onSurface.withOpacity(
+                                      0.08,
+                                    ),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.tune_rounded,
+                              size: 20,
+                              color:
+                                  (_selectedTagIds.isNotEmpty ||
+                                      _selectedSubtagIds.isNotEmpty)
+                                  ? Colors.white
+                                  : AppColors.primary,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
+                  if (_selectedTagIds.isNotEmpty ||
+                      _selectedSubtagIds.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: theme.colorScheme.onSurface.withOpacity(0.1),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Resumen de selección',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _selectedTagIds.clear();
+                                    _selectedSubtagIds.clear();
+                                  });
+                                  _performSearch(_searchController.text);
+                                },
+                                child: const Text(
+                                  'Limpiar todo',
+                                  style: TextStyle(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _resolveSelectedFilterPaths().map((path) {
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: AppColors.primary.withOpacity(0.2),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        path['text'] as String,
+                                        style: const TextStyle(
+                                          color: AppColors.primary,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          final id = path['id'] as int;
+                                          if (path['type'] == 'tag') {
+                                            _selectedTagIds.remove(id);
+                                          } else {
+                                            _selectedSubtagIds.remove(id);
+                                          }
+                                        });
+                                        _performSearch(_searchController.text);
+                                      },
+                                      child: const Icon(
+                                        Icons.close_rounded,
+                                        size: 14,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   // Urgency Toggle Bar
                   Container(
@@ -340,7 +662,7 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
                               _isUrgencyMode = value;
                             });
                           },
-                          activeColor: const Color(0xFF00FF7F),
+                          activeColor: const Color.fromARGB(255, 255, 255, 255),
                           activeTrackColor: Colors.white.withAlpha(100),
                           inactiveThumbColor: Colors.white,
                           inactiveTrackColor: Colors.grey.withAlpha(150),
@@ -356,17 +678,19 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : _filteredProfessionals.isEmpty
-                      ? const Center(child: Text('No se encontraron profesionales.'))
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
-                          itemCount: _filteredProfessionals.length,
-                          itemBuilder: (context, index) {
-                            return ProfessionalListTile(
-                              professional: _filteredProfessionals[index],
-                              isUrgencyMode: _isUrgencyMode,
-                            );
-                          },
-                        ),
+                  ? const Center(
+                      child: Text('No se encontraron profesionales.'),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      itemCount: _filteredProfessionals.length,
+                      itemBuilder: (context, index) {
+                        return ProfessionalListTile(
+                          professional: _filteredProfessionals[index],
+                          isUrgencyMode: _isUrgencyMode,
+                        );
+                      },
+                    ),
             ),
           ],
         ),

@@ -73,7 +73,15 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
     }
     if (permission == LocationPermission.deniedForever) return null;
 
-    return await Geolocator.getCurrentPosition();
+    try {
+      final lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null) return lastKnown;
+    } catch (_) {}
+
+    return await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.low,
+      timeLimit: const Duration(seconds: 5),
+    );
   }
 
   Future<void> _reverseGeocode(LatLng position) async {
@@ -209,7 +217,9 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
             myLocationButtonEnabled: false,
             zoomControlsEnabled: false,
             onMapCreated: (GoogleMapController controller) {
-              _mapController.complete(controller);
+              if (!_mapController.isCompleted) {
+                _mapController.complete(controller);
+              }
             },
             onCameraMove: (CameraPosition position) {
               _currentCenter = position.target;

@@ -91,11 +91,19 @@ class JobRepositoryImpl implements JobRepository {
           description
           agreedPrice
           address
+          hasUnreadMessages
           professional {
             id
             username
             firstName
             lastName
+            avatarUrl
+            professionalProfile {
+              specialty {
+                name
+              }
+              rating
+            }
           }
         }
       }
@@ -112,15 +120,10 @@ class JobRepositoryImpl implements JobRepository {
       throw Exception(result.exception.toString());
     }
 
-    final List<dynamic>? myJobs = result.data?['myJobs'];
-
-    if (myJobs == null) {
-      return [];
-    }
-
+    final List<dynamic> jobsData = result.data?['myJobs'] as List<dynamic>? ?? [];
     final List<JobMatch> jobs = [];
 
-    for (var jobData in myJobs) {
+    for (final jobData in jobsData) {
       try {
         final job = _mapGraphQLToJobMatch(jobData);
         jobs.add(job);
@@ -141,6 +144,8 @@ class JobRepositoryImpl implements JobRepository {
       switch (status) {
         case 'REQUESTED':
           return JobStatus.pending;
+        case 'SCHEDULED':
+          return JobStatus.scheduled;
         case 'AGREED':
         case 'IN_VISIT':
           return JobStatus.accepted;
@@ -164,35 +169,36 @@ class JobRepositoryImpl implements JobRepository {
         displayName += ' ${lastName.trim()}';
       }
     } else {
-      displayName = professional['username'] ?? 'Unknown';
+      displayName = professional['username']?.toString() ?? 'Profesional';
     }
 
-    // Parse scheduled date/time as timestamp if possible
     DateTime timestamp = DateTime.now();
     try {
       if (data['scheduledDate'] != null) {
-        String dateStr = data['scheduledDate'];
-        if (data['scheduledTime'] != null) {
-          dateStr += 'T${data['scheduledTime']}';
-        }
-        timestamp = DateTime.parse(dateStr);
+        timestamp = DateTime.parse('${data['scheduledDate']}T${data['scheduledTime'] ?? '00:00:00'}');
       }
     } catch (_) {}
+
+    final profile = professional['professionalProfile'] ?? {};
+    final specialty = profile['specialty'] ?? {};
+    final specialtyName = specialty['name']?.toString() ?? 'General';
+    final double ratingVal = double.tryParse(profile['rating']?.toString() ?? '5.0') ?? 5.0;
 
     return JobMatch(
       id: data['id']?.toString() ?? 'unknown',
       professionalId: professional['id']?.toString() ?? 'unknown',
       professionalName: displayName,
-      professionalImageUrl:
+      professionalImageUrl: professional['avatarUrl']?.toString() ??
           'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?q=80&w=250&auto=format&fit=crop',
-      professionalSpecialty: 'Profesional',
+      professionalSpecialty: specialtyName,
       pricePerHour: 0.0,
       timestamp: timestamp,
       status: mapStatus(data['status']),
-      rating: 5.0,
+      rating: ratingVal,
       estimatedArrival: data['scheduledTime'],
       workDescription: data['description'],
       totalValue: double.tryParse(data['agreedPrice']?.toString() ?? '0'),
+      hasUnreadMessages: data['hasUnreadMessages'] as bool? ?? false,
     );
   }
 
@@ -299,5 +305,69 @@ class JobRepositoryImpl implements JobRepository {
     if (result.hasException) {
       throw Exception(result.exception.toString());
     }
+  }
+
+  @override
+  Future<void> updateJobStatus(int jobId, String status) async {
+    const String mutation = r'''
+      mutation UpdateJobStatus($jobId: Int!, $status: String!) {
+        updateJobStatus(jobId: $jobId, newStatus: $status) {
+          job {
+            id
+            status
+          }
+        }
+      }
+    ''';
+
+    final MutationOptions options = MutationOptions(
+      document: gql(mutation),
+      variables: {
+        'jobId': jobId,
+        'status': status,
+      },
+      fetchPolicy: FetchPolicy.networkOnly,
+    );
+
+    final QueryResult result = await _graphQLService.client.mutate(options);
+
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
+    
+    _updateStream();
+  }
+
+  @override
+  Future<String> getJobStatus(int jobId) async {
+    const String query = r'''
+      query GetJob($id: Int!) {
+        job(id: $id) {
+          id
+          status
+        }
+      }
+    ''';
+
+    final QueryOptions options = QueryOptions(
+      document: gql(query),
+      variables: {
+        'id': jobId,
+      },
+      fetchPolicy: FetchPolicy.networkOnly,
+    );
+
+    final QueryResult result = await _graphQLService.client.query(options);
+
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
+
+    final status = result.data?['job']?['status']?.toString();
+    if (status == null) {
+      throw Exception('Could not fetch job status');
+    }
+
+    return status;
   }
 }

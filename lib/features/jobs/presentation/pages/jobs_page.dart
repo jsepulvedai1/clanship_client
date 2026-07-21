@@ -52,7 +52,9 @@ class _JobsPageState extends State<JobsPage> {
                 } else if (state is JobsLoaded) {
                   final filteredJobs = state.jobs.where((job) {
                     if (_selectedTabIndex == 0) {
-                      return job.status == JobStatus.pending || job.status == JobStatus.accepted;
+                      return job.status == JobStatus.pending ||
+                          job.status == JobStatus.scheduled ||
+                          job.status == JobStatus.accepted;
                     } else {
                       return job.status == JobStatus.completed || job.status == JobStatus.rejected;
                     }
@@ -223,14 +225,18 @@ class _JobsPageState extends State<JobsPage> {
         child: Row(
           children: [
             // Specialty Icon Box
-            Container(
-              width: 70,
-              height: 70,
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(16),
+            Badge(
+              isLabelVisible: job.hasUnreadMessages,
+              backgroundColor: const Color(0xFFEF4444),
+              child: Container(
+                width: 70,
+                height: 70,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(icon, color: Colors.white, size: 40),
               ),
-              child: Icon(icon, color: Colors.white, size: 40),
             ),
             const SizedBox(width: 16),
             // Info
@@ -293,6 +299,14 @@ class _JobsPageState extends State<JobsPage> {
       return Text(
         '${l10n.jobsStatusRejected} $dateStr',
         style: theme.textTheme.bodySmall?.copyWith(color: Colors.redAccent, fontWeight: FontWeight.bold),
+      );
+    } else if (job.status == JobStatus.scheduled) {
+      return Text(
+        'Visita Propuesta - Por Validar',
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: Colors.orange[800],
+          fontWeight: FontWeight.bold,
+        ),
       );
     }
     

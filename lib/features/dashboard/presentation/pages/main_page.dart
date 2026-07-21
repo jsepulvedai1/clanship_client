@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+import 'package:clanship_cliente/core/network/local_notification_service.dart';
 import 'package:clanship_cliente/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,14 +11,52 @@ import 'package:clanship_cliente/features/explore/presentation/pages/explore_map
 import 'package:clanship_cliente/features/jobs/presentation/pages/jobs_page.dart';
 import 'package:clanship_cliente/features/jobs/presentation/bloc/jobs_bloc.dart';
 import 'package:clanship_cliente/features/jobs/presentation/bloc/jobs_event.dart';
+import 'package:clanship_cliente/features/jobs/presentation/bloc/jobs_state.dart';
 import 'package:clanship_cliente/features/favorites/presentation/pages/favorites_page.dart';
 import 'package:clanship_cliente/features/settings/presentation/pages/settings_page.dart';
 import 'package:clanship_cliente/features/favorites/presentation/bloc/favorites_bloc.dart';
 import 'package:clanship_cliente/features/favorites/presentation/bloc/favorites_event.dart';
+import 'package:clanship_cliente/core/di/injection.dart';
+import 'package:clanship_cliente/core/network/jobs_websocket_service.dart';
 import 'package:clanship_cliente/l10n/app_localizations.dart';
 
-class MainPage extends StatelessWidget {
+class MainPage extends StatefulWidget {
   const MainPage({super.key});
+
+  @override
+  State<MainPage> createState() => _MainPageState();
+}
+
+class _MainPageState extends State<MainPage> {
+  StreamSubscription? _socketSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    final socketService = getIt<JobsWebSocketService>();
+    socketService.connect();
+    _socketSubscription = socketService.stream.listen((event) {
+      debugPrint('MainPage received jobs websocket notification: $event');
+
+      try {
+        final Map<String, dynamic> data = event;
+        if (data['event'] == 'new_message') {
+          final String msgText = data['message'] ?? 'Tienes un nuevo mensaje';
+          LocalNotificationService.saveNotification('Mensaje Nuevo', msgText);
+        }
+      } catch (_) {}
+
+      if (mounted) {
+        context.read<JobsBloc>().add(LoadJobs());
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _socketSubscription?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,10 +81,18 @@ class MainPage extends StatelessWidget {
                 SettingsPage(),
               ],
             ),
-            bottomNavigationBar: _ClanshipBottomBar(
-              currentIndex: currentIndex,
-              onTap: (index) {
-                context.read<NavigationBloc>().add(TabChanged(index));
+            bottomNavigationBar: BlocBuilder<JobsBloc, JobsState>(
+              builder: (context, jobsState) {
+                final hasUnread =
+                    jobsState is JobsLoaded &&
+                    jobsState.jobs.any((job) => job.hasUnreadMessages);
+                return _ClanshipBottomBar(
+                  currentIndex: currentIndex,
+                  hasUnreadJobs: hasUnread,
+                  onTap: (index) {
+                    context.read<NavigationBloc>().add(TabChanged(index));
+                  },
+                );
               },
             ),
           );
@@ -56,10 +105,12 @@ class MainPage extends StatelessWidget {
 class _ClanshipBottomBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
+  final bool hasUnreadJobs;
 
   const _ClanshipBottomBar({
     required this.currentIndex,
     required this.onTap,
+    required this.hasUnreadJobs,
   });
 
   @override
@@ -98,6 +149,7 @@ class _ClanshipBottomBar extends StatelessWidget {
               activeIcon: Icons.work_rounded,
               label: l10n.navJobs,
               theme: theme,
+              showBadge: hasUnreadJobs,
             ),
             _buildCenterButton(theme),
             _buildNavItem(
@@ -126,6 +178,7 @@ class _ClanshipBottomBar extends StatelessWidget {
     required IconData activeIcon,
     required String label,
     required ThemeData theme,
+    bool showBadge = false,
   }) {
     final isSelected = currentIndex == index;
     return GestureDetector(
@@ -138,11 +191,20 @@ class _ClanshipBottomBar extends StatelessWidget {
           children: [
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
-              child: Icon(
-                isSelected ? activeIcon : icon,
-                key: ValueKey(isSelected),
-                size: 24,
-                color: isSelected ? AppColors.primary : theme.colorScheme.onSurface.withOpacity(0.4),
+              child: Badge(
+                isLabelVisible: showBadge,
+                largeSize: 20,
+                smallSize: 9,
+
+                backgroundColor: const Color(0xFFEF4444),
+                child: Icon(
+                  isSelected ? activeIcon : icon,
+                  key: ValueKey(isSelected),
+                  size: 24,
+                  color: isSelected
+                      ? AppColors.primary
+                      : theme.colorScheme.onSurface.withOpacity(0.4),
+                ),
               ),
             ),
             const SizedBox(height: 4),
@@ -151,7 +213,9 @@ class _ClanshipBottomBar extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                color: isSelected ? AppColors.primary : theme.colorScheme.onSurface.withOpacity(0.4),
+                color: isSelected
+                    ? AppColors.primary
+                    : theme.colorScheme.onSurface.withOpacity(0.4),
               ),
             ),
           ],

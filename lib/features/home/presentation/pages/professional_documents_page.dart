@@ -11,6 +11,9 @@ class ProfessionalDocumentsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final approvedDocuments = professional.documents
+        .where((doc) => doc.status.toUpperCase() == 'APPROVED')
+        .toList();
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -23,7 +26,7 @@ class ProfessionalDocumentsPage extends StatelessWidget {
         elevation: 0,
         foregroundColor: theme.colorScheme.onSurface,
       ),
-      body: professional.documents.isEmpty
+      body: approvedDocuments.isEmpty
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -57,9 +60,9 @@ class ProfessionalDocumentsPage extends StatelessWidget {
             )
           : ListView.builder(
               padding: const EdgeInsets.all(24),
-              itemCount: professional.documents.length,
+              itemCount: approvedDocuments.length,
               itemBuilder: (context, index) {
-                final doc = professional.documents[index];
+                final doc = approvedDocuments[index];
                 return _buildDocumentCard(context, doc);
               },
             ),
@@ -236,7 +239,7 @@ class ProfessionalDocumentsPage extends StatelessWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al abrir documento: $e')),
+          SnackBar(content: Text('No se pudo abrir el documento. Por favor, intenta de nuevo.')),
         );
       }
     }

@@ -1,3 +1,5 @@
+enum ChatMessageType { text, appointment, image, audio }
+
 class ChatMessage {
   final String id;
   final String senderId;
@@ -5,6 +7,8 @@ class ChatMessage {
   final String text;
   final DateTime timestamp;
   final bool isMe;
+  final ChatMessageType type;
+  final String? fileUrl;
 
   const ChatMessage({
     required this.id,
@@ -13,5 +17,7 @@ class ChatMessage {
     required this.text,
     required this.timestamp,
     required this.isMe,
+    this.type = ChatMessageType.text,
+    this.fileUrl,
   });
 }

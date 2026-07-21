@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'dart:math'; // Importante para generar el desplazamiento aleatorio
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:clanship_cliente/core/theme/app_colors.dart';
 import 'package:clanship_cliente/features/home/domain/entities/professional.dart';
@@ -15,6 +14,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:clanship_cliente/core/network/graphql_service.dart';
+import 'package:clanship_cliente/features/home/presentation/widgets/services_filter_sheet.dart';
 
 class ExploreMapPage extends StatefulWidget {
   const ExploreMapPage({super.key});
@@ -32,6 +34,12 @@ class _ExploreMapPageState extends State<ExploreMapPage>
   Position? _currentPosition;
   Professional? _selectedProfessional;
   bool _mapReady = false;
+  bool _isUrgencyMode = false;
+  final Set<int> _selectedTagIds = {};
+  final Set<int> _selectedSubtagIds = {};
+  final Set<String> _selectedTagNames = {};
+  final Set<String> _selectedSubtagNames = {};
+  List<dynamic> _specialties = [];
 
   final Map<String, ui.Image> _specialtyImagesCache = {};
 
@@ -185,7 +193,139 @@ class _ExploreMapPageState extends State<ExploreMapPage>
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
-    _getUserLocation();
+    _initLocation();
+    _fetchSpecialties();
+  }
+
+  Future<void> _fetchSpecialties() async {
+    try {
+      const String specialtiesQuery = r'''
+        query GetSpecialtiesTagsAndSubTags {
+          specialties {
+            id
+            name
+            color
+            tags {
+              id
+              name
+              subtags {
+                id
+                name
+              }
+            }
+          }
+        }
+      ''';
+      
+      final client = getIt<GraphQLService>().client;
+      final result = await client.query(QueryOptions(
+        document: gql(specialtiesQuery),
+        fetchPolicy: FetchPolicy.networkOnly,
+      ));
+      
+      if (!result.hasException && result.data != null) {
+        if (mounted) {
+          setState(() {
+            _specialties = result.data?['specialties'] as List<dynamic>? ?? [];
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching specialties for filter: $e');
+    }
+  }
+
+  void _updateSelectedNames() {
+    _selectedTagNames.clear();
+    _selectedSubtagNames.clear();
+
+    for (final spec in _specialties) {
+      final tags = spec['tags'] as List<dynamic>? ?? [];
+      for (final tag in tags) {
+        final tagId = int.parse(tag['id'].toString());
+        final tagName = tag['name'] as String;
+        if (_selectedTagIds.contains(tagId)) {
+          _selectedTagNames.add(tagName);
+        }
+        final subtags = tag['subtags'] as List<dynamic>? ?? [];
+        for (final subtag in subtags) {
+          final subtagId = int.parse(subtag['id'].toString());
+          final subtagName = subtag['name'] as String;
+          if (_selectedSubtagIds.contains(subtagId)) {
+            _selectedSubtagNames.add(subtagName);
+            // If the subtag is selected, the parent tag name also matches
+            _selectedSubtagNames.add(tagName);
+          }
+        }
+      }
+    }
+  }
+
+  void _showFiltersBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return ServicesFilterSheet(
+          specialties: _specialties,
+          initialSelectedTagIds: _selectedTagIds,
+          initialSelectedSubtagIds: _selectedSubtagIds,
+          onApply: (selectedTagIds, selectedSubtagIds) {
+            setState(() {
+              _selectedTagIds.clear();
+              _selectedTagIds.addAll(selectedTagIds);
+              _selectedSubtagIds.clear();
+              _selectedSubtagIds.addAll(selectedSubtagIds);
+              _updateSelectedNames();
+              
+              if (_selectedProfessional != null) {
+                final p = _selectedProfessional!;
+                if (_selectedTagIds.isNotEmpty || _selectedSubtagIds.isNotEmpty) {
+                  final matchesTag = _selectedTagNames.any((tagName) => p.tags.any((t) => t.toLowerCase() == tagName.toLowerCase() || t.toLowerCase().startsWith('${tagName.toLowerCase()}|')));
+                  final matchesSubtag = _selectedSubtagNames.any((subtagName) => p.tags.any((t) => t.toLowerCase() == subtagName.toLowerCase() || t.toLowerCase().startsWith('${subtagName.toLowerCase()}|')));
+                  if (!matchesTag && !matchesSubtag) {
+                    _selectedProfessional = null;
+                  }
+                }
+              }
+            });
+            final state = context.read<HomeBloc>().state;
+            if (state is HomeLoaded) {
+              _buildMarkers(state.professionals, query: _searchController.text);
+            }
+          },
+        );
+      },
+    ).then((_) {
+      setState(() {});
+    });
+  }
+
+  Future<void> _initLocation() async {
+    try {
+      final lastPosition = await Geolocator.getLastKnownPosition();
+      if (lastPosition != null && mounted) {
+        setState(() {
+          _currentPosition = lastPosition;
+        });
+
+        context.read<HomeBloc>().add(
+          FetchNearbyProfessionals(
+            latitude: lastPosition.latitude,
+            longitude: lastPosition.longitude,
+          ),
+        );
+
+        _mapController?.moveCamera(
+          CameraUpdate.newLatLngZoom(
+            LatLng(lastPosition.latitude, lastPosition.longitude),
+            14.5,
+          ),
+        );
+      }
+    } catch (_) {}
+    await _getUserLocation();
   }
 
   Future<void> _getUserLocation() async {
@@ -234,6 +374,7 @@ class _ExploreMapPageState extends State<ExploreMapPage>
   }
 
   void _onSearchChanged() {
+    setState(() {});
     final state = context.read<HomeBloc>().state;
     if (state is HomeLoaded) {
       _buildMarkers(state.professionals, query: _searchController.text);
@@ -251,21 +392,50 @@ class _ExploreMapPageState extends State<ExploreMapPage>
     final Set<Marker> newMarkers = {};
 
     final filteredList = listToUse.where((p) {
+      if (_isUrgencyMode && !p.acceptsUrgency) return false;
+      if (_selectedTagIds.isNotEmpty || _selectedSubtagIds.isNotEmpty) {
+        final matchesTag = _selectedTagNames.any((tagName) => p.tags.any((t) => t.toLowerCase() == tagName.toLowerCase() || t.toLowerCase().startsWith('${tagName.toLowerCase()}|')));
+        final matchesSubtag = _selectedSubtagNames.any((subtagName) => p.tags.any((t) => t.toLowerCase() == subtagName.toLowerCase() || t.toLowerCase().startsWith('${subtagName.toLowerCase()}|')));
+        if (!matchesTag && !matchesSubtag) return false;
+      }
       if (query.isEmpty) return true;
       final q = query.toLowerCase();
+
+      final List<String> matchingParentTags = [];
+      for (final spec in _specialties) {
+        final tags = spec['tags'] as List<dynamic>? ?? [];
+        for (final tag in tags) {
+          final tagName = tag['name'] as String;
+          final subtags = tag['subtags'] as List<dynamic>? ?? [];
+          for (final subtag in subtags) {
+            final subtagName = (subtag['name'] as String).toLowerCase();
+            if (subtagName.contains(q)) {
+              matchingParentTags.add(tagName.toLowerCase());
+            }
+          }
+        }
+      }
+
       return p.name.toLowerCase().contains(q) ||
-          p.specialty.toLowerCase().contains(q);
+          p.specialty.toLowerCase().contains(q) ||
+          p.tags.any((tag) => tag.toLowerCase().contains(q)) ||
+          p.synonyms.any((syn) => syn.toLowerCase().contains(q)) ||
+          p.tags.any((t) {
+            final cleanTag = t.toLowerCase().split('|')[0];
+            return matchingParentTags.contains(cleanTag);
+          });
     }).toList();
 
     debugPrint('Building ${filteredList.length} markers around center...');
 
     for (final prof in filteredList) {
       try {
-        final Color pinColor = _getCategoryColor(prof.specialty);
+        final Color pinColor = _getProfessionalColor(prof);
         final IconData categoryIcon = _getCategoryIcon(prof.specialty);
 
         ui.Image? specialtyImage;
-        if (prof.specialtyIconUrl != null && prof.specialtyIconUrl!.isNotEmpty) {
+        if (prof.specialtyIconUrl != null &&
+            prof.specialtyIconUrl!.isNotEmpty) {
           try {
             specialtyImage = await _loadSpecialtyImage(prof.specialtyIconUrl!);
           } catch (e) {
@@ -308,6 +478,20 @@ class _ExploreMapPageState extends State<ExploreMapPage>
           ..addAll(newMarkers);
       });
     }
+  }
+
+  Color _getProfessionalColor(Professional prof) {
+    if (prof.specialtyColor != null && prof.specialtyColor!.isNotEmpty) {
+      try {
+        final hex = prof.specialtyColor!.replaceAll('#', '');
+        if (hex.length == 6) {
+          return Color(int.parse('FF$hex', radix: 16));
+        } else if (hex.length == 8) {
+          return Color(int.parse(hex, radix: 16));
+        }
+      } catch (_) {}
+    }
+    return _getCategoryColor(prof.specialty);
   }
 
   Color _getCategoryColor(String specialty) {
@@ -467,7 +651,12 @@ class _ExploreMapPageState extends State<ExploreMapPage>
       );
       canvas.drawImageRect(
         specialtyImage,
-        Rect.fromLTWH(0, 0, specialtyImage.width.toDouble(), specialtyImage.height.toDouble()),
+        Rect.fromLTWH(
+          0,
+          0,
+          specialtyImage.width.toDouble(),
+          specialtyImage.height.toDouble(),
+        ),
         destRect,
         Paint()..isAntiAlias = true,
       );
@@ -487,7 +676,10 @@ class _ExploreMapPageState extends State<ExploreMapPage>
       // Centramos el icono exactamente en el centro de la cabeza (Y = 52)
       iconPainter.paint(
         canvas,
-        Offset((w / 2) - (iconPainter.width / 2), 52 - (iconPainter.height / 2)),
+        Offset(
+          (w / 2) - (iconPainter.width / 2),
+          52 - (iconPainter.height / 2),
+        ),
       );
     }
 
@@ -573,20 +765,23 @@ class _ExploreMapPageState extends State<ExploreMapPage>
             top: topPadding + 12,
             left: 16,
             right: 16,
-            child: Container(
-              height: 56,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Theme.of(context).shadowColor.withOpacity(0.08),
-                    blurRadius: 24,
-                    offset: const Offset(0, 4),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Theme.of(context).shadowColor.withOpacity(0.08),
+                        blurRadius: 24,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: Row(
+                  child: Row(
                 children: [
                   const SizedBox(width: 16),
                   Icon(
@@ -597,7 +792,7 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                   const SizedBox(width: 12),
                   Expanded(
                     child: TextField(
-                      enabled: false,
+                      enabled: true,
                       controller: _searchController,
                       autofocus: false,
                       style: TextStyle(
@@ -629,26 +824,148 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                         ).colorScheme.onSurface.withOpacity(0.38),
                         size: 20,
                       ),
-                      onPressed: () {},
+                      onPressed: () {
+                        _searchController.clear();
+                      },
                     )
                   else
-                    Container(
-                      margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        Icons.tune_rounded,
-                        color: AppColors.primary,
-                        size: 20,
+                    GestureDetector(
+                      onTap: _showFiltersBottomSheet,
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: (_selectedTagIds.isNotEmpty || _selectedSubtagIds.isNotEmpty)
+                              ? AppColors.primary
+                              : AppColors.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          Icons.tune_rounded,
+                          color: (_selectedTagIds.isNotEmpty || _selectedSubtagIds.isNotEmpty)
+                              ? Colors.white
+                              : AppColors.primary,
+                          size: 20,
+                        ),
                       ),
                     ),
                 ],
               ),
             ),
-          ),
+            const SizedBox(height: 8),
+            // Urgency Toggle Bar
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 8,
+              ),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF5271),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFF5271).withOpacity(0.2),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Modo Urgencia',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'Solo profesionales disponibles ahora',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: _isUrgencyMode,
+                    onChanged: (value) {
+                      setState(() {
+                        _isUrgencyMode = value;
+                        if (_isUrgencyMode && _selectedProfessional != null && !_selectedProfessional!.acceptsUrgency) {
+                          _selectedProfessional = null;
+                        }
+                        final state = context.read<HomeBloc>().state;
+                        if (state is HomeLoaded) {
+                          _buildMarkers(state.professionals, query: _searchController.text);
+                        }
+                      });
+                    },
+                    activeColor: const Color(0xFF00FF7F),
+                    activeTrackColor: Colors.white.withOpacity(0.3),
+                    inactiveThumbColor: Colors.white,
+                    inactiveTrackColor: Colors.grey.withOpacity(0.5),
+                  ),
+                ],
+              ),
+            ),
+            if (_selectedTagIds.isNotEmpty || _selectedSubtagIds.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  ActionChip(
+                    padding: EdgeInsets.zero,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    backgroundColor: Theme.of(context).colorScheme.surface,
+                    shadowColor: Theme.of(context).shadowColor.withOpacity(0.1),
+                    elevation: 2,
+                    label: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Limpiar filtros (${_selectedTagIds.length + _selectedSubtagIds.length})',
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.close_rounded,
+                          color: AppColors.primary,
+                          size: 14,
+                        ),
+                      ],
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _selectedTagIds.clear();
+                        _selectedSubtagIds.clear();
+                        _selectedTagNames.clear();
+                        _selectedSubtagNames.clear();
+                        final state = context.read<HomeBloc>().state;
+                        if (state is HomeLoaded) {
+                          _buildMarkers(state.professionals, query: _searchController.text);
+                        }
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
 
           // ───── "Buscar en esta área" Button ─────
           // Positioned(
@@ -794,24 +1111,38 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              _getCategoryColor(
-                                _selectedProfessional!.specialty,
-                              ).withOpacity(0.8),
-                              _getCategoryColor(
-                                _selectedProfessional!.specialty,
-                              ),
+                              _getProfessionalColor(_selectedProfessional!).withOpacity(0.8),
+                              _getProfessionalColor(_selectedProfessional!),
                             ],
                           ),
                         ),
-                        child: Center(
-                          child: Text(
-                            _selectedProfessional!.name[0].toUpperCase(),
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: _selectedProfessional!.imageUrl.isNotEmpty
+                              ? Image.network(
+                                  _selectedProfessional!.imageUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) => Center(
+                                    child: Text(
+                                      _selectedProfessional!.name[0].toUpperCase(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : Center(
+                                  child: Text(
+                                    _selectedProfessional!.name[0].toUpperCase(),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
                         ),
                       ),
                       const SizedBox(width: 14),
@@ -874,12 +1205,41 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                               _selectedProfessional!.specialty,
                               style: TextStyle(
                                 fontSize: 14,
-                                color: _getCategoryColor(
-                                  _selectedProfessional!.specialty,
-                                ),
+                                color: _getProfessionalColor(_selectedProfessional!),
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
+                            if (_selectedProfessional!.tags.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                children: _selectedProfessional!.tags.map((tag) {
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _getProfessionalColor(_selectedProfessional!).withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: _getProfessionalColor(_selectedProfessional!).withOpacity(0.2),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      tag,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: _getProfessionalColor(_selectedProfessional!),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ],
                             const SizedBox(height: 6),
                             Row(
                               children: [
@@ -899,21 +1259,6 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                                     color: Theme.of(
                                       context,
                                     ).colorScheme.onSurface,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Icon(
-                                  Icons.payments_outlined,
-                                  color: AppColors.primary,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '\$${_selectedProfessional!.pricePerHour.toStringAsFixed(0)}/hr',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.primary,
                                   ),
                                 ),
                                 const Spacer(),

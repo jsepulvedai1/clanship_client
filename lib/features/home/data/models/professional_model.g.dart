@@ -17,12 +17,14 @@ ProfessionalModel _$ProfessionalModelFromJson(Map<String, dynamic> json) =>
       isAvailable: json['isAvailable'] as bool?,
       latitude: _doubleFromAny(json['latitude']),
       longitude: _doubleFromAny(json['longitude']),
+      distance: _doubleFromAny(json['distance']),
       professionalProfile: json['professionalProfile'] == null
           ? null
           : ProfessionalProfileModel.fromJson(
               json['professionalProfile'] as Map<String, dynamic>,
             ),
       isFavorite: json['isFavorite'] as bool?,
+      isEmergency: json['isEmergency'] as bool?,
     );
 
 Map<String, dynamic> _$ProfessionalModelToJson(ProfessionalModel instance) =>
@@ -36,54 +38,11 @@ Map<String, dynamic> _$ProfessionalModelToJson(ProfessionalModel instance) =>
       'isAvailable': instance.isAvailable,
       'latitude': instance.latitude,
       'longitude': instance.longitude,
+      'distance': instance.distance,
       'professionalProfile': instance.professionalProfile,
       'isFavorite': instance.isFavorite,
+      'isEmergency': instance.isEmergency,
     };
-
-ProfessionalProfileModel _$ProfessionalProfileModelFromJson(
-  Map<String, dynamic> json,
-) => ProfessionalProfileModel(
-  specialty: json['specialty'] == null
-      ? null
-      : SpecialtyModel.fromJson(json['specialty'] as Map<String, dynamic>),
-  hourlyRate: _doubleFromAny(json['hourlyRate']),
-  rating: _doubleFromAny(json['rating']),
-  bio: json['bio'] as String?,
-  facebookUrl: json['facebookUrl'] as String?,
-  instagramUrl: json['instagramUrl'] as String?,
-  tiktokUrl: json['tiktokUrl'] as String?,
-  photos: (json['photos'] as List<dynamic>?)
-      ?.map((e) => PortfolioPhotoModel.fromJson(e as Map<String, dynamic>))
-      .toList(),
-  documents: (json['documents'] as List<dynamic>?)
-      ?.map(
-        (e) => ProfessionalDocumentModel.fromJson(e as Map<String, dynamic>),
-      )
-      .toList(),
-);
-
-Map<String, dynamic> _$ProfessionalProfileModelToJson(
-  ProfessionalProfileModel instance,
-) => <String, dynamic>{
-  'specialty': instance.specialty,
-  'hourlyRate': instance.hourlyRate,
-  'rating': instance.rating,
-  'bio': instance.bio,
-  'facebookUrl': instance.facebookUrl,
-  'instagramUrl': instance.instagramUrl,
-  'tiktokUrl': instance.tiktokUrl,
-  'photos': instance.photos,
-  'documents': instance.documents,
-};
-
-SpecialtyModel _$SpecialtyModelFromJson(Map<String, dynamic> json) =>
-    SpecialtyModel(
-      name: json['name'] as String,
-      iconUrl: json['iconUrl'] as String?,
-    );
-
-Map<String, dynamic> _$SpecialtyModelToJson(SpecialtyModel instance) =>
-    <String, dynamic>{'name': instance.name, 'iconUrl': instance.iconUrl};
 
 PortfolioPhotoModel _$PortfolioPhotoModelFromJson(Map<String, dynamic> json) =>
     PortfolioPhotoModel(

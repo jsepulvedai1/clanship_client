@@ -20,6 +20,7 @@ class ProfessionalCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final derivedHeroTag = 'prof_card_${professional.id}_${identityHashCode(this)}';
 
     return Container(
       decoration: BoxDecoration(
@@ -41,8 +42,10 @@ class ProfessionalCard extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) =>
-                    ProfessionalDetailPage(professional: professional),
+                builder: (context) => ProfessionalDetailPage(
+                  professional: professional,
+                  heroTag: derivedHeroTag,
+                ),
               ),
             );
           }
@@ -62,7 +65,7 @@ class ProfessionalCard extends StatelessWidget {
                     children: [
                       Positioned.fill(
                         child: Hero(
-                          tag: 'prof_${professional.id}',
+                          tag: derivedHeroTag,
                           child: professional.imageUrl.isNotEmpty
                               ? Image.network(
                                   professional.imageUrl,
@@ -175,7 +178,7 @@ class ProfessionalCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    '${professional.distance} km',
+                    professional.formattedDistance,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: AppColors.primary,
                       fontWeight: FontWeight.bold,

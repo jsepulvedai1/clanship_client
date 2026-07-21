@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 
 enum JobStatus {
   pending,
+  scheduled,
   accepted,
   rejected,
   completed,
@@ -20,6 +21,7 @@ class JobMatch extends Equatable {
   final String? estimatedArrival;
   final String? workDescription;
   final double? totalValue;
+  final bool hasUnreadMessages;
 
   const JobMatch({
     required this.id,
@@ -34,6 +36,7 @@ class JobMatch extends Equatable {
     this.estimatedArrival,
     this.workDescription,
     this.totalValue,
+    this.hasUnreadMessages = false,
   });
 
   @override
@@ -50,6 +53,7 @@ class JobMatch extends Equatable {
         estimatedArrival,
         workDescription,
         totalValue,
+        hasUnreadMessages,
       ];
 
   JobMatch copyWith({
@@ -58,6 +62,7 @@ class JobMatch extends Equatable {
     String? estimatedArrival,
     String? workDescription,
     double? totalValue,
+    bool? hasUnreadMessages,
   }) {
     return JobMatch(
       id: id,
@@ -72,6 +77,7 @@ class JobMatch extends Equatable {
       estimatedArrival: estimatedArrival ?? this.estimatedArrival,
       workDescription: workDescription ?? this.workDescription,
       totalValue: totalValue ?? this.totalValue,
+      hasUnreadMessages: hasUnreadMessages ?? this.hasUnreadMessages,
     );
   }
 }

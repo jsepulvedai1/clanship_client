@@ -36,6 +36,9 @@ class Professional {
   final bool acceptsUrgency;
   final bool isFavorite;
   final String? specialtyIconUrl;
+  final String? specialtyColor;
+  final List<String> tags;
+  final List<String> synonyms;
 
   const Professional({
     required this.id,
@@ -59,6 +62,9 @@ class Professional {
     this.documents = const [],
     this.isFavorite = false,
     this.specialtyIconUrl,
+    this.specialtyColor,
+    this.tags = const [],
+    this.synonyms = const [],
   });
 
   Professional copyWith({
@@ -83,6 +89,9 @@ class Professional {
     List<ProfessionalDocument>? documents,
     bool? isFavorite,
     String? specialtyIconUrl,
+    String? specialtyColor,
+    List<String>? tags,
+    List<String>? synonyms,
   }) {
     return Professional(
       id: id ?? this.id,
@@ -106,6 +115,18 @@ class Professional {
       documents: documents ?? this.documents,
       isFavorite: isFavorite ?? this.isFavorite,
       specialtyIconUrl: specialtyIconUrl ?? this.specialtyIconUrl,
+      specialtyColor: specialtyColor ?? this.specialtyColor,
+      tags: tags ?? this.tags,
+      synonyms: synonyms ?? this.synonyms,
     );
+  }
+
+  String get formattedDistance {
+    if (distance < 1.0) {
+      final meters = (distance * 1000).round();
+      return '$meters m';
+    } else {
+      return '${distance.toStringAsFixed(2)} km';
+    }
   }
 }

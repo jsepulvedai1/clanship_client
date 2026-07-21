@@ -13,6 +13,7 @@ import 'package:clanship_cliente/core/network/graphql_service.dart';
 import 'package:clanship_cliente/core/network/firebase_notification_helper.dart';
 import 'package:clanship_cliente/features/home/domain/entities/professional.dart';
 import 'package:clanship_cliente/features/home/presentation/pages/professional_search_page.dart';
+import 'package:clanship_cliente/features/home/presentation/widgets/services_filter_sheet.dart';
 import 'package:clanship_cliente/features/home/presentation/widgets/home_tag_list.dart';
 import 'package:clanship_cliente/features/home/presentation/widgets/professional_card.dart';
 import 'package:clanship_cliente/features/home/presentation/widgets/address_selection_dialog.dart';
@@ -24,6 +25,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:clanship_cliente/core/utils/image_cropper_helper.dart';
+import 'dart:async';
+import 'package:clanship_cliente/core/network/local_notification_service.dart';
+import 'package:clanship_cliente/core/navigation/bloc/navigation_bloc.dart';
+import 'package:clanship_cliente/core/navigation/bloc/navigation_event.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -37,17 +43,45 @@ class _HomePageState extends State<HomePage> {
   final LocationService _locationService = getIt<LocationService>();
   String _currentAddress = 'Calle 123, Villa Puerto, Puerto Montt';
   Position? _currentPosition;
+  List<LocalNotificationItem> _localNotifications = [];
+  bool _showAllNotifications = false;
+  StreamSubscription? _notificationSubscription;
+  bool _isOpeningFilter = false;
 
   @override
   void initState() {
     super.initState();
     _checkLocationPermission();
     FirebaseNotificationHelper.uploadFcmToken();
+    _loadLocalNotifications();
+    _notificationSubscription = LocalNotificationService.onNotificationAdded
+        .listen((_) {
+          _loadLocalNotifications();
+        });
+  }
+
+  @override
+  void dispose() {
+    _notificationSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadLocalNotifications() async {
+    final list = await LocalNotificationService.getNotifications();
+    if (mounted) {
+      setState(() {
+        _localNotifications = list;
+      });
+    }
   }
 
   Future<void> _checkLocationPermission() async {
     try {
-      final permission = await _locationService.checkPermission();
+      LocationPermission permission = await _locationService.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await _locationService.requestPermission();
+      }
+
       if (permission == LocationPermission.whileInUse ||
           permission == LocationPermission.always) {
         final position = await _locationService.getCurrentPosition();
@@ -64,11 +98,119 @@ class _HomePageState extends State<HomePage> {
           );
         }
       } else {
-        await _locationService.requestPermission();
+        _loadFallbackLocation();
       }
     } catch (e) {
       debugPrint('Error checking location: $e');
+      _loadFallbackLocation();
     }
+  }
+
+  void _loadFallbackLocation() {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is AuthAuthenticated) {
+      final user = authState.user;
+      if (user.latitude != null && user.longitude != null) {
+        setState(() {
+          if (user.address != null && user.address!.isNotEmpty) {
+            _currentAddress = user.address!;
+          }
+        });
+        context.read<HomeBloc>().add(
+          FetchNearbyProfessionals(
+            latitude: user.latitude!,
+            longitude: user.longitude!,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Carga las especialidades y muestra el filtro. Al aplicar, navega a la búsqueda.
+  Future<void> _openFilterThenSearch(
+    BuildContext context, {
+    String? savedAddress,
+    double? savedLat,
+    double? savedLng,
+  }) async {
+    // Evitar múltiples aperturas si ya hay una en curso
+    if (_isOpeningFilter) return;
+    setState(() => _isOpeningFilter = true);
+
+    // Fetch specialties for the filter sheet
+    List<dynamic> specialties = [];
+    try {
+      const String specialtiesQuery = r'''
+        query GetSpecialtiesTagsAndSubTags {
+          specialties {
+            id
+            name
+            color
+            tags {
+              id
+              name
+              subtags {
+                id
+                name
+              }
+            }
+          }
+        }
+      ''';
+      final client = getIt<GraphQLService>().client;
+      final result = await client.query(
+        QueryOptions(
+          document: gql(specialtiesQuery),
+          fetchPolicy: FetchPolicy.networkOnly,
+        ),
+      );
+      if (!result.hasException && result.data != null) {
+        specialties = result.data?['specialties'] as List<dynamic>? ?? [];
+      }
+    } catch (e) {
+      debugPrint('Error fetching specialties: $e');
+    }
+
+    if (!context.mounted) {
+      setState(() => _isOpeningFilter = false);
+      return;
+    }
+
+    // Show filter sheet; on apply, navigate to search with selected filters
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return ServicesFilterSheet(
+          specialties: specialties,
+          initialSelectedTagIds: const {},
+          initialSelectedSubtagIds: const {},
+          onApply: (selectedTagIds, selectedSubtagIds) {
+            if (!context.mounted) return;
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ProfessionalSearchPage(
+                  initialProfessionals: _currentProfessionals,
+                  latitude: _currentPosition?.latitude ?? savedLat,
+                  longitude: _currentPosition?.longitude ?? savedLng,
+                  currentAddress: _currentAddress !=
+                          'Calle 123, Villa Puerto, Puerto Montt'
+                      ? _currentAddress
+                      : (savedAddress ?? _currentAddress),
+                  initialSelectedTagIds: selectedTagIds,
+                  initialSelectedSubtagIds: selectedSubtagIds,
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    // Resetear el flag al cerrar el sheet (por cualquier motivo)
+    if (mounted) setState(() => _isOpeningFilter = false);
   }
 
   Future<void> _pickImage(BuildContext context) async {
@@ -80,16 +222,23 @@ class _HomePageState extends State<HomePage> {
       imageQuality: 60,
     );
 
-    if (image != null && context.mounted) {
-      final authState = context.read<AuthBloc>().state;
-      if (authState is AuthAuthenticated) {
-        final currentUser = authState.user;
+    if (image == null || !context.mounted) return;
 
-        try {
-          final bytes = await image.readAsBytes();
-          final base64Image = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+    final croppedPath = await ImageCropperHelper.cropImage(
+      imagePath: image.path,
+      isSquare: true,
+    );
+    if (croppedPath == null || !context.mounted) return;
 
-          const String updateAvatarMutation = r'''
+    final authState = context.read<AuthBloc>().state;
+    if (authState is AuthAuthenticated) {
+      final currentUser = authState.user;
+
+      try {
+        final bytes = await File(croppedPath).readAsBytes();
+        final base64Image = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+
+        const String updateAvatarMutation = r'''
             mutation UpdateProfile($firstName: String!, $lastName: String!, $email: String!, $avatarBase64: String) {
               updateProfile(firstName: $firstName, lastName: $lastName, email: $email, avatarBase64: $avatarBase64) {
                 success
@@ -109,42 +258,38 @@ class _HomePageState extends State<HomePage> {
             }
           ''';
 
-          final client = getIt<GraphQLService>().client;
-          final MutationOptions options = MutationOptions(
-            document: gql(updateAvatarMutation),
-            variables: {
-              'firstName': currentUser.firstName ?? '',
-              'lastName': currentUser.lastName ?? '',
-              'email': currentUser.email,
-              'avatarBase64': base64Image,
-            },
-            fetchPolicy: FetchPolicy.networkOnly,
-          );
+        final client = getIt<GraphQLService>().client;
+        final MutationOptions options = MutationOptions(
+          document: gql(updateAvatarMutation),
+          variables: {
+            'firstName': currentUser.firstName ?? '',
+            'lastName': currentUser.lastName ?? '',
+            'email': currentUser.email,
+            'avatarBase64': base64Image,
+          },
+          fetchPolicy: FetchPolicy.networkOnly,
+        );
 
-          final QueryResult result = await client.mutate(options);
+        final QueryResult result = await client.mutate(options);
 
-          if (!result.hasException) {
-            final success =
-                result.data?['updateProfile']?['success'] as bool? ?? false;
-            if (success) {
-              final userData =
-                  result.data?['updateProfile']?['user']
-                      as Map<String, dynamic>;
-              final updatedUserModel = UserModel.fromJson(userData);
-              final updatedUser = UserMapper.toEntity(updatedUserModel);
+        if (!result.hasException) {
+          final success =
+              result.data?['updateProfile']?['success'] as bool? ?? false;
+          if (success) {
+            final userData =
+                result.data?['updateProfile']?['user'] as Map<String, dynamic>;
+            final updatedUserModel = UserModel.fromJson(userData);
+            final updatedUser = UserMapper.toEntity(updatedUserModel);
 
-              if (context.mounted) {
-                context.read<AuthBloc>().add(ProfileUpdated(updatedUser));
-              }
+            if (context.mounted) {
+              context.read<AuthBloc>().add(ProfileUpdated(updatedUser));
             }
-          } else {
-            debugPrint(
-              'Error uploading avatar: ${result.exception.toString()}',
-            );
           }
-        } catch (e) {
-          debugPrint('Error preparing avatar: $e');
+        } else {
+          debugPrint('Error uploading avatar: ${result.exception.toString()}');
         }
+      } catch (e) {
+        debugPrint('Error preparing avatar: $e');
       }
     }
   }
@@ -168,6 +313,274 @@ class _HomePageState extends State<HomePage> {
       list.sort((a, b) => b.rating.compareTo(a.rating));
     }
     return list;
+  }
+
+  Widget _buildNotificationsSection() {
+    if (_localNotifications.isEmpty) return const SizedBox.shrink();
+
+    final theme = Theme.of(context);
+    final displayedCount = _showAllNotifications
+        ? _localNotifications.length
+        : (_localNotifications.length > 3 ? 3 : _localNotifications.length);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Notificaciones',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              TextButton(
+                onPressed: () async {
+                  await LocalNotificationService.clearAll();
+                  _loadLocalNotifications();
+                },
+                child: Text(
+                  'Limpiar todo',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: displayedCount,
+            itemBuilder: (context, index) {
+              final notif = _localNotifications[index];
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: AppColors.primary.withOpacity(0.1),
+                    width: 1,
+                  ),
+                ),
+                child: ListTile(
+                  onTap: () {
+                    context.read<NavigationBloc>().add(const TabChanged(1));
+                  },
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
+                  leading: CircleAvatar(
+                    backgroundColor: AppColors.primary.withOpacity(0.1),
+                    child: Icon(
+                      Icons.notifications_active_rounded,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
+                  ),
+                  title: Text(
+                    notif.title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  subtitle: Text(
+                    notif.body,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      fontSize: 12,
+                    ),
+                  ),
+                  trailing: IconButton(
+                    icon: Icon(
+                      Icons.close_rounded,
+                      color: theme.colorScheme.onSurface.withOpacity(0.4),
+                      size: 20,
+                    ),
+                    onPressed: () async {
+                      await LocalNotificationService.deleteNotification(
+                        notif.id,
+                      );
+                      _loadLocalNotifications();
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
+          if (_localNotifications.length > 3)
+            Align(
+              alignment: Alignment.center,
+              child: TextButton(
+                onPressed: () {
+                  setState(() {
+                    _showAllNotifications = !_showAllNotifications;
+                  });
+                },
+                child: Text(
+                  _showAllNotifications
+                      ? 'Ver menos'
+                      : 'Ver todas (${_localNotifications.length})',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _showLocalNotificationsBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+              ),
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Notificaciones',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          await LocalNotificationService.clearAll();
+                          await _loadLocalNotifications();
+                          setSheetState(() {});
+                        },
+                        child: Text(
+                          'Limpiar todo',
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  if (_localNotifications.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 40),
+                      child: Center(
+                        child: Text(
+                          'No tienes nuevas notificaciones',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                    )
+                  else
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(context).size.height * 0.5,
+                      ),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: _localNotifications.length,
+                        itemBuilder: (context, index) {
+                          final notif = _localNotifications[index];
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: AppColors.primary.withOpacity(0.1),
+                                width: 1,
+                              ),
+                            ),
+                            child: ListTile(
+                              onTap: () {
+                                Navigator.of(context).pop();
+                                context.read<NavigationBloc>().add(const TabChanged(1));
+                              },
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 4,
+                              ),
+                              leading: CircleAvatar(
+                                backgroundColor: AppColors.primary.withOpacity(
+                                  0.1,
+                                ),
+                                child: Icon(
+                                  Icons.notifications_active_rounded,
+                                  color: AppColors.primary,
+                                  size: 20,
+                                ),
+                              ),
+                              title: Text(
+                                notif.title,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              subtitle: Text(
+                                notif.body,
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.7),
+                                  fontSize: 12,
+                                ),
+                              ),
+                              trailing: IconButton(
+                                icon: Icon(
+                                  Icons.close_rounded,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.4),
+                                  size: 20,
+                                ),
+                                onPressed: () async {
+                                  await LocalNotificationService.deleteNotification(
+                                    notif.id,
+                                  );
+                                  await _loadLocalNotifications();
+                                  setSheetState(() {});
+                                },
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -211,6 +624,53 @@ class _HomePageState extends State<HomePage> {
                     ],
                   ),
                 ),
+                // Notification Bell Icon (Interactive)
+                GestureDetector(
+                  onTap: _showLocalNotificationsBottomSheet,
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
+                      border: Border.all(
+                        color: const Color(0xFFE2E8F0),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        const Icon(
+                          Icons.notifications_none_rounded,
+                          color: Color(0xFF0D2B45),
+                          size: 22,
+                        ),
+                        if (_localNotifications.isNotEmpty)
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF00FF7F),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
                 // Profile Picture (Interactive)
                 GestureDetector(
                   onTap: () => _pickImage(context),
@@ -238,7 +698,8 @@ class _HomePageState extends State<HomePage> {
                                 : FileImage(File(state.user.avatarPath!))
                                       as ImageProvider
                           : null,
-                      child: !(state is AuthAuthenticated &&
+                      child:
+                          !(state is AuthAuthenticated &&
                               state.user.avatarPath != null &&
                               state.user.avatarPath!.isNotEmpty)
                           ? const Icon(
@@ -255,225 +716,226 @@ class _HomePageState extends State<HomePage> {
           },
         ),
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          try {
-            final position = await _locationService.getCurrentPosition();
-            if (mounted) {
-              setState(() {
-                _currentPosition = position;
-              });
-              context.read<HomeBloc>().add(
-                FetchNearbyProfessionals(
-                  latitude: position.latitude,
-                  longitude: position.longitude,
-                ),
-              );
-            }
-          } catch (e) {
-            debugPrint('Error refreshing: $e');
+      body: BlocListener<AuthBloc, AuthState>(
+        listener: (context, state) {
+          if (state is AuthAuthenticated && _currentPosition == null) {
+            _loadFallbackLocation();
           }
         },
-        child: SingleChildScrollView(
-          physics:
-              const AlwaysScrollableScrollPhysics(), // Important for RefreshIndicator
-          padding: const EdgeInsets.symmetric(vertical: 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Address Selector Row
-                    GestureDetector(
-                      onTap: () => AddressSelectionDialog.show(context),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.location_on_rounded,
-                            color: AppColors.primary,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Mi dirección:',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: theme.colorScheme.onSurface.withOpacity(
-                                0.6,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: BlocBuilder<AuthBloc, AuthState>(
-                              builder: (context, state) {
-                                String displayAddress = _currentAddress;
-                                if (state is AuthAuthenticated &&
-                                    state.user.address != null &&
-                                    state.user.address!.isNotEmpty) {
-                                  displayAddress = state.user.address!;
-                                }
-
-                                return Text(
-                                  displayAddress,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: AppColors.primary,
-                                    fontWeight: FontWeight.w600,
-                                    decoration: TextDecoration.underline,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                );
-                              },
-                            ),
-                          ),
-                          Icon(
-                            Icons.keyboard_arrow_down_rounded,
-                            color: theme.colorScheme.onSurface.withOpacity(0.4),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    // Standalone Search Bar
-                    GestureDetector(
-                      onTap: () {
-                        final authState = context.read<AuthBloc>().state;
-                        String? savedAddress;
-                        double? savedLat;
-                        double? savedLng;
-                        if (authState is AuthAuthenticated) {
-                          savedAddress = authState.user.address;
-                          savedLat = authState.user.latitude;
-                          savedLng = authState.user.longitude;
-                        }
-
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ProfessionalSearchPage(
-                              initialProfessionals: _currentProfessionals,
-                              latitude: _currentPosition?.latitude ?? savedLat,
-                              longitude:
-                                  _currentPosition?.longitude ?? savedLng,
-                              currentAddress:
-                                  _currentAddress !=
-                                      'Calle 123, Villa Puerto, Puerto Montt'
-                                  ? _currentAddress
-                                  : (savedAddress ?? _currentAddress),
-                            ),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        height: 56,
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surface,
-                          borderRadius: BorderRadius.circular(28),
-                          border: Border.all(
-                            color: AppColors.primary,
-                            width: 2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: theme.shadowColor.withOpacity(0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
+        child: RefreshIndicator(
+          onRefresh: () async {
+            try {
+              final position = await _locationService.getCurrentPosition();
+              if (mounted) {
+                setState(() {
+                  _currentPosition = position;
+                });
+                context.read<HomeBloc>().add(
+                  FetchNearbyProfessionals(
+                    latitude: position.latitude,
+                    longitude: position.longitude,
+                  ),
+                );
+              }
+            } catch (e) {
+              debugPrint('Error refreshing: $e');
+              _loadFallbackLocation();
+            }
+          },
+          child: SingleChildScrollView(
+            physics:
+                const AlwaysScrollableScrollPhysics(), // Important for RefreshIndicator
+            padding: const EdgeInsets.symmetric(vertical: 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Address Selector Row
+                      GestureDetector(
+                        onTap: () => AddressSelectionDialog.show(context),
                         child: Row(
                           children: [
                             const Icon(
-                              Icons.search_rounded,
+                              Icons.location_on_rounded,
                               color: AppColors.primary,
-                              size: 28,
+                              size: 20,
                             ),
-                            const SizedBox(width: 12),
+                            const SizedBox(width: 8),
                             Text(
-                              '¿Qué servicio buscas?',
-                              style: theme.textTheme.bodyLarge?.copyWith(
+                              'Mi dirección:',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
                                 color: theme.colorScheme.onSurface.withOpacity(
-                                  0.4,
+                                  0.6,
                                 ),
-                                fontStyle: FontStyle.italic,
-                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: BlocBuilder<AuthBloc, AuthState>(
+                                builder: (context, state) {
+                                  String displayAddress = _currentAddress;
+                                  if (state is AuthAuthenticated &&
+                                      state.user.address != null &&
+                                      state.user.address!.isNotEmpty) {
+                                    displayAddress = state.user.address!;
+                                  }
+
+                                  return Text(
+                                    displayAddress,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.w600,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  );
+                                },
+                              ),
+                            ),
+                            Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              color: theme.colorScheme.onSurface.withOpacity(
+                                0.4,
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              // Banner Carousel
-              // const HomeBannerCarousel(),
-              // const SizedBox(height: 10),
-              // Tag Selection (Chips)
-              HomeTagList(
-                tags: tags,
-                selectedIndex: _selectedTagIndex,
-                onSelected: (index) {
-                  setState(() {
-                    _selectedTagIndex = index;
-                  });
-                },
-                onViewAll: () {
-                  // Future Implementation for All view
-                },
-              ),
-              const SizedBox(height: 16),
-              // Normal Grid View
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: BlocBuilder<HomeBloc, HomeState>(
-                  builder: (context, state) {
-                    if (state is HomeLoading) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    if (state is HomeFailure) {
-                      return Center(
-                        child: Text('Error: ${state.errorMessage}'),
-                      );
-                    }
+                      const SizedBox(height: 16),
+                      // Standalone Search Bar
+                      GestureDetector(
+                        onTap: () {
+                          final authState = context.read<AuthBloc>().state;
+                          String? savedAddress;
+                          double? savedLat;
+                          double? savedLng;
+                          if (authState is AuthAuthenticated) {
+                            savedAddress = authState.user.address;
+                            savedLat = authState.user.latitude;
+                            savedLng = authState.user.longitude;
+                          }
 
-                    final pros = _filteredProfessionals;
-                    if (pros.isEmpty) {
-                      return const Center(
-                        child: Text('No se encontraron profesionales cerca.'),
-                      );
-                    }
-
-                    return GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            childAspectRatio: 0.62,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
+                          // Primero mostrar el filtro; al aplicar, navegar con filtros seleccionados
+                          _openFilterThenSearch(
+                            context,
+                            savedAddress: savedAddress,
+                            savedLat: savedLat,
+                            savedLng: savedLng,
+                          );
+                        },
+                        child: Container(
+                          height: 56,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surface,
+                            borderRadius: BorderRadius.circular(28),
+                            border: Border.all(
+                              color: AppColors.primary,
+                              width: 2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: theme.shadowColor.withOpacity(0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
-                      itemCount: pros.length,
-                      itemBuilder: (context, index) {
-                        return ProfessionalCard(professional: pros[index]);
-                      },
-                    );
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.search_rounded,
+                                color: AppColors.primary,
+                                size: 28,
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                '¿Qué servicio buscas?',
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  color: theme.colorScheme.onSurface
+                                      .withOpacity(0.4),
+                                  fontStyle: FontStyle.italic,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _buildNotificationsSection(),
+                const SizedBox(height: 24),
+                // Banner Carousel
+                // const HomeBannerCarousel(),
+                // const SizedBox(height: 10),
+                // Tag Selection (Chips)
+                HomeTagList(
+                  tags: tags,
+                  selectedIndex: _selectedTagIndex,
+                  onSelected: (index) {
+                    setState(() {
+                      _selectedTagIndex = index;
+                    });
+                  },
+                  onViewAll: () {
+                    // Future Implementation for All view
                   },
                 ),
-              ),
-              const SizedBox(height: 32),
+                const SizedBox(height: 16),
+                // Normal Grid View
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: BlocBuilder<HomeBloc, HomeState>(
+                    builder: (context, state) {
+                      if (state is HomeLoading) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (state is HomeFailure) {
+                        return Center(
+                          child: Text('Error: ${state.errorMessage}'),
+                        );
+                      }
 
-              const SizedBox(height: 24),
-            ],
+                      final pros = _filteredProfessionals;
+                      if (pros.isEmpty) {
+                        return const Center(
+                          child: Text('No se encontraron profesionales cerca.'),
+                        );
+                      }
+
+                      return GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              childAspectRatio: 0.62,
+                              crossAxisSpacing: 16,
+                              mainAxisSpacing: 16,
+                            ),
+                        itemCount: pros.length,
+                        itemBuilder: (context, index) {
+                          return ProfessionalCard(professional: pros[index]);
+                        },
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 32),
+
+                const SizedBox(height: 24),
+              ],
+            ),
           ),
         ),
       ),

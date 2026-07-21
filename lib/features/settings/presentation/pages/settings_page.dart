@@ -12,6 +12,7 @@ import 'package:clanship_cliente/features/auth/presentation/bloc/auth_state.dart
 import 'package:clanship_cliente/features/auth/presentation/bloc/auth_event.dart';
 import 'package:clanship_cliente/features/auth/presentation/pages/login_page.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:clanship_cliente/core/utils/image_cropper_helper.dart';
 import 'personal_info_page.dart';
 import 'support_page.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
@@ -34,16 +35,24 @@ class _SettingsPageState extends State<SettingsPage> {
     final picker = ImagePicker();
     final XFile? image = await picker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 75,
+      maxWidth: 800,
+      maxHeight: 800,
+      imageQuality: 60,
     );
     if (image == null || !mounted) return;
+
+    final croppedPath = await ImageCropperHelper.cropImage(
+      imagePath: image.path,
+      isSquare: true,
+    );
+    if (croppedPath == null || !mounted) return;
 
     setState(() {
       _isAvatarLoading = true;
     });
 
     try {
-      final bytes = await image.readAsBytes();
+      final bytes = await File(croppedPath).readAsBytes();
       final base64Image = base64Encode(bytes);
 
       final authState = context.read<AuthBloc>().state;
@@ -121,7 +130,7 @@ class _SettingsPageState extends State<SettingsPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al subir la foto: $e'),
+            content: Text('Lo sentimos, no se pudo subir la foto. Por favor, intenta de nuevo.'),
             backgroundColor: AppColors.error,
           ),
         );

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:clanship_cliente/features/auth/data/models/user_model.dart';
+import 'package:clanship_cliente/core/network/firebase_notification_helper.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:injectable/injectable.dart';
 
@@ -225,12 +226,19 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
               updateResult.data?['updateProfile']?['user']
                   as Map<String, dynamic>?;
           if (updatedUserData != null) {
-            return UserModel.fromJson(updatedUserData);
+            final userWithUpdatedProfile = UserModel.fromJson(updatedUserData);
+            if (avatarPath != null && avatarPath.isNotEmpty) {
+              return userWithUpdatedProfile.copyWith(avatarPath: avatarPath);
+            }
+            return userWithUpdatedProfile;
           }
         }
       }
     }
 
+    if (avatarPath != null && avatarPath.isNotEmpty) {
+      return userModel.copyWith(avatarPath: avatarPath);
+    }
     return userModel;
   }
 
@@ -280,6 +288,11 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
   @override
   Future<void> logout() async {
+    try {
+      await FirebaseNotificationHelper.deleteFcmToken();
+    } catch (e) {
+      // Ignorar errores de red para asegurar que el logout local ocurra de todos modos
+    }
     const storage = FlutterSecureStorage();
     await storage.delete(key: 'jwt_token');
   }

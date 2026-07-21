@@ -242,7 +242,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get settingsTerms => 'Términos y condiciones';
 
   @override
-  String get chatActionEnrich => 'Enriquecer';
+  String get chatActionEnrich => 'Agregar Detalles';
 
   @override
   String get chatActionJob => 'Trabajo';
@@ -254,7 +254,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get chatJobCreatedMessage => 'He creado una solicitud de trabajo.';
 
   @override
-  String get chatEnrichTitle => 'Enriquecer Solicitud';
+  String get chatEnrichTitle => 'Detalles de la Solicitud';
 
   @override
   String get chatEnrichHint =>
@@ -268,11 +268,11 @@ class AppLocalizationsEs extends AppLocalizations {
       'Por favor escribe los detalles adicionales.';
 
   @override
-  String get chatEnrichSuccess => 'Solicitud enriquecida exitosamente.';
+  String get chatEnrichSuccess => 'Detalles agregados exitosamente.';
 
   @override
   String get chatEnrichMessage =>
-      'He enriquecido la solicitud con nuevos detalles.';
+      'He agregado detalles adicionales a la solicitud.';
 
   @override
   String get chatEnrichConfirm => 'Confirmar y Enviar';

@@ -13,6 +13,8 @@ import 'package:clanship_cliente/core/di/external_libs_module.dart' as _i92;
 import 'package:clanship_cliente/core/navigation/bloc/navigation_bloc.dart'
     as _i457;
 import 'package:clanship_cliente/core/network/graphql_service.dart' as _i12;
+import 'package:clanship_cliente/core/network/jobs_websocket_service.dart'
+    as _i117;
 import 'package:clanship_cliente/core/network/location_service.dart' as _i369;
 import 'package:clanship_cliente/core/persistence/database_helper.dart'
     as _i547;
@@ -86,6 +88,9 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i895.Connectivity>(() => externalLibsModule.connectivity);
     gh.lazySingleton<_i369.LocationService>(() => _i369.LocationService());
     gh.lazySingleton<_i12.GraphQLService>(() => _i12.GraphQLService());
+    gh.lazySingleton<_i117.JobsWebSocketService>(
+      () => _i117.JobsWebSocketService(),
+    );
     gh.lazySingleton<_i457.NavigationBloc>(() => _i457.NavigationBloc());
     gh.lazySingleton<_i547.DatabaseHelper>(() => _i547.DatabaseHelper());
     gh.lazySingleton<_i226.SettingsBloc>(

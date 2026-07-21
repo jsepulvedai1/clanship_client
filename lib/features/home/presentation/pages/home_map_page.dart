@@ -81,8 +81,23 @@ class _HomeMapPageState extends State<HomeMapPage> {
 
     for (int i = 0; i < filteredList.length; i++) {
       final prof = filteredList[i];
-      // Color coding based on specialty (Mimics Google Maps categories)
-      final Color pinColor = _getCategoryColor(prof.specialty);
+      Color parseHexColor(String? hexString, Color defaultColor) {
+        if (hexString == null || hexString.isEmpty) return defaultColor;
+        try {
+          final hex = hexString.replaceAll('#', '');
+          if (hex.length == 6) {
+            return Color(int.parse('FF$hex', radix: 16));
+          } else if (hex.length == 8) {
+            return Color(int.parse(hex, radix: 16));
+          }
+        } catch (_) {}
+        return defaultColor;
+      }
+
+      final Color pinColor = parseHexColor(
+        prof.specialtyColor,
+        _getCategoryColor(prof.specialty),
+      );
 
       final markerIcon = await _getGoogleStyleMarkerIcon(
         prof.name,

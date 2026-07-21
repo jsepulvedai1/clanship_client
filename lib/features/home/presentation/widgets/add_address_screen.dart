@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_google_places_hoc081098/flutter_google_places_hoc081098.dart';
@@ -11,6 +12,7 @@ import 'package:clanship_cliente/features/auth/presentation/bloc/auth_event.dart
 import 'package:clanship_cliente/features/auth/presentation/bloc/auth_state.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AddAddressScreen extends StatefulWidget {
   const AddAddressScreen({super.key});
@@ -128,6 +130,30 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
         final updatedUserModel = UserModel.fromJson(userData);
         final updatedUser = UserMapper.toEntity(updatedUserModel);
 
+        // Guardar en la lista local de SharedPreferences
+        try {
+          final prefs = getIt<SharedPreferences>();
+          final String? jsonStr = prefs.getString('saved_user_addresses');
+          List<Map<String, dynamic>> saved = [];
+          if (jsonStr != null) {
+            final List<dynamic> decoded = json.decode(jsonStr);
+            saved = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+          }
+
+          final exists = saved.any((element) => element['address'] == _controller.text);
+          if (!exists) {
+            if (saved.length >= 3) {
+              saved.removeAt(0); // Elimina la más antigua si supera las 3
+            }
+            saved.add({
+              'address': _controller.text,
+              'latitude': _selectedLocation!.latitude,
+              'longitude': _selectedLocation!.longitude,
+            });
+            await prefs.setString('saved_user_addresses', json.encode(saved));
+          }
+        } catch (_) {}
+
         if (mounted) {
           context.read<AuthBloc>().add(ProfileUpdated(updatedUser));
           Navigator.pop(context, _selectedLocation);
@@ -139,7 +165,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ).showSnackBar(SnackBar(content: Text('Lo sentimos, hubo un error al guardar la dirección.')));
       }
     } finally {
       if (mounted) {

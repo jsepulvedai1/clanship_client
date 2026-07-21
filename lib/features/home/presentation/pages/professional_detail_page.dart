@@ -1,4 +1,6 @@
+import 'dart:ui';
 import 'package:clanship_cliente/core/theme/app_colors.dart';
+import 'package:clanship_cliente/core/utils/error_parser.dart';
 import 'package:clanship_cliente/features/home/domain/entities/professional.dart';
 import 'package:clanship_cliente/features/home/presentation/pages/professional_documents_page.dart';
 import 'package:clanship_cliente/l10n/app_localizations.dart';
@@ -21,8 +23,13 @@ import 'package:clanship_cliente/features/favorites/presentation/bloc/favorites_
 
 class ProfessionalDetailPage extends StatefulWidget {
   final Professional professional;
+  final String? heroTag;
 
-  const ProfessionalDetailPage({super.key, required this.professional});
+  const ProfessionalDetailPage({
+    super.key,
+    required this.professional,
+    this.heroTag,
+  });
 
   @override
   State<ProfessionalDetailPage> createState() => _ProfessionalDetailPageState();
@@ -44,14 +51,14 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
         int.parse(professional.id),
         formattedDate,
         formattedTime,
-        "Trabajo solicitado desde el perfil",
+        "Nueva solicitud de servicio",
         "0.00",
         address,
       );
       
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Trabajo solicitado exitosamente')),
+          const SnackBar(content: Text('Solicitud enviada exitosamente')),
         );
         Navigator.push(
           context,
@@ -66,7 +73,7 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al crear el trabajo: $e')),
+          SnackBar(content: Text('Error al crear el trabajo: ${getCleanErrorMessage(e)}')),
         );
       }
     }
@@ -87,92 +94,126 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Top Carousel with Rounded Corners
-                Stack(
-                  children: [
-                    Hero(
-                      tag: 'prof_${widget.professional.id}',
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.only(
-                          bottomLeft: Radius.circular(36),
-                          bottomRight: Radius.circular(36),
-                        ),
-                        child: CarouselSlider(
-                          options: CarouselOptions(
-                            height: size.height * 0.45,
-                            viewportFraction: 1.0,
-                            enableInfiniteScroll:
-                                widget.professional.galleryImages.length > 1,
-                            onPageChanged: (index, reason) {
-                              setState(() {
-                                _currentImageIndex = index;
-                              });
-                            },
+                SafeArea(
+                  top: true,
+                  bottom: false,
+                  child: Stack(
+                    children: [
+                      Hero(
+                        tag: widget.heroTag ?? 'prof_${widget.professional.id}',
+                        child: ClipRRect(
+                          borderRadius: const BorderRadius.only(
+                            bottomLeft: Radius.circular(36),
+                            bottomRight: Radius.circular(36),
                           ),
-                          items:
-                              (widget.professional.galleryImages.isNotEmpty
-                                      ? widget.professional.galleryImages
-                                      : [widget.professional.imageUrl])
-                                  .map((url) {
-                                    return CachedNetworkImage(
-                                      imageUrl: url,
-                                      width: double.infinity,
-                                      fit: BoxFit.cover,
-                                      placeholder: (context, url) => Container(
-                                        color: Theme.of(context).colorScheme.surface,
-                                        child: const Center(
-                                          child: CircularProgressIndicator(
-                                            color: AppColors.primary,
+                          child: CarouselSlider(
+                            options: CarouselOptions(
+                              height: size.height * 0.45,
+                              viewportFraction: 1.0,
+                              enableInfiniteScroll:
+                                  widget.professional.galleryImages.length > 1,
+                              onPageChanged: (index, reason) {
+                                setState(() {
+                                  _currentImageIndex = index;
+                                });
+                              },
+                            ),
+                            items: ([
+                              if (widget.professional.imageUrl.isNotEmpty)
+                                widget.professional.imageUrl,
+                              ...widget.professional.galleryImages,
+                            ].isEmpty
+                                ? ['']
+                                : [
+                                    if (widget.professional.imageUrl.isNotEmpty)
+                                      widget.professional.imageUrl,
+                                    ...widget.professional.galleryImages,
+                                  ])
+                                    .map((url) {
+                                      return CachedNetworkImage(
+                                        imageUrl: url,
+                                        width: double.infinity,
+                                        imageBuilder: (context, imageProvider) => Stack(
+                                          children: [
+                                            Image(
+                                              image: imageProvider,
+                                              fit: BoxFit.cover,
+                                              width: double.infinity,
+                                              height: double.infinity,
+                                            ),
+                                            ClipRect(
+                                              child: BackdropFilter(
+                                                filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+                                                child: Container(
+                                                  color: Colors.black.withOpacity(0.15),
+                                                ),
+                                              ),
+                                            ),
+                                            Image(
+                                              image: imageProvider,
+                                              fit: BoxFit.contain,
+                                              width: double.infinity,
+                                              height: double.infinity,
+                                            ),
+                                          ],
+                                        ),
+                                        placeholder: (context, url) => Container(
+                                          color: Theme.of(context).colorScheme.surface,
+                                          child: const Center(
+                                            child: CircularProgressIndicator(
+                                              color: AppColors.primary,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                      errorWidget: (context, url, error) => Container(
-                                        color: Theme.of(context).colorScheme.surface,
-                                        child: const Center(
-                                          child: Icon(
-                                            Icons.error_outline_rounded,
-                                            color: Colors.redAccent,
-                                            size: 40,
+                                        errorWidget: (context, url, error) => Container(
+                                          color: Theme.of(context).colorScheme.surface,
+                                          child: const Center(
+                                            child: Icon(
+                                              Icons.error_outline_rounded,
+                                              color: Colors.redAccent,
+                                              size: 40,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    );
-                                  })
-                                  .toList(),
+                                      );
+                                    })
+                                    .toList(),
+                          ),
                         ),
                       ),
-                    ),
-                    // Carousel Indicators
-                    if (widget.professional.galleryImages.length > 1)
-                      Positioned(
-                        bottom: 20,
-                        left: 0,
-                        right: 0,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: widget.professional.galleryImages
-                              .asMap()
-                              .entries
-                              .map((entry) {
-                                return Container(
-                                  width: 8.0,
-                                  height: 8.0,
-                                  margin: const EdgeInsets.symmetric(
-                                    horizontal: 4.0,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Colors.white.withOpacity(
-                                      _currentImageIndex == entry.key
-                                          ? 0.9
-                                          : 0.4,
+                      // Carousel Indicators
+                      if (widget.professional.galleryImages.length > 1)
+                        Positioned(
+                          bottom: 20,
+                          left: 0,
+                          right: 0,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: widget.professional.galleryImages
+                                .asMap()
+                                .entries
+                                .map((entry) {
+                                  return Container(
+                                    width: 8.0,
+                                    height: 8.0,
+                                    margin: const EdgeInsets.symmetric(
+                                      horizontal: 4.0,
                                     ),
-                                  ),
-                                );
-                              })
-                              .toList(),
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Colors.white.withOpacity(
+                                        _currentImageIndex == entry.key
+                                            ? 0.9
+                                            : 0.4,
+                                      ),
+                                    ),
+                                  );
+                                })
+                                .toList(),
+                          ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
 
                 Padding(
@@ -215,22 +256,31 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
 
                       const SizedBox(height: 12),
 
-                      // Distance
-                      Row(
+                      // Distance and tags inline wrap
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          const Icon(
-                            Icons.location_on_rounded,
-                            color: AppColors.primary,
-                            size: 24,
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.location_on_rounded,
+                                color: AppColors.primary,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                widget.professional.formattedDistance,
+                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${widget.professional.distance.toInt()} km',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                          ...widget.professional.tags.map((tag) => _buildTagChip(tag)),
                         ],
                       ),
 
@@ -239,12 +289,15 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
                       // Description
                       Text(
                         widget.professional.description,
+                        textAlign: TextAlign.justify,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
                           height: 1.5,
                           fontSize: 15,
                         ),
                       ),
+
+
 
                       const SizedBox(height: 32),
 
@@ -331,18 +384,28 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
                             if (jobsState is JobsLoaded) {
                               hasActiveJob = jobsState.jobs.any((job) =>
                                   job.professionalId == widget.professional.id &&
-                                  (job.status == JobStatus.pending || job.status == JobStatus.accepted));
+                                  (job.status == JobStatus.pending ||
+                                   job.status == JobStatus.accepted ||
+                                   job.status == JobStatus.scheduled));
                             }
 
                             return SizedBox(
                               width: double.infinity,
                               child: ElevatedButton(
                                 onPressed: () {
-                                  if (hasActiveJob) {
+                                  if (hasActiveJob && jobsState is JobsLoaded) {
+                                    final activeJob = jobsState.jobs.firstWhere((job) =>
+                                        job.professionalId == widget.professional.id &&
+                                        (job.status == JobStatus.pending ||
+                                         job.status == JobStatus.accepted ||
+                                         job.status == JobStatus.scheduled));
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => ChatPage(professional: widget.professional),
+                                        builder: (context) => ChatPage(
+                                          professional: widget.professional,
+                                          jobId: activeJob.id,
+                                        ),
                                       ),
                                     );
                                   } else {
@@ -472,6 +535,37 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
     );
   }
 
+  Widget _buildTagChip(String tag) {
+    final parts = tag.split('|');
+    final name = parts[0];
+    final colorHex = parts.length > 1 ? parts[1] : null;
+
+    Color tagColor = AppColors.primary; // fallback
+    if (colorHex != null && colorHex.isNotEmpty) {
+      try {
+        final hex = colorHex.replaceAll('#', '');
+        tagColor = Color(int.parse('FF$hex', radix: 16));
+      } catch (_) {}
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: tagColor.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: tagColor.withOpacity(0.3)),
+      ),
+      child: Text(
+        name,
+        style: TextStyle(
+          fontSize: 12,
+          color: tagColor,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
   Future<void> _launchURL(String urlString) async {
     String processedUrl = urlString.trim();
     if (!processedUrl.startsWith('http://') && !processedUrl.startsWith('https://')) {
@@ -491,7 +585,7 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al abrir enlace: $e')),
+          SnackBar(content: Text('No se pudo abrir el enlace. Por favor, intenta de nuevo.')),
         );
       }
     }

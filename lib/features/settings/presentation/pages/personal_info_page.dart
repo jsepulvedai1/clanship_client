@@ -85,6 +85,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
             phoneNumber
             firstName
             lastName
+            avatarUrl
           }
         }
       }
@@ -135,7 +136,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}'),
+            content: Text('Lo sentimos, hubo un error al guardar tus datos.'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -205,56 +206,55 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                 ),
                 child: Column(
                   children: [
-                    // Nombre
+                    // Nombre (solo lectura)
                     TextFormField(
                       controller: _firstNameController,
-                      decoration: const InputDecoration(
+                      readOnly: true,
+                      decoration: InputDecoration(
                         labelText: 'Nombre',
-                        prefixIcon: Icon(Icons.person_outline_rounded),
+                        prefixIcon: const Icon(Icons.person_outline_rounded),
+                        filled: true,
+                        fillColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.04),
+                        suffixIcon: const Tooltip(
+                          message: 'El nombre no puede ser modificado',
+                          child: Icon(Icons.lock_outline, size: 16, color: Colors.grey),
+                        ),
                       ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Por favor ingresa tu nombre';
-                        }
-                        return null;
-                      },
                     ),
                     const SizedBox(height: 20),
                     
-                    // Apellido
+                    // Apellido (solo lectura)
                     TextFormField(
                       controller: _lastNameController,
-                      decoration: const InputDecoration(
+                      readOnly: true,
+                      decoration: InputDecoration(
                         labelText: 'Apellido',
-                        prefixIcon: Icon(Icons.person_outline_rounded),
+                        prefixIcon: const Icon(Icons.person_outline_rounded),
+                        filled: true,
+                        fillColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.04),
+                        suffixIcon: const Tooltip(
+                          message: 'El apellido no puede ser modificado',
+                          child: Icon(Icons.lock_outline, size: 16, color: Colors.grey),
+                        ),
                       ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Por favor ingresa tu apellido';
-                        }
-                        return null;
-                      },
                     ),
                     const SizedBox(height: 20),
                     
-                    // Correo electrónico
+                    // Correo (solo lectura)
                     TextFormField(
                       controller: _emailController,
+                      readOnly: true,
                       keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Correo Electrónico',
-                        prefixIcon: Icon(Icons.email_outlined),
+                        prefixIcon: const Icon(Icons.email_outlined),
+                        filled: true,
+                        fillColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.04),
+                        suffixIcon: const Tooltip(
+                          message: 'El correo no puede ser modificado',
+                          child: Icon(Icons.lock_outline, size: 16, color: Colors.grey),
+                        ),
                       ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Por favor ingresa tu correo electrónico';
-                        }
-                        final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
-                        if (!emailRegex.hasMatch(value.trim())) {
-                          return 'Ingresa un correo electrónico válido';
-                        }
-                        return null;
-                      },
                     ),
                     const SizedBox(height: 20),
                     

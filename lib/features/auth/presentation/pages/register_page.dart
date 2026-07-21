@@ -9,6 +9,12 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:clanship_cliente/features/auth/presentation/widgets/address_picker_page.dart';
+import 'dart:io';
+import 'dart:convert';
+import 'package:image_picker/image_picker.dart';
+import 'package:clanship_cliente/core/utils/image_cropper_helper.dart';
+import 'package:clanship_cliente/core/di/injection.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -20,13 +26,15 @@ class RegisterPage extends StatefulWidget {
 class _RegisterPageState extends State<RegisterPage> {
   final _pageController = PageController();
   int _currentStep = 0;
+  String? _avatarPath;
 
   // Step 0 Controllers (Datos Personales)
   final _emailController = TextEditingController();
   final _repeatEmailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _repeatPasswordController = TextEditingController();
-  final _nameController = TextEditingController();
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
   final _birthdateController = TextEditingController();
 
   // Password visibility states
@@ -47,7 +55,8 @@ class _RegisterPageState extends State<RegisterPage> {
     _repeatEmailController.dispose();
     _passwordController.dispose();
     _repeatPasswordController.dispose();
-    _nameController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
     _birthdateController.dispose();
     _addressController.dispose();
     _phoneController.dispose();
@@ -58,9 +67,8 @@ class _RegisterPageState extends State<RegisterPage> {
     final result = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
-        builder: (context) => AddressPickerPage(
-          initialAddress: _addressController.text,
-        ),
+        builder: (context) =>
+            AddressPickerPage(initialAddress: _addressController.text),
       ),
     );
 
@@ -113,16 +121,28 @@ class _RegisterPageState extends State<RegisterPage> {
     final repeatEmail = _repeatEmailController.text.trim();
     final password = _passwordController.text;
     final repeatPassword = _repeatPasswordController.text;
-    final name = _nameController.text.trim();
+    final firstName = _firstNameController.text.trim();
+    final lastName = _lastNameController.text.trim();
     final birthdate = _birthdateController.text;
 
     if (email.isEmpty ||
         repeatEmail.isEmpty ||
         password.isEmpty ||
         repeatPassword.isEmpty ||
-        name.isEmpty ||
+        firstName.isEmpty ||
+        lastName.isEmpty ||
         birthdate.isEmpty) {
       _showError('Por favor completa todos los campos.');
+      return false;
+    }
+
+    if (firstName.length > 30) {
+      _showError('El nombre no puede superar los 30 caracteres.');
+      return false;
+    }
+
+    if (lastName.length > 30) {
+      _showError('El apellido no puede superar los 30 caracteres.');
       return false;
     }
 
@@ -155,7 +175,8 @@ class _RegisterPageState extends State<RegisterPage> {
     return _addressController.text.trim().isNotEmpty &&
         phone.length == 8 &&
         RegExp(r'^[0-9]{8}$').hasMatch(phone) &&
-        _acceptedTerms;
+        _acceptedTerms &&
+        _avatarPath != null;
   }
 
   void _showError(String message) {
@@ -191,6 +212,30 @@ class _RegisterPageState extends State<RegisterPage> {
       body: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthAuthenticated) {
+            // Save the registered address to saved_user_addresses in SharedPreferences
+            if (state.user.address != null && state.user.address!.isNotEmpty) {
+              try {
+                final prefs = getIt<SharedPreferences>();
+                final String? jsonStr = prefs.getString('saved_user_addresses');
+                List<Map<String, dynamic>> saved = [];
+                if (jsonStr != null) {
+                  final List<dynamic> decoded = json.decode(jsonStr);
+                  saved = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+                }
+                
+                final bool exists = saved.any((element) => element['address'] == state.user.address);
+                if (!exists) {
+                  saved.add({
+                    'name': 'Hogar',
+                    'address': state.user.address,
+                    'latitude': state.user.latitude ?? 0.0,
+                    'longitude': state.user.longitude ?? 0.0,
+                  });
+                  prefs.setString('saved_user_addresses', json.encode(saved));
+                }
+              } catch (_) {}
+            }
+
             Navigator.of(context).pushAndRemoveUntil(
               MaterialPageRoute(builder: (_) => const MainPage()),
               (route) => false,
@@ -389,10 +434,19 @@ class _RegisterPageState extends State<RegisterPage> {
           ),
           const SizedBox(height: 12),
           _buildTextField(
-            controller: _nameController,
-            hint: 'Nombre y Apellido',
+            controller: _firstNameController,
+            hint: 'Nombre',
             keyboardType: TextInputType.name,
             icon: Icons.person_outline,
+            inputFormatters: [LengthLimitingTextInputFormatter(30)],
+          ),
+          const SizedBox(height: 12),
+          _buildTextField(
+            controller: _lastNameController,
+            hint: 'Apellido',
+            keyboardType: TextInputType.name,
+            icon: Icons.person_outline,
+            inputFormatters: [LengthLimitingTextInputFormatter(30)],
           ),
           const SizedBox(height: 12),
           GestureDetector(
@@ -500,6 +554,28 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   // STEP 1: UBICACIÓN Y CONTACTO
+  Future<void> _pickAvatar() async {
+    final picker = ImagePicker();
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 800,
+      maxHeight: 800,
+      imageQuality: 60,
+    );
+
+    if (image == null) return;
+
+    final croppedPath = await ImageCropperHelper.cropImage(
+      imagePath: image.path,
+      isSquare: true,
+    );
+    if (croppedPath == null) return;
+
+    setState(() {
+      _avatarPath = croppedPath;
+    });
+  }
+
   Widget _buildStep1() {
     final bool isValid = _isStep1FormValid();
 
@@ -524,7 +600,65 @@ class _RegisterPageState extends State<RegisterPage> {
             textAlign: TextAlign.center,
             style: TextStyle(color: Color(0xFF2E3135), fontSize: 14),
           ),
-          const SizedBox(height: 36),
+          const SizedBox(height: 24),
+          GestureDetector(
+            onTap: _pickAvatar,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 90,
+                  height: 90,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                    border: Border.all(
+                      color: const Color(0xFF0D2B45).withOpacity(0.2),
+                      width: 2,
+                    ),
+                  ),
+                  child: ClipOval(
+                    child: _avatarPath != null
+                        ? Image.file(
+                            File(_avatarPath!),
+                            fit: BoxFit.cover,
+                          )
+                        : const Icon(
+                            Icons.person_add_alt_1_rounded,
+                            size: 40,
+                            color: Color(0xFFBCC5D0),
+                          ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0xFF0D2B45),
+                    ),
+                    child: const Icon(
+                      Icons.camera_alt_rounded,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Foto de perfil (Requerida)',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF2E3135),
+            ),
+          ),
+          const SizedBox(height: 24),
           GestureDetector(
             onTap: _openAddressPicker,
             child: AbsorbPointer(
@@ -590,11 +724,13 @@ class _RegisterPageState extends State<RegisterPage> {
                             RegisterRequested(
                               email: _emailController.text.trim(),
                               password: _passwordController.text,
-                              name: _nameController.text.trim(),
+                              firstName: _firstNameController.text.trim(),
+                              lastName: _lastNameController.text.trim(),
                               birthdate: _birthdateController.text,
                               address: _addressController.text.trim(),
-                              phoneNumber: '+569${_phoneController.text.trim()}',
-                              avatarPath: null,
+                              phoneNumber:
+                                  '+569${_phoneController.text.trim()}',
+                              avatarPath: _avatarPath,
                               latitude: _latitude,
                               longitude: _longitude,
                             ),
@@ -607,7 +743,9 @@ class _RegisterPageState extends State<RegisterPage> {
                     disabledBackgroundColor: const Color(
                       0xFF0D2B45,
                     ).withValues(alpha: 0.3),
-                    disabledForegroundColor: Colors.white.withValues(alpha: 0.6),
+                    disabledForegroundColor: Colors.white.withValues(
+                      alpha: 0.6,
+                    ),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -635,6 +773,7 @@ class _RegisterPageState extends State<RegisterPage> {
     TextInputType keyboardType = TextInputType.text,
     void Function(String)? onChanged,
     Widget? suffixIcon,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -653,6 +792,7 @@ class _RegisterPageState extends State<RegisterPage> {
         obscureText: obscureText,
         keyboardType: keyboardType,
         onChanged: onChanged,
+        inputFormatters: inputFormatters,
         style: const TextStyle(color: Color(0xFF2E3135), fontSize: 14),
         cursorColor: const Color(0xFF0D2B45),
         decoration: InputDecoration(
@@ -749,7 +889,10 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
             ],
           ),
-          prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+          prefixIconConstraints: const BoxConstraints(
+            minWidth: 0,
+            minHeight: 0,
+          ),
           filled: true,
           fillColor: Colors.transparent,
           border: OutlineInputBorder(
@@ -833,22 +976,22 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
               ),
             ),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  _acceptedTerms = true;
-                });
-                Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0D2B45),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text('Aceptar'),
-            ),
+            // ElevatedButton(
+            //   onPressed: () {
+            //     setState(() {
+            //       _acceptedTerms = true;
+            //     });
+            //     Navigator.pop(context);
+            //   },
+            //   style: ElevatedButton.styleFrom(
+            //     backgroundColor: const Color(0xFF0D2B45),
+            //     foregroundColor: Colors.white,
+            //     shape: RoundedRectangleBorder(
+            //       borderRadius: BorderRadius.circular(8),
+            //     ),
+            //   ),
+            //   child: const Text('Aceptar'),
+            // ),
           ],
         );
       },

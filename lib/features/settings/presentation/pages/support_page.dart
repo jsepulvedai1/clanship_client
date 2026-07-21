@@ -30,7 +30,7 @@ class SupportPage extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('No se pudo abrir el correo: ${e.toString().replaceAll('Exception: ', '')}'),
+            content: Text('No se pudo abrir el correo.'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -54,7 +54,7 @@ class SupportPage extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al abrir WhatsApp: ${e.toString().replaceAll('Exception: ', '')}'),
+            content: Text('No se pudo abrir WhatsApp.'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -78,7 +78,7 @@ class SupportPage extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al realizar llamada: ${e.toString().replaceAll('Exception: ', '')}'),
+            content: Text('No se pudo realizar la llamada.'),
             backgroundColor: AppColors.error,
           ),
         );

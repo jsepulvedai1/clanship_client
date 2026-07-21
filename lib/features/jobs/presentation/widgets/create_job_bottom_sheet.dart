@@ -89,7 +89,7 @@ class _CreateJobBottomSheetState extends State<CreateJobBottomSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al crear el trabajo: $e')),
+          SnackBar(content: Text('Lo sentimos, no se pudo crear el trabajo. Por favor, intenta de nuevo.')),
         );
       }
     } finally {

@@ -5,6 +5,9 @@ import 'package:clanship_cliente/features/jobs/domain/entities/job_match.dart';
 import 'package:clanship_cliente/features/jobs/presentation/widgets/specialty_ui_helper.dart';
 import 'package:clanship_cliente/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:clanship_cliente/features/jobs/presentation/bloc/jobs_bloc.dart';
+import 'package:clanship_cliente/features/jobs/presentation/bloc/jobs_event.dart';
 import 'package:intl/intl.dart';
 
 class JobDetailPage extends StatelessWidget {
@@ -50,6 +53,11 @@ class JobDetailPage extends StatelessWidget {
                   // Professional Profile Card
                   _buildProfessionalCard(theme, l10n, color),
                   const SizedBox(height: 24),
+
+                  if (job.status == JobStatus.scheduled) ...[
+                    _buildProposalCard(context, theme, color),
+                    const SizedBox(height: 24),
+                  ],
                   
                   // Job Description Section
                   _buildSectionTitle(l10n.jobsDetailTitle, theme),
@@ -236,7 +244,55 @@ class JobDetailPage extends StatelessWidget {
     );
   }
 
+  Widget _buildProposalCard(BuildContext context, ThemeData theme, Color color) {
+    final arrival = job.estimatedArrival ?? 'Visita programada';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.orange.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.orange.shade300, width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.info_outline_rounded, color: Colors.orange, size: 24),
+              const SizedBox(width: 8),
+              Text(
+                'Propuesta de Visita',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.orange.shade900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'El profesional ha programado una fecha y hora para realizar la visita:',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withOpacity(0.8),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '📅   $arrival',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildActionFooter(BuildContext context, AppLocalizations l10n, ThemeData theme) {
+    final bool isScheduled = job.status == JobStatus.scheduled;
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -252,7 +308,47 @@ class JobDetailPage extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
+            if (isScheduled) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        context.read<JobsBloc>().add(UpdateJobStatus(job.id, 'CANCELLED'));
+                        Navigator.pop(context);
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFFF5277),
+                        side: const BorderSide(color: Color(0xFFFF5277)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child: const Text('Rechazar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        context.read<JobsBloc>().add(UpdateJobStatus(job.id, 'AGREED'));
+                        Navigator.pop(context);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.success,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child: const Text('Confirmar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
             // Chat Button (Primary)
             SizedBox(
               width: double.infinity,
@@ -293,21 +389,23 @@ class JobDetailPage extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            // Cancel Button (Secondary/Alert)
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: OutlinedButton(
-                onPressed: () => Navigator.pop(context),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFFF5277),
-                  side: const BorderSide(color: Color(0xFFFF5277)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            if (!isScheduled) ...[
+              const SizedBox(height: 12),
+              // Cancel Button (Secondary/Alert)
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFFF5277),
+                    side: const BorderSide(color: Color(0xFFFF5277)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  child: Text(l10n.jobsCancel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 ),
-                child: Text(l10n.jobsCancel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ),
-            ),
+            ],
           ],
         ),
       ),

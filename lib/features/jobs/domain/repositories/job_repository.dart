@@ -18,4 +18,9 @@ abstract class JobRepository {
     String enrichedDetails,
     String? photoBase64,
   );
+  Future<void> updateJobStatus(
+    int jobId,
+    String status,
+  );
+  Future<String> getJobStatus(int jobId);
 }

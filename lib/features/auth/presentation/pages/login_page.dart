@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'register_page.dart';
+import 'forgot_password_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -40,11 +41,7 @@ class _LoginPageState extends State<LoginPage> {
             );
           } else if (state is AuthFailure) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Error de inicio de sesión: ${state.errorMessage}',
-                ),
-              ),
+              SnackBar(content: Text('Correo o contraseña incorrecta')),
             );
           } else if (state is PasswordResetSuccess) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -77,7 +74,7 @@ class _LoginPageState extends State<LoginPage> {
                 height: 180,
                 child: CustomPaint(painter: TopWavePainter()),
               ),
-              // Bottom-right deep blue decorative wave
+              // Bottom-right deep blue decoratgitive wave
               Positioned(
                 bottom: 0,
                 left: 0,
@@ -302,7 +299,14 @@ class _LoginPageState extends State<LoginPage> {
         Align(
           alignment: Alignment.centerRight,
           child: TextButton(
-            onPressed: () => _showForgotPasswordDialog(context),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ForgotPasswordPage(),
+                ),
+              );
+            },
             child: const Text(
               '¿Olvidaste tu contraseña?',
               style: TextStyle(
@@ -469,15 +473,24 @@ class _LoginPageState extends State<LoginPage> {
                   fillColor: Colors.transparent,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                    borderSide: const BorderSide(
+                      color: Color(0xFFE2E8F0),
+                      width: 1,
+                    ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                    borderSide: const BorderSide(
+                      color: Color(0xFFE2E8F0),
+                      width: 1,
+                    ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFF0D2B45), width: 1.5),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF0D2B45),
+                      width: 1.5,
+                    ),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -507,7 +520,9 @@ class _LoginPageState extends State<LoginPage> {
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Por favor, ingresa tu correo electrónico.'),
+                      content: Text(
+                        'Por favor, ingresa tu correo electrónico.',
+                      ),
                       backgroundColor: Color(0xFFFF5252),
                     ),
                   );

@@ -9,7 +9,6 @@ import 'package:injectable/injectable.dart';
 class ChatRepositoryImpl implements ChatRepository {
   final GraphQLService _graphQLService;
   final Map<String, StreamController<List<ChatMessage>>> _controllers = {};
-  Timer? _pollingTimer;
 
   ChatRepositoryImpl(this._graphQLService);
 
@@ -51,20 +50,34 @@ class ChatRepositoryImpl implements ChatRepository {
   @override
   Stream<List<ChatMessage>> getMessages(String roomId) {
     if (!_controllers.containsKey(roomId)) {
-      _controllers[roomId] = StreamController<List<ChatMessage>>.broadcast();
-      
-      // Start polling
-      _startPolling(roomId);
+      late StreamController<List<ChatMessage>> controller;
+      Timer? roomTimer;
+
+      void startPolling() {
+        _fetchMessages(roomId, controller);
+        roomTimer?.cancel();
+        roomTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+          _fetchMessages(roomId, controller);
+        });
+      }
+
+      void stopPolling() {
+        roomTimer?.cancel();
+        roomTimer = null;
+      }
+
+      controller = StreamController<List<ChatMessage>>.broadcast(
+        onListen: () {
+          startPolling();
+        },
+        onCancel: () {
+          stopPolling();
+        },
+      );
+
+      _controllers[roomId] = controller;
     }
     return _controllers[roomId]!.stream;
-  }
-
-  void _startPolling(String roomId) {
-    _fetchMessages(roomId);
-    _pollingTimer?.cancel();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      _fetchMessages(roomId);
-    });
   }
 
   String? _myUserId;
@@ -88,7 +101,7 @@ class ChatRepositoryImpl implements ChatRepository {
     return _myUserId ?? '';
   }
 
-  Future<void> _fetchMessages(String roomId) async {
+  Future<void> _fetchMessages(String roomId, StreamController<List<ChatMessage>> controller) async {
     final myId = await _getMyUserId();
 
     const String query = r'''
@@ -97,6 +110,8 @@ class ChatRepositoryImpl implements ChatRepository {
           id
           text
           createdAt
+          fileUrl
+          messageType
           sender {
             id
           }
@@ -119,6 +134,16 @@ class ChatRepositoryImpl implements ChatRepository {
       
       final messages = messagesData.map((m) {
         final senderId = m['sender']['id'].toString();
+        final messageTypeStr = m['messageType'] as String? ?? 'TEXT';
+        ChatMessageType type = ChatMessageType.text;
+        if (messageTypeStr == 'IMAGE') {
+          type = ChatMessageType.image;
+        } else if (messageTypeStr == 'AUDIO') {
+          type = ChatMessageType.audio;
+        } else if (messageTypeStr == 'APPOINTMENT') {
+          type = ChatMessageType.appointment;
+        }
+
         return ChatMessage(
           id: m['id'].toString(),
           senderId: senderId,
@@ -126,18 +151,28 @@ class ChatRepositoryImpl implements ChatRepository {
           text: m['text'] ?? '',
           timestamp: DateTime.tryParse(m['createdAt'] ?? '') ?? DateTime.now(),
           isMe: senderId == myId,
+          type: type,
+          fileUrl: _sanitizeFileUrl(m['fileUrl'] as String?),
         );
       }).toList();
 
-      _controllers[roomId]?.add(messages);
+      if (!controller.isClosed) {
+        controller.add(messages);
+      }
     }
   }
 
   @override
-  Future<void> sendMessage(String roomId, String text) async {
+  Future<void> sendMessage(
+    String roomId, 
+    String text, {
+    String? fileBase64, 
+    String? fileName, 
+    String? messageType,
+  }) async {
     const String mutation = r'''
-      mutation SendMessage($roomId: Int!, $text: String!) {
-        sendMessage(roomId: $roomId, text: $text) {
+      mutation SendMessage($roomId: Int!, $text: String, $fileBase64: String, $fileName: String, $messageType: String) {
+        sendMessage(roomId: $roomId, text: $text, fileBase64: $fileBase64, fileName: $fileName, messageType: $messageType) {
           message {
             id
           }
@@ -150,6 +185,9 @@ class ChatRepositoryImpl implements ChatRepository {
       variables: {
         'roomId': int.parse(roomId),
         'text': text,
+        'fileBase64': fileBase64,
+        'fileName': fileName,
+        'messageType': messageType,
       },
       fetchPolicy: FetchPolicy.networkOnly,
     );
@@ -159,8 +197,21 @@ class ChatRepositoryImpl implements ChatRepository {
     if (result.hasException) {
       throw Exception(result.exception.toString());
     }
-    
-    // Trigger a fetch right after sending
-    _fetchMessages(roomId);
+
+    final controller = _controllers[roomId];
+    if (controller != null) {
+      _fetchMessages(roomId, controller);
+    }
+  }
+
+  String? _sanitizeFileUrl(String? url) {
+    if (url == null) return null;
+    if (url.startsWith('http://') && 
+        !url.contains('127.0.0.1') && 
+        !url.contains('localhost') && 
+        !url.contains('10.0.2.2')) {
+      return url.replaceFirst('http://', 'https://');
+    }
+    return url;
   }
 }

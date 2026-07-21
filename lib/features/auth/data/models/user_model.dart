@@ -46,4 +46,31 @@ class UserModel extends User {
   }
 
   Map<String, dynamic> toJson() => _$UserModelToJson(this);
+
+  @override
+  UserModel copyWith({
+    String? id,
+    String? email,
+    String? name,
+    String? avatarPath,
+    String? firstName,
+    String? lastName,
+    String? phoneNumber,
+    String? address,
+    double? latitude,
+    double? longitude,
+  }) {
+    return UserModel(
+      id: id ?? this.id,
+      email: email ?? this.email,
+      name: name ?? this.name,
+      avatarPath: avatarPath ?? this.avatarPath,
+      firstName: firstName ?? this.firstName,
+      lastName: lastName ?? this.lastName,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      address: address ?? this.address,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+    );
+  }
 }
