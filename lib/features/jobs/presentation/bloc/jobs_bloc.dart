@@ -47,7 +47,11 @@ class JobsBloc extends Bloc<JobsEvent, JobsState> {
   Future<void> _onUpdateJobStatus(UpdateJobStatus event, Emitter<JobsState> emit) async {
     emit(JobsLoading());
     try {
-      await _repository.updateJobStatus(int.parse(event.jobId), event.status);
+      await _repository.updateJobStatus(
+        int.parse(event.jobId),
+        event.status,
+        cancellationReason: event.cancellationReason,
+      );
       final jobs = await _repository.getJobs();
       emit(JobsLoaded(jobs));
     } catch (e) {

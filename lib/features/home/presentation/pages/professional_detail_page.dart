@@ -374,75 +374,7 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
                         ],
                       ),
 
-                      const SizedBox(height: 48),
-
-                      // Large Final Contact Button
-                      Center(
-                        child: BlocBuilder<JobsBloc, JobsState>(
-                          builder: (context, jobsState) {
-                            bool hasActiveJob = false;
-                            if (jobsState is JobsLoaded) {
-                              hasActiveJob = jobsState.jobs.any((job) =>
-                                  job.professionalId == widget.professional.id &&
-                                  (job.status == JobStatus.pending ||
-                                   job.status == JobStatus.accepted ||
-                                   job.status == JobStatus.scheduled));
-                            }
-
-                            return SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  if (hasActiveJob && jobsState is JobsLoaded) {
-                                    final activeJob = jobsState.jobs.firstWhere((job) =>
-                                        job.professionalId == widget.professional.id &&
-                                        (job.status == JobStatus.pending ||
-                                         job.status == JobStatus.accepted ||
-                                         job.status == JobStatus.scheduled));
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => ChatPage(
-                                          professional: widget.professional,
-                                          jobId: activeJob.id,
-                                        ),
-                                      ),
-                                    );
-                                  } else {
-                                    ConfirmAddressBottomSheet.show(
-                                      context,
-                                      onConfirm: (confirmedAddress) {
-                                        _createJobAndNavigate(
-                                          context,
-                                          widget.professional,
-                                          confirmedAddress,
-                                        );
-                                      },
-                                    );
-                                  }
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.primary,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 20),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  elevation: 0,
-                                ),
-                                child: Text(
-                                  hasActiveJob ? l10n.jobsGoToChat : l10n.profDetailContact,
-                                  style: const TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 40),
+                      const SizedBox(height: 20),
                     ],
                   ),
                 ),
@@ -497,6 +429,84 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
             ),
           ),
         ],
+      ),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          boxShadow: [
+            BoxShadow(
+              color: Theme.of(context).shadowColor.withOpacity(0.08),
+              blurRadius: 16,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
+            height: 52,
+            child: BlocBuilder<JobsBloc, JobsState>(
+              builder: (context, jobsState) {
+                bool hasActiveJob = false;
+                if (jobsState is JobsLoaded) {
+                  hasActiveJob = jobsState.jobs.any((job) =>
+                      job.professionalId == widget.professional.id &&
+                      (job.status == JobStatus.pending ||
+                       job.status == JobStatus.accepted ||
+                       job.status == JobStatus.scheduled));
+                }
+
+                return ElevatedButton(
+                  onPressed: () {
+                    if (hasActiveJob && jobsState is JobsLoaded) {
+                      final activeJob = jobsState.jobs.firstWhere((job) =>
+                          job.professionalId == widget.professional.id &&
+                          (job.status == JobStatus.pending ||
+                           job.status == JobStatus.accepted ||
+                           job.status == JobStatus.scheduled));
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ChatPage(
+                            professional: widget.professional,
+                            jobId: activeJob.id,
+                          ),
+                        ),
+                      );
+                    } else {
+                      ConfirmAddressBottomSheet.show(
+                        context,
+                        onConfirm: (confirmedAddress) {
+                          _createJobAndNavigate(
+                            context,
+                            widget.professional,
+                            confirmedAddress,
+                          );
+                        },
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    hasActiveJob ? l10n.jobsGoToChat : l10n.profDetailContact,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -1,6 +1,7 @@
 import 'package:clanship_cliente/core/di/injection.dart';
 import 'package:clanship_cliente/core/theme/app_colors.dart';
 import 'package:clanship_cliente/core/utils/error_parser.dart';
+import 'package:clanship_cliente/features/chat/domain/entities/chat_message.dart';
 import 'package:clanship_cliente/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:clanship_cliente/features/chat/presentation/widgets/chat_bubble.dart';
 import 'package:clanship_cliente/features/home/domain/entities/professional.dart';
@@ -217,6 +218,18 @@ class _ChatPageState extends State<ChatPage> {
                       return const Center(child: CircularProgressIndicator());
                     } else if (state is ChatLoaded) {
                       final messages = state.messages.reversed.toList();
+
+                      ChatMessage? latestProposalMsg;
+                      try {
+                        latestProposalMsg = state.messages.lastWhere(
+                          (m) =>
+                              !m.isMe &&
+                              m.text.startsWith('Propuesta de visita:'),
+                        );
+                      } catch (_) {
+                        latestProposalMsg = null;
+                      }
+
                       return ListView.builder(
                         controller: _scrollController,
                         padding: const EdgeInsets.symmetric(
@@ -236,10 +249,16 @@ class _ChatPageState extends State<ChatPage> {
                           } else {
                             avatarUrl = widget.professional.imageUrl;
                           }
+
+                          final isLatest =
+                              latestProposalMsg != null &&
+                              msg.id == latestProposalMsg.id;
+
                           return ChatBubble(
                             message: msg,
                             senderAvatarUrl: avatarUrl,
                             jobStatus: state.jobStatus,
+                            isLatestProposal: isLatest,
                           );
                         },
                       );

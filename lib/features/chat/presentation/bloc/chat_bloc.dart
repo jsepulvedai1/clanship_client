@@ -39,7 +39,10 @@ class UpdateMessages extends ChatEvent {
 
 class TriggerJobCancelled extends ChatEvent {}
 class AcceptJobProposal extends ChatEvent {}
-class RejectJobProposal extends ChatEvent {}
+class RejectJobProposal extends ChatEvent {
+  final String? cancellationReason;
+  RejectJobProposal({this.cancellationReason});
+}
 
 // States
 abstract class ChatState {}
@@ -82,32 +85,27 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         final jobIdInt = event.jobId != null ? int.tryParse(event.jobId!) : null;
         _currentJobId = event.jobId;
 
-        if (jobIdInt != null) {
-          try {
-            final jobRepository = getIt<JobRepository>();
-            _currentJobStatus = await jobRepository.getJobStatus(jobIdInt);
-            if (_currentJobStatus == 'CANCELLED') {
-              emit(JobCancelledState(byMe: false));
-              return;
-            }
-          } catch (_) {}
+        final roomInfo = await _repository.getOrCreateChatRoom(professionalIdInt, jobId: jobIdInt);
+        _currentRoomId = roomInfo.roomId;
+        if (roomInfo.jobId != null) {
+          _currentJobId = roomInfo.jobId;
+        }
+        if (roomInfo.jobStatus != null) {
+          _currentJobStatus = roomInfo.jobStatus;
         }
 
-        _currentRoomId = await _repository.getOrCreateChatRoom(professionalIdInt, jobId: jobIdInt);
-        
+        final activeJobId = _currentJobId != null ? int.tryParse(_currentJobId!) : null;
+
         _subscription = _repository.getMessages(_currentRoomId!).listen(
           (messages) => add(UpdateMessages(messages)),
         );
 
-        if (jobIdInt != null) {
+        if (activeJobId != null) {
           _jobStatusTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
             try {
               final jobRepository = getIt<JobRepository>();
-              final status = await jobRepository.getJobStatus(jobIdInt);
-              if (status == 'CANCELLED') {
-                timer.cancel();
-                add(TriggerJobCancelled());
-              } else if (status != _currentJobStatus) {
+              final status = await jobRepository.getJobStatus(activeJobId);
+              if (status != _currentJobStatus) {
                 _currentJobStatus = status;
                 if (state is ChatLoaded) {
                   final currentState = state as ChatLoaded;
@@ -136,9 +134,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     });
 
     on<TriggerJobCancelled>((event, emit) {
-      _jobStatusTimer?.cancel();
-      _subscription?.cancel();
-      emit(JobCancelledState(byMe: false));
+      _currentJobStatus = 'CANCELLED';
+      if (state is ChatLoaded) {
+        final currentState = state as ChatLoaded;
+        emit(ChatLoaded(currentState.messages, jobStatus: 'CANCELLED'));
+      }
     });
 
     on<AcceptJobProposal>((event, emit) async {
@@ -158,14 +158,26 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     });
 
     on<RejectJobProposal>((event, emit) async {
-      _jobStatusTimer?.cancel();
-      if (_currentJobId != null) {
+      if (_currentJobId != null && _currentRoomId != null) {
         try {
           final jobRepository = getIt<JobRepository>();
           final jobIdInt = int.parse(_currentJobId!);
-          await jobRepository.updateJobStatus(jobIdInt, 'CANCELLED');
-          _subscription?.cancel();
-          emit(JobCancelledState(byMe: true));
+          await jobRepository.updateJobStatus(
+            jobIdInt,
+            'CANCELLED',
+            cancellationReason: event.cancellationReason,
+          );
+          _currentJobStatus = 'CANCELLED';
+          if (state is ChatLoaded) {
+            final currentState = state as ChatLoaded;
+            emit(ChatLoaded(currentState.messages, jobStatus: 'CANCELLED'));
+          }
+          await _repository.sendMessage(
+            _currentRoomId!,
+            event.cancellationReason != null && event.cancellationReason!.isNotEmpty
+                ? 'Propuesta de visita rechazada por el cliente. Motivo: ${event.cancellationReason}'
+                : 'Propuesta de visita rechazada por el cliente.',
+          );
         } catch (_) {}
       }
     });

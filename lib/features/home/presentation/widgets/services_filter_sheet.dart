@@ -104,6 +104,90 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
     return count;
   }
 
+  bool _isSpecialtyFullySelected(Map<String, dynamic> specialty) {
+    final tags = specialty['tags'] as List<dynamic>? ?? [];
+    if (tags.isEmpty) return false;
+    for (final tag in tags) {
+      final tagId = int.parse(tag['id'].toString());
+      final subtags = tag['subtags'] as List<dynamic>? ?? [];
+      if (subtags.isEmpty) {
+        if (!_selectedTagIds.contains(tagId)) return false;
+      } else {
+        for (final subtag in subtags) {
+          final subtagId = int.parse(subtag['id'].toString());
+          if (!_selectedSubtagIds.contains(subtagId)) return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  bool _isTagFullySelected(Map<String, dynamic> tag) {
+    final tagId = int.parse(tag['id'].toString());
+    final subtags = tag['subtags'] as List<dynamic>? ?? [];
+    if (subtags.isEmpty) {
+      return _selectedTagIds.contains(tagId);
+    }
+    for (final subtag in subtags) {
+      final subtagId = int.parse(subtag['id'].toString());
+      if (!_selectedSubtagIds.contains(subtagId)) return false;
+    }
+    return true;
+  }
+
+  void _toggleSpecialtyCascade(Map<String, dynamic> specialty) {
+    final isFullySelected = _isSpecialtyFullySelected(specialty);
+    final tags = specialty['tags'] as List<dynamic>? ?? [];
+
+    setState(() {
+      for (final tag in tags) {
+        final tagId = int.parse(tag['id'].toString());
+        final subtags = tag['subtags'] as List<dynamic>? ?? [];
+        if (subtags.isEmpty) {
+          if (isFullySelected) {
+            _selectedTagIds.remove(tagId);
+          } else {
+            _selectedTagIds.add(tagId);
+          }
+        } else {
+          for (final subtag in subtags) {
+            final subtagId = int.parse(subtag['id'].toString());
+            if (isFullySelected) {
+              _selectedSubtagIds.remove(subtagId);
+            } else {
+              _selectedSubtagIds.add(subtagId);
+            }
+          }
+        }
+      }
+    });
+  }
+
+  void _toggleTagCascade(Map<String, dynamic> tag) {
+    final tagId = int.parse(tag['id'].toString());
+    final subtags = tag['subtags'] as List<dynamic>? ?? [];
+    final isFullySelected = _isTagFullySelected(tag);
+
+    setState(() {
+      if (subtags.isEmpty) {
+        if (isFullySelected) {
+          _selectedTagIds.remove(tagId);
+        } else {
+          _selectedTagIds.add(tagId);
+        }
+      } else {
+        for (final subtag in subtags) {
+          final subtagId = int.parse(subtag['id'].toString());
+          if (isFullySelected) {
+            _selectedSubtagIds.remove(subtagId);
+          } else {
+            _selectedSubtagIds.add(subtagId);
+          }
+        }
+      }
+    });
+  }
+
   // Flat list of matching Level 3 subtags + Level 2 tags for search
   List<Map<String, dynamic>> _getFlatSearchResults() {
     if (_searchQuery.isEmpty) return [];
@@ -497,6 +581,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
         final name = spec['name'] as String;
         final tags = spec['tags'] as List<dynamic>? ?? [];
         final selectedCount = _getSpecialtySelectedCount(spec);
+        final isFullySelected = _isSpecialtyFullySelected(spec);
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
@@ -519,6 +604,17 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
               ),
               child: Row(
                 children: [
+                  Checkbox(
+                    value: isFullySelected,
+                    activeColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    onChanged: (val) {
+                      _toggleSpecialtyCascade(spec);
+                    },
+                  ),
+                  const SizedBox(width: 8),
                   // Colored Circle Container with Custom Icon
                   Container(
                     width: 44,
@@ -607,21 +703,14 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
         final name = tag['name'] as String;
         final subtags = tag['subtags'] as List<dynamic>? ?? [];
         final selectedCount = _getTagSelectedCount(tag);
+        final isFullySelected = _isTagFullySelected(tag);
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: InkWell(
             onTap: () {
               if (subtags.isEmpty) {
-                // Fallback for tags without subtags
-                final tagId = int.parse(tag['id'].toString());
-                setState(() {
-                  if (_selectedTagIds.contains(tagId)) {
-                    _selectedTagIds.remove(tagId);
-                  } else {
-                    _selectedTagIds.add(tagId);
-                  }
-                });
+                _toggleTagCascade(tag);
               } else {
                 setState(() {
                   _activeTag = tag;
@@ -641,6 +730,17 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
               ),
               child: Row(
                 children: [
+                  Checkbox(
+                    value: isFullySelected,
+                    activeColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    onChanged: (val) {
+                      _toggleTagCascade(tag);
+                    },
+                  ),
+                  const SizedBox(width: 8),
                   // Icon container
                   Container(
                     width: 44,

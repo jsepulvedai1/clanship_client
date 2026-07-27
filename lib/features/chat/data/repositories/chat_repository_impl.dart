@@ -13,12 +13,16 @@ class ChatRepositoryImpl implements ChatRepository {
   ChatRepositoryImpl(this._graphQLService);
 
   @override
-  Future<String> getOrCreateChatRoom(int professionalId, {int? jobId}) async {
+  Future<ChatRoomInfo> getOrCreateChatRoom(int professionalId, {int? jobId}) async {
     const String mutation = r'''
       mutation GetOrCreateChatRoom($professionalId: Int!, $jobId: Int) {
         getOrCreateChatRoom(professionalId: $professionalId, jobId: $jobId) {
           room {
             id
+            job {
+              id
+              status
+            }
           }
         }
       }
@@ -39,12 +43,21 @@ class ChatRepositoryImpl implements ChatRepository {
       throw Exception(result.exception.toString());
     }
 
-    final roomId = result.data?['getOrCreateChatRoom']?['room']?['id'];
-    if (roomId == null) {
-      throw Exception('Could not fetch chat room ID');
+    final roomData = result.data?['getOrCreateChatRoom']?['room'];
+    if (roomData == null) {
+      throw Exception('Could not fetch chat room data');
     }
 
-    return roomId.toString();
+    final roomId = roomData['id']?.toString() ?? '';
+    final jobData = roomData['job'];
+    final roomJobId = jobData?['id']?.toString();
+    final roomJobStatus = jobData?['status']?.toString();
+
+    return ChatRoomInfo(
+      roomId: roomId,
+      jobId: roomJobId,
+      jobStatus: roomJobStatus,
+    );
   }
 
   @override

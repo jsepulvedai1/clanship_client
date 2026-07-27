@@ -92,6 +92,8 @@ class JobRepositoryImpl implements JobRepository {
           agreedPrice
           address
           hasUnreadMessages
+          cancellationReason
+          cancelledByUserName
           professional {
             id
             username
@@ -198,7 +200,9 @@ class JobRepositoryImpl implements JobRepository {
       estimatedArrival: data['scheduledTime'],
       workDescription: data['description'],
       totalValue: double.tryParse(data['agreedPrice']?.toString() ?? '0'),
-      hasUnreadMessages: data['hasUnreadMessages'] as bool? ?? false,
+      hasUnreadMessages: data['hasUnreadMessages'] ?? false,
+      cancellationReason: data['cancellationReason']?.toString(),
+      cancelledByUserName: data['cancelledByUserName']?.toString(),
     );
   }
 
@@ -308,13 +312,15 @@ class JobRepositoryImpl implements JobRepository {
   }
 
   @override
-  Future<void> updateJobStatus(int jobId, String status) async {
+  Future<void> updateJobStatus(int jobId, String status, {String? cancellationReason}) async {
     const String mutation = r'''
-      mutation UpdateJobStatus($jobId: Int!, $status: String!) {
-        updateJobStatus(jobId: $jobId, newStatus: $status) {
+      mutation UpdateJobStatus($jobId: Int!, $status: String!, $cancellationReason: String) {
+        updateJobStatus(jobId: $jobId, newStatus: $status, cancellationReason: $cancellationReason) {
           job {
             id
             status
+            cancellationReason
+            cancelledByUserName
           }
         }
       }
@@ -325,6 +331,7 @@ class JobRepositoryImpl implements JobRepository {
       variables: {
         'jobId': jobId,
         'status': status,
+        'cancellationReason': cancellationReason,
       },
       fetchPolicy: FetchPolicy.networkOnly,
     );

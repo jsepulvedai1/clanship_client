@@ -1,7 +1,15 @@
 import 'package:clanship_cliente/features/chat/domain/entities/chat_message.dart';
 
+class ChatRoomInfo {
+  final String roomId;
+  final String? jobId;
+  final String? jobStatus;
+
+  ChatRoomInfo({required this.roomId, this.jobId, this.jobStatus});
+}
+
 abstract class ChatRepository {
-  Future<String> getOrCreateChatRoom(int professionalId, {int? jobId});
+  Future<ChatRoomInfo> getOrCreateChatRoom(int professionalId, {int? jobId});
   Stream<List<ChatMessage>> getMessages(String roomId);
   Future<void> sendMessage(
     String roomId, 

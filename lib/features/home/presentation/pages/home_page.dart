@@ -47,6 +47,7 @@ class _HomePageState extends State<HomePage> {
   bool _showAllNotifications = false;
   StreamSubscription? _notificationSubscription;
   bool _isOpeningFilter = false;
+  bool _isUrgencyMode = false;
 
   @override
   void initState() {
@@ -201,6 +202,7 @@ class _HomePageState extends State<HomePage> {
                       : (savedAddress ?? _currentAddress),
                   initialSelectedTagIds: selectedTagIds,
                   initialSelectedSubtagIds: selectedSubtagIds,
+                  initialUrgencyMode: _isUrgencyMode,
                 ),
               ),
             );
@@ -307,6 +309,9 @@ class _HomePageState extends State<HomePage> {
   List<Professional> get _filteredProfessionals {
     var list = List<Professional>.from(_currentProfessionals);
     if (list.isEmpty) return [];
+    if (_isUrgencyMode) {
+      list = list.where((p) => p.acceptsUrgency).toList();
+    }
     if (_selectedTagIndex == 0) {
       list.sort((a, b) => a.distance.compareTo(b.distance));
     } else {
@@ -831,19 +836,24 @@ class _HomePageState extends State<HomePage> {
                             savedLng: savedLng,
                           );
                         },
-                        child: Container(
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 250),
                           height: 56,
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
                           decoration: BoxDecoration(
                             color: theme.colorScheme.surface,
                             borderRadius: BorderRadius.circular(28),
                             border: Border.all(
-                              color: AppColors.primary,
+                              color: _isUrgencyMode
+                                  ? AppColors.urgency
+                                  : AppColors.primary,
                               width: 2,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: theme.shadowColor.withOpacity(0.05),
+                                color: _isUrgencyMode
+                                    ? AppColors.urgency.withOpacity(0.2)
+                                    : theme.shadowColor.withOpacity(0.05),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
@@ -851,19 +861,76 @@ class _HomePageState extends State<HomePage> {
                           ),
                           child: Row(
                             children: [
-                              const Icon(
-                                Icons.search_rounded,
-                                color: AppColors.primary,
-                                size: 28,
+                              Icon(
+                                _isUrgencyMode
+                                    ? Icons.bolt_rounded
+                                    : Icons.search_rounded,
+                                color: _isUrgencyMode
+                                    ? AppColors.urgency
+                                    : AppColors.primary,
+                                size: 26,
                               ),
-                              const SizedBox(width: 12),
-                              Text(
-                                '¿Qué servicio buscas?',
-                                style: theme.textTheme.bodyLarge?.copyWith(
-                                  color: theme.colorScheme.onSurface
-                                      .withOpacity(0.4),
-                                  fontStyle: FontStyle.italic,
-                                  fontSize: 16,
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '¿Qué servicio buscas?',
+                                  style: theme.textTheme.bodyLarge?.copyWith(
+                                    color: theme.colorScheme.onSurface
+                                        .withOpacity(0.4),
+                                    fontStyle: FontStyle.italic,
+                                    fontSize: 15,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                height: 24,
+                                width: 1,
+                                color: theme.dividerColor.withOpacity(0.2),
+                              ),
+                              const SizedBox(width: 6),
+                              GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _isUrgencyMode = !_isUrgencyMode;
+                                  });
+                                },
+                                behavior: HitTestBehavior.opaque,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'Urgencia',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: _isUrgencyMode
+                                            ? AppColors.urgency
+                                            : theme.colorScheme.onSurface
+                                                .withOpacity(0.6),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 2),
+                                    Transform.scale(
+                                      scale: 0.75,
+                                      child: Switch(
+                                        value: _isUrgencyMode,
+                                        onChanged: (val) {
+                                          setState(() {
+                                            _isUrgencyMode = val;
+                                          });
+                                        },
+                                        activeColor: Colors.white,
+                                        activeTrackColor: AppColors.urgency,
+                                        inactiveThumbColor: Colors.grey.shade400,
+                                        inactiveTrackColor:
+                                            Colors.grey.shade200,
+                                        materialTapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],

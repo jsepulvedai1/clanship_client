@@ -19,7 +19,8 @@ import 'package:clanship_cliente/core/network/graphql_service.dart';
 import 'package:clanship_cliente/features/home/presentation/widgets/services_filter_sheet.dart';
 
 class ExploreMapPage extends StatefulWidget {
-  const ExploreMapPage({super.key});
+  final bool initialUrgencyMode;
+  const ExploreMapPage({super.key, this.initialUrgencyMode = false});
 
   @override
   State<ExploreMapPage> createState() => _ExploreMapPageState();
@@ -192,6 +193,7 @@ class _ExploreMapPageState extends State<ExploreMapPage>
   @override
   void initState() {
     super.initState();
+    _isUrgencyMode = widget.initialUrgencyMode;
     _searchController.addListener(_onSearchChanged);
     _initLocation();
     _fetchSpecialties();
@@ -481,6 +483,9 @@ class _ExploreMapPageState extends State<ExploreMapPage>
   }
 
   Color _getProfessionalColor(Professional prof) {
+    if (_isUrgencyMode) {
+      return AppColors.urgency;
+    }
     if (prof.specialtyColor != null && prof.specialtyColor!.isNotEmpty) {
       try {
         final hex = prof.specialtyColor!.replaceAll('#', '');

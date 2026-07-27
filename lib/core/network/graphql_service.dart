@@ -41,10 +41,23 @@ class GraphQLService {
       ),
     );
 
+    final ErrorLink errorLink = ErrorLink(
+      onGraphQLError: (request, forward, response) {
+        for (final error in response.errors ?? []) {
+          if (error.message.contains('SESSION_INVALIDATED')) {
+            _storage.delete(key: 'jwt_token');
+          }
+        }
+        return forward(request);
+      },
+    );
+
+    final Link httpAuthLink = Link.from([authLink, errorLink, httpLink]);
+
     final Link link = Link.split(
       (request) => request.isSubscription,
       websocketLink,
-      authLink.concat(httpLink),
+      httpAuthLink,
     );
 
     client = GraphQLClient(

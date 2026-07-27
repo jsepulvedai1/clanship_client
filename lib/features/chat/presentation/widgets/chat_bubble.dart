@@ -11,12 +11,14 @@ class ChatBubble extends StatelessWidget {
   final ChatMessage message;
   final String? senderAvatarUrl;
   final String? jobStatus;
+  final bool isLatestProposal;
 
   const ChatBubble({
     super.key,
     required this.message,
     this.senderAvatarUrl,
     this.jobStatus,
+    this.isLatestProposal = true,
   });
 
   @override
@@ -203,6 +205,7 @@ class ChatBubble extends StatelessWidget {
         jobStatus == 'AGREED' ||
         jobStatus == 'IN_VISIT' ||
         jobStatus == 'FINISHED';
+    final bool isRejected = jobStatus == 'CANCELLED';
 
     return Container(
       width: MediaQuery.of(context).size.width * 0.75,
@@ -282,6 +285,25 @@ class ChatBubble extends StatelessWidget {
                 ),
               ],
             ),
+          ] else if (isRejected) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(
+                  Icons.cancel_rounded,
+                  color: Colors.red,
+                  size: 18,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Propuesta Rechazada',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: Colors.red.shade800,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
           ] else if (showActions) ...[
             const SizedBox(height: 16),
             Row(
@@ -312,9 +334,7 @@ class ChatBubble extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () {
-                      context.read<ChatBloc>().add(RejectJobProposal());
-                    },
+                    onPressed: () => _showRejectionDialog(context),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.red,
                       side: const BorderSide(color: Colors.red),
@@ -335,6 +355,64 @@ class ChatBubble extends StatelessWidget {
               ],
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  void _showRejectionDialog(BuildContext context) {
+    final reasonController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Rechazar Propuesta'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '¿Deseas indicar el motivo de rechazo? (Opcional)',
+              style: TextStyle(fontSize: 14, color: Colors.black87),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reasonController,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: 'Escribe tu razón aquí...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                contentPadding: const EdgeInsets.all(12),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Volver'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF5277),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: () {
+              final reason = reasonController.text.trim();
+              Navigator.pop(dialogContext);
+              context.read<ChatBloc>().add(
+                RejectJobProposal(
+                  cancellationReason: reason.isNotEmpty ? reason : null,
+                ),
+              );
+            },
+            child: const Text('Confirmar Rechazo'),
+          ),
         ],
       ),
     );

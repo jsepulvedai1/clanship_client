@@ -58,6 +58,10 @@ class JobDetailPage extends StatelessWidget {
                     _buildProposalCard(context, theme, color),
                     const SizedBox(height: 24),
                   ],
+                  if (job.status == JobStatus.rejected) ...[
+                    _buildRejectionCard(theme),
+                    const SizedBox(height: 24),
+                  ],
                   
                   // Job Description Section
                   _buildSectionTitle(l10n.jobsDetailTitle, theme),
@@ -290,6 +294,120 @@ class JobDetailPage extends StatelessWidget {
     );
   }
 
+  Widget _buildRejectionCard(ThemeData theme) {
+    final byWho = job.cancelledByUserName != null && job.cancelledByUserName!.isNotEmpty
+        ? 'Rechazado por: ${job.cancelledByUserName}'
+        : 'Trabajo Rechazado / Cancelado';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.red.shade300, width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.cancel_outlined, color: Colors.red, size: 24),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  byWho,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red.shade900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (job.cancellationReason != null && job.cancellationReason!.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Motivo de rechazo:',
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Colors.red.shade800,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              job.cancellationReason!,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.85),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showRejectionDialog(BuildContext context) {
+    final reasonController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Rechazar Propuesta'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '¿Deseas indicar el motivo de rechazo? (Opcional)',
+              style: TextStyle(fontSize: 14, color: Colors.black87),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reasonController,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: 'Escribe tu razón aquí...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                contentPadding: const EdgeInsets.all(12),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Volver'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF5277),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: () {
+              final reason = reasonController.text.trim();
+              Navigator.pop(dialogContext);
+              context.read<JobsBloc>().add(
+                UpdateJobStatus(
+                  job.id,
+                  'CANCELLED',
+                  cancellationReason: reason.isNotEmpty ? reason : null,
+                ),
+              );
+              Navigator.pop(context);
+            },
+            child: const Text('Confirmar Rechazo'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildActionFooter(BuildContext context, AppLocalizations l10n, ThemeData theme) {
     final bool isScheduled = job.status == JobStatus.scheduled;
 
@@ -315,10 +433,7 @@ class JobDetailPage extends StatelessWidget {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () {
-                        context.read<JobsBloc>().add(UpdateJobStatus(job.id, 'CANCELLED'));
-                        Navigator.pop(context);
-                      },
+                      onPressed: () => _showRejectionDialog(context),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFFFF5277),
                         side: const BorderSide(color: Color(0xFFFF5277)),

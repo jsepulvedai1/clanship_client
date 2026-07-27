@@ -36,8 +36,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     await storage.delete(key: 'jwt_token');
 
     const String loginMutation = r'''
-      mutation TokenAuth($username: String!, $password: String!) {
-        tokenAuth(username: $username, password: $password) {
+      mutation TokenAuth($username: String!, $password: String!, $appType: String) {
+        tokenAuth(username: $username, password: $password, appType: $appType) {
           token
           refreshToken
         }
@@ -61,9 +61,11 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       }
     ''';
 
+    final cleanEmail = email.trim().toLowerCase();
+
     final MutationOptions options = MutationOptions(
       document: gql(loginMutation),
-      variables: {'username': email, 'password': password},
+      variables: {'username': cleanEmail, 'password': password, 'appType': 'CLIENT'},
       fetchPolicy: FetchPolicy.networkOnly,
     );
 
@@ -139,10 +141,12 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       }
     ''';
 
+    final cleanEmail = email.trim().toLowerCase();
+
     final MutationOptions options = MutationOptions(
       document: gql(registerMutation),
       variables: {
-        'email': email,
+        'email': cleanEmail,
         'password': password,
         'firstName': firstName,
         'lastName': lastName,
@@ -164,7 +168,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     }
 
     // After successful registration, we login the user
-    final userModel = await login(email, password);
+    final userModel = await login(cleanEmail, password);
 
     // If address or avatar path is provided, update the profile
     if ((address != null && address.isNotEmpty) ||

@@ -20,7 +20,8 @@ abstract class JobRepository {
   );
   Future<void> updateJobStatus(
     int jobId,
-    String status,
-  );
+    String status, {
+    String? cancellationReason,
+  });
   Future<String> getJobStatus(int jobId);
 }
