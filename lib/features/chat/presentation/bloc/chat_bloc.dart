@@ -62,13 +62,14 @@ class JobCancelledState extends ChatState {
   final bool byMe;
   JobCancelledState({required this.byMe});
 }
+class JobAcceptedState extends ChatState {}
 
 // Bloc
 @injectable
 class ChatBloc extends Bloc<ChatEvent, ChatState> {
   final ChatRepository _repository;
   StreamSubscription? _subscription;
-  Timer? _jobStatusTimer;
+  StreamSubscription? _jobStatusSubscription;
 
   String? _currentRoomId;
   String? _currentJobId;
@@ -78,7 +79,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<LoadMessages>((event, emit) async {
       emit(ChatLoading());
       await _subscription?.cancel();
-      _jobStatusTimer?.cancel();
+      await _jobStatusSubscription?.cancel();
 
       try {
         final professionalIdInt = int.parse(event.professionalId);
@@ -94,41 +95,45 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           _currentJobStatus = roomInfo.jobStatus;
         }
 
-        final activeJobId = _currentJobId != null ? int.tryParse(_currentJobId!) : null;
-
         _subscription = _repository.getMessages(_currentRoomId!).listen(
           (messages) => add(UpdateMessages(messages)),
         );
 
-        if (activeJobId != null) {
-          _jobStatusTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
-            try {
-              final jobRepository = getIt<JobRepository>();
-              final status = await jobRepository.getJobStatus(activeJobId);
-              if (status != _currentJobStatus) {
-                _currentJobStatus = status;
-                if (state is ChatLoaded) {
-                  final currentState = state as ChatLoaded;
-                  emit(ChatLoaded(currentState.messages, jobStatus: status));
-                }
-              }
-            } catch (_) {}
-          });
-        }
+        _jobStatusSubscription = _repository.getJobStatusEvents(_currentRoomId!).listen((event) {
+          final newStatus = event['new_status']?.toString();
+          if (newStatus != null && newStatus.isNotEmpty && newStatus != _currentJobStatus) {
+            _currentJobStatus = newStatus;
+            if (state is ChatLoaded) {
+              final currentState = state as ChatLoaded;
+              emit(ChatLoaded(currentState.messages, jobStatus: newStatus));
+            }
+          }
+        });
       } catch (e) {
         emit(ChatError('Lo sentimos, hubo un error en el chat.'));
       }
     });
 
     on<UpdateMessages>((event, emit) {
-      // Si llega un mensaje de propuesta y aún no tenemos status SCHEDULED
-      // lo actualizamos de inmediato sin esperar el timer de polling.
-      final hasProposal = event.messages.any(
-        (m) => !m.isMe && m.text.startsWith('Propuesta de visita:'),
-      );
-      final pendingStatuses = {null, 'REQUESTED'};
-      if (hasProposal && pendingStatuses.contains(_currentJobStatus)) {
-        _currentJobStatus = 'SCHEDULED';
+      if (_currentJobStatus == 'REQUESTED' || _currentJobStatus == null) {
+        final hasNewProposal = event.messages.any(
+          (m) => !m.isMe && m.text.startsWith('Propuesta de visita:'),
+        );
+        if (hasNewProposal) {
+          final hasAcceptance = event.messages.any(
+            (m) => m.text.contains('Propuesta de visita aceptada'),
+          );
+          final hasRejection = event.messages.any(
+            (m) => m.text.contains('Propuesta de visita rechazada'),
+          );
+          if (hasAcceptance) {
+            _currentJobStatus = 'AGREED';
+          } else if (hasRejection) {
+            _currentJobStatus = 'CANCELLED';
+          } else {
+            _currentJobStatus = 'SCHEDULED';
+          }
+        }
       }
       emit(ChatLoaded(event.messages, jobStatus: _currentJobStatus));
     });
@@ -153,6 +158,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             emit(ChatLoaded(currentState.messages, jobStatus: 'AGREED'));
           }
           await _repository.sendMessage(_currentRoomId!, 'Propuesta de visita aceptada por el cliente.');
+          emit(JobAcceptedState());
         } catch (_) {}
       }
     });
@@ -202,7 +208,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   @override
   Future<void> close() {
     _subscription?.cancel();
-    _jobStatusTimer?.cancel();
+    _jobStatusSubscription?.cancel();
     return super.close();
   }
 }

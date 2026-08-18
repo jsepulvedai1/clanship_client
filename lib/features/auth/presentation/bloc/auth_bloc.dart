@@ -8,6 +8,9 @@ import 'package:clanship_cliente/features/auth/presentation/bloc/auth_event.dart
 import 'package:clanship_cliente/features/auth/presentation/bloc/auth_state.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
+import 'package:flutter/foundation.dart';
+
+import 'package:clanship_cliente/core/network/local_notification_service.dart';
 
 @injectable
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
@@ -35,9 +38,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final result = await loginUseCase(
       LoginParams(email: event.email, password: event.password),
     );
-    result.fold(
-      (failure) => emit(AuthFailure(failure.message)),
-      (user) => emit(AuthAuthenticated(user)),
+    await result.fold(
+      (failure) async => emit(AuthFailure(failure.message)),
+      (user) async {
+        await LocalNotificationService.clearAll();
+        emit(AuthAuthenticated(user));
+      },
     );
   }
 
@@ -45,8 +51,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     LogoutRequested event,
     Emitter<AuthState> emit,
   ) async {
-    await logoutUseCase(NoParams());
-    emit(AuthUnauthenticated());
+    try {
+      await logoutUseCase(NoParams());
+      await LocalNotificationService.clearAll();
+    } catch (e) {
+      // Log the error but continue with logout
+      debugPrint('Error during logout cleanup: $e');
+    } finally {
+      emit(AuthUnauthenticated());
+    }
   }
 
   void _onUserAuthenticated(UserAuthenticated event, Emitter<AuthState> emit) {
@@ -91,9 +104,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       ),
     );
 
-    result.fold(
-      (failure) => emit(AuthFailure(failure.message)),
-      (user) => emit(AuthAuthenticated(user)),
+    await result.fold(
+      (failure) async => emit(AuthFailure(failure.message)),
+      (user) async {
+        await LocalNotificationService.clearAll();
+        emit(AuthAuthenticated(user));
+      },
     );
   }
 

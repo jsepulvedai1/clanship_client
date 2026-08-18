@@ -1,0 +1,311 @@
+{
+  "@@locale": "fr",
+  "loginTitle": "Bienvenue",
+  "loginEmailLabel": "Adresse e-mail",
+  "loginPasswordLabel": "Mot de passe",
+  "loginSignInButton": "Se connecter",
+  "loginWelcomeMessage": "Bienvenue {name}",
+  "@loginWelcomeMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "loginError": "Erreur: {message}",
+  "@loginError": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "homeGreeting": "Bonjour {name}",
+  "@homeGreeting": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "homeSearchPlaceholder": "Quel professionnel cherchez-vous ?",
+  "homeSearchNeed": "De quoi avez-vous besoin ?",
+  "homeUrgency": "Urgence",
+  "homeBannerTitle": "Services spécifiques",
+  "homeBannerSubTitle": "Publiez votre besoin ou consultez vos devis reçus",
+  "homeBtnRequest": "Demander",
+  "homeBtnMyRequests": "Mes demandes",
+  "homeTagNear": "Les plus proches",
+  "homeTagTopRated": "Les mieux notés",
+  "homeViewAll": "Voir tout",
+  "profDetailHire": "Engager maintenant",
+  "profDetailAbout": "À propos de moi",
+  "profDetailStats": "Statistiques",
+  "profDetailReviews": "{count} ({reviews} avis)",
+  "@profDetailReviews": {
+    "placeholders": {
+      "count": { "type": "String" },
+      "reviews": { "type": "String" }
+    }
+  },
+  "profDetailFindMe": "Retrouvez-moi sur :",
+  "profDetailDocuments": "Documents",
+  "profDetailContact": "Contacter",
+  "addressDialogTitle": "Votre adresse",
+  "addressDialogAdd": "Ajouter une nouvelle adresse",
+  "addressDialogYes": "Oui",
+  "addressDialogNo": "Non",
+  "favoritesTitle": "Favoris",
+  "favoritesEmptyTitle": "Pas encore de favoris",
+  "favoritesEmptySubtitle": "Enregistrez vos professionnels de confiance pour les retrouver plus rapidement la prochaine fois.",
+  "favoritesExplore": "Explorer les professionnels",
+  "matchingCancel": "Annuler la demande",
+  "matchingSearching": "Recherche de correspondance...",
+  "matchingConnecting": "Connexion avec {name}",
+  "@matchingConnecting": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "matchingSuccess": "Correspondance réussie !",
+  "matchingAccepted": "{name} a accepté de vous contacter.",
+  "@matchingAccepted": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsTitle": "Paramètres",
+  "settingsAppearance": "Apparence",
+  "settingsDarkMode": "Mode sombre",
+  "settingsLanguage": "Langue",
+  "settingsEnglish": "Anglais",
+  "settingsSpanish": "Espagnol",
+  "settingsFrench": "Français",
+  "chatStatusOnline": "En ligne",
+  "chatInputPlaceholder": "Écrivez un message...",
+  "jobsTitle": "Mes Travaux",
+  "jobsEmptyTitle": "Aucun travail actif pour le moment",
+  "jobsEmptySubtitle": "Vos correspondances apparaîtront ici.",
+  "jobsViewDetail": "Voir le détail",
+  "jobsStatusPending": "En attente",
+  "jobsStatusActive": "Actif",
+  "jobsStatusRejected": "Rejeté",
+  "jobsStatusCompleted": "Terminé",
+  "jobsRequestsTitle": "Demandes",
+  "jobsInProcess": "En cours",
+  "jobsFinished": "Terminées",
+  "jobsArrivalInfo": "arrive dans {time}",
+  "@jobsArrivalInfo": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "jobsDetailTitle": "Détails du travail",
+  "jobsTotalValue": "Valeur totale",
+  "jobsGoToChat": "Aller au chat",
+  "jobsCancel": "Annuler",
+  "jobsBack": "Retour",
+  "chatActionUrgent": "Urgent",
+  "chatActionCall": "Appeler",
+  "chatActionLocation": "Localisation",
+  "matchingConfirmTitle": "Avant de demander !",
+  "matchingConfirmSubtitle": "N'oubliez pas de confirmer qu'il s'agit de la bonne adresse",
+  "matchingConfirmAddressLabel": "Confirmer l'adresse",
+  "matchingConfirmWarning": "Veuillez noter que l'adresse ne pourra pas être modifiée au cours de la demande. Vérifiez attentivement l'adresse.",
+  "matchingConfirmAction": "Demander",
+  "settingsPersonalInfo": "Informations personnelles",
+  "settingsEditData": "Modifier mes données",
+  "settingsMyPlan": "Mon forfait actuel",
+  "settingsMyDocs": "Mes documents",
+  "settingsVerificationStatus": "Statut de vérification",
+  "settingsChooseLanguage": "Changer de langue",
+  "settingsSupport": "Support technique",
+  "settingsTerms": "Conditions générales",
+  "chatActionEnrich": "Ajouter des détails",
+  "chatActionJob": "Travail",
+  "chatJobCreatedSuccess": "Demande de travail créée avec succès",
+  "chatJobCreatedMessage": "J'ai créé une demande de travail.",
+  "chatEnrichTitle": "Détails de la demande",
+  "chatEnrichHint": "Décrivez le problème plus en détail, ajoutez des marques d'équipement ou des instructions...",
+  "chatEnrichAttachPhoto": "Joindre une photo du problème",
+  "chatEnrichEnterDetailsError": "Veuillez saisir les détails supplémentaires.",
+  "chatEnrichSuccess": "Détails ajoutés avec succès.",
+  "chatEnrichMessage": "J'ai ajouté des détails supplémentaires à la demande.",
+  "chatEnrichConfirm": "Confirmer et envoyer",
+  "navHome": "Accueil",
+  "navJobs": "Travaux",
+  "navFavorites": "Favoris",
+  "navSettings": "Profil",
+  "authSubtitle": "Connectez-vous pour accéder à votre compte",
+  "authForgotPassword": "Mot de passe oublié ?",
+  "authNoAccount": "Vous n'avez pas de compte ?",
+  "authRegisterHere": "Inscrivez-vous ici",
+  "authRegisterTitle": "Créer un compte",
+  "authPersonalData": "Données personnelles",
+  "authLocationContact": "Localisation et contact",
+  "authFirstName": "Prénom",
+  "authLastName": "Nom",
+  "authBirthdate": "Date de naissance",
+  "authRepeatEmail": "Répéter l'e-mail",
+  "authRepeatPassword": "Répéter le mot de passe",
+  "authPhone": "Téléphone de contact",
+  "authAddress": "Adresse",
+  "authAcceptTerms": "J'accepte les conditions d'utilisation",
+  "authProfilePhoto": "Photo de profil",
+  "authCamera": "Prendre une photo avec l'appareil",
+  "authGallery": "Choisir dans la galerie",
+  "authNext": "Suivant",
+  "authPrevious": "Précédent",
+  "authCompleteRegister": "Terminer l'inscription",
+  "authForgotTitle": "Mot de passe oublié ?",
+  "authForgotSubtitle": "Entrez votre e-mail pour recevoir les instructions",
+  "authSendCode": "Envoyer le code",
+  "authVerifyOtpTitle": "Vérification du code",
+  "authVerifyOtpSubtitle": "Entrez le code envoyé à votre e-mail",
+  "authResetTitle": "Nouveau mot de passe",
+  "authResetSubtitle": "Entrez et confirmez votre nouveau mot de passe",
+  "authConfirmNewPassword": "Confirmer le nouveau mot de passe",
+  "authChangePasswordBtn": "Changer le mot de passe",
+  "commonCancel": "Annuler",
+  "commonAccept": "Accepter",
+  "commonSave": "Enregistrer",
+  "commonLoading": "Chargement...",
+  "commonError": "Erreur",
+  "commonSuccess": "Succès",
+  "versionUpdateTitle": "Mise à jour requise",
+  "versionUpdateMessage": "Pour continuer à utiliser Clanship en toute sécurité, veuillez mettre à jour l'application.",
+  "versionUpdateBtn": "Mettre à jour sur le Store",
+  "sessionExpired": "Votre session a été ouverte sur un autre appareil.",
+  "settingsConfirmLogoutTitle": "Se déconnecter ?",
+  "settingsConfirmLogoutMsg": "Êtes-vous sûr de vouloir vous déconnecter ?",
+  "settingsLogoutBtn": "Se déconnecter",
+  "searchTitle": "Rechercher un professionnel",
+  "searchFilterSpecialty": "Filtrer par spécialité",
+  "searchNoResults": "Aucun professionnel trouvé",
+  "loginTaglinePart1": "Votre réseau de confiance ",
+  "loginTaglinePart2": "pour répondre à vos besoins",
+  "loginConceptTrustTitle": "Confiance",
+  "loginConceptTrustSubtitle": "Vérification\net sécurité",
+  "loginConceptSpeedTitle": "Rapidité",
+  "loginConceptSpeedSubtitle": "Réponse\nimmédiate",
+  "loginConceptConnectionTitle": "Connexion",
+  "loginConceptConnectionSubtitle": "Des personnes qui\nrésolvent",
+  "loginBenefitVerified": "Spécialistes\nvérifiés",
+  "loginBenefitRatings": "Évaluations\nréelles",
+  "loginBenefitTracking": "Suivi des\nservices",
+  "loginInvalidCredentials": "E-mail ou mot de passe incorrect",
+  "loginForgotDialogTitle": "Réinitialiser le mot de passe",
+  "loginForgotDialogMessage": "Entrez votre adresse e-mail et nous vous enverrons des instructions pour réinitialiser votre mot de passe.",
+  "loginForgotDialogEmailRequired": "Veuillez entrer votre adresse e-mail.",
+  "authRegisterSubtitle": "Créez votre compte pour commencer",
+  "authStep1Subtitle": "Complétez vos coordonnées pour continuer",
+  "authStep0FillAllFields": "Veuillez remplir tous les champs.",
+  "authStep0NameMaxLength": "Le prénom ne peut pas dépasser 30 caractères.",
+  "authStep0LastNameMaxLength": "Le nom ne peut pas dépasser 30 caractères.",
+  "authStep0EmailsDoNotMatch": "Les e-mails ne correspondent pas.",
+  "authStep0InvalidEmail": "Veuillez entrer un e-mail valide.",
+  "authStep0PasswordLength": "Le mot de passe doit contenir au moins 6 caractères.",
+  "authStep0PasswordsDoNotMatch": "Les mots de passe ne correspondent pas.",
+  "authStep0AgeRestriction": "Vous devez avoir au moins 18 ans pour vous inscrire.",
+  "authStep0TermsFooter": "En vous inscrivant, vous acceptez nos\nConditions Générales et Politique de Confidentialité",
+
+  "authPhotoUploaded": "Photo de profil téléchargée ✓",
+  "authPhotoRequired": "Photo de profil * (Obligatoire : téléchargez une photo claire de votre visage)",
+  "authPhotoPermissionError": "Impossible d'ouvrir l'appareil photo ou la galerie. Veuillez vérifier les autorisations.",
+  "authMyAddress": "Mon adresse",
+  "authReadTerms": "Lire les conditions d'utilisation",
+  "authSubmitRegister": "S'inscrire",
+  "authTermsDialogTitle": "Conditions Générales",
+  "mapSearchAddressHint": "Rechercher une adresse...",
+  "mapCurrentGpsTooltip": "GPS Actuel",
+  "mapSelectLocationHint": "Sélectionnez un emplacement",
+  "mapConfirmLocation": "Confirmer l'emplacement",
+  "addressDialogNoSaved": "Vous n'avez aucune adresse enregistrée.",
+  "addressDialogLimitReached": "Limite de 3 adresses atteinte.",
+  "commonClose": "Fermer",
+  "addressNewTitle": "Nouvelle Adresse",
+  "addressSave": "Enregistrer l'adresse",
+  "addressSaveError": "Désolé, une erreur s'est produite lors de l'enregistrement de l'adresse.",
+  "addressNoConfigured": "Vous n'avez pas configuré d'adresse de service.",
+  "addressChange": "Changer",
+  "addressAdd": "Ajouter une adresse",
+  "addressMyAddressLabel": "Mon adresse :",
+  "jobAddressVisitRequired": "Adresse de Visite *",
+  "jobAddressGoogleMapsHint": "Rechercher une adresse sur Google Maps...",
+  "jobAddressValidation": "Entrez l'adresse",
+  "addressTypeHint": "Tapez votre adresse...",
+  "exploreSearchHint": "Rechercher des services à proximité...",
+  "exploreUrgencyMode": "Mode d'Urgence",
+  "exploreUrgencySubtitle": "Uniquement les professionnels disponibles maintenant",
+  "exploreClearFilters": "Effacer les filtres ({count})",
+  "@exploreClearFilters": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exploreVerified": "Vérifié",
+  "exploreViewProfile": "Voir le profil",
+  "exploreSearchingServices": "Recherche de services...",
+  "exploreSearchThisArea": "Rechercher dans cette zone",
+  "filterSheetCategoriesTitle": "Catégories",
+  "filterSheetCategoryBreadcrumb": "Catégorie",
+  "filterSheetSubcategories": "{count} sous-catégories",
+  "@filterSheetSubcategories": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "filterSheetClearAll": "Tout effacer",
+  "filterSheetSearchPlaceholder": "Rechercher un service",
+  "filterSheetInfoTip": "Parcourez et sélectionnez les services dont vous avez besoin",
+  "filterSheetNoServices": "Aucun service trouvé.",
+  "filterSheetSelectedServices": "{count} services sélectionnés",
+  "@filterSheetSelectedServices": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "filterSheetApply": "Appliquer les filtres",
+  "filterSheetCancel": "Annuler",
+  "jobsDescription": "Description du travail",
+  "jobsTotal": "Total",
+  "jobsVisitProposalTitle": "Proposition de visite",
+  "jobsVisitProposalDesc": "Le professionnel a programmé une date et une heure pour la visite :",
+  "jobsRejectedBy": "Rejeté par : {name}",
+  "@jobsRejectedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "jobsRejectedDefault": "Travail rejeté / annulé",
+  "jobsRejectionReason": "Motif du refus :",
+  "jobsRejectDialogTitle": "Refuser la proposition",
+  "jobsRejectReasonOptional": "Souhaitez-vous indiquer un motif de refus ? (Optionnel)",
+  "jobsReasonHint": "Écrivez votre raison ici...",
+  "jobsRejectConfirm": "Confirmer le refus",
+  "jobsCancelDialogTitle": "Annuler la demande",
+  "jobsCancelDialogMsg": "Êtes-vous sûr de vouloir annuler cette demande ? Le professionnel sera notifié.",
+  "jobsCancelReasonLabel": "Motif d'annulation (optionnel) :",
+  "jobsCancelConfirm": "Confirmer l'annulation",
+  "jobsYourRating": "Votre évaluation",
+  "jobsRateProfessional": "Évaluer le professionnel",
+  "jobsRejectAction": "Refuser",
+  "jobsConfirmAction": "Confirmer"
+}
+
+
+

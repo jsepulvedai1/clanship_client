@@ -5,7 +5,6 @@ import 'package:clanship_cliente/features/dashboard/presentation/pages/main_page
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:clanship_cliente/features/auth/presentation/widgets/address_picker_page.dart';
@@ -14,7 +13,10 @@ import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'package:clanship_cliente/core/utils/image_cropper_helper.dart';
 import 'package:clanship_cliente/core/di/injection.dart';
+import 'package:clanship_cliente/core/utils/lower_case_text_formatter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:clanship_cliente/l10n/app_localizations.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -89,11 +91,22 @@ class _RegisterPageState extends State<RegisterPage> {
       now.month,
       now.day,
     );
+
+    DateTime initialDate = eighteenYearsAgo;
+    if (_birthdateController.text.isNotEmpty) {
+      try {
+        final parsed = DateFormat('dd/MM/yyyy').parseStrict(_birthdateController.text);
+        if (!parsed.isAfter(eighteenYearsAgo) && !parsed.isBefore(DateTime(1920))) {
+          initialDate = parsed;
+        }
+      } catch (_) {}
+    }
+
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: eighteenYearsAgo,
+      initialDate: initialDate,
       firstDate: DateTime(1920),
-      lastDate: now,
+      lastDate: eighteenYearsAgo,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -117,8 +130,9 @@ class _RegisterPageState extends State<RegisterPage> {
 
   // Step 0 Validation
   bool _validateStep0() {
-    final email = _emailController.text.trim();
-    final repeatEmail = _repeatEmailController.text.trim();
+    final l10n = AppLocalizations.of(context)!;
+    final email = _emailController.text.trim().toLowerCase();
+    final repeatEmail = _repeatEmailController.text.trim().toLowerCase();
     final password = _passwordController.text;
     final repeatPassword = _repeatPasswordController.text;
     final firstName = _firstNameController.text.trim();
@@ -132,42 +146,57 @@ class _RegisterPageState extends State<RegisterPage> {
         firstName.isEmpty ||
         lastName.isEmpty ||
         birthdate.isEmpty) {
-      _showError('Por favor completa todos los campos.');
+      _showError(l10n.authStep0FillAllFields);
+      return false;
+    }
+
+    // Validar edad >= 18 años
+    try {
+      final parsedDate = DateFormat('dd/MM/yyyy').parseStrict(birthdate);
+      final now = DateTime.now();
+      final eighteenYearsAgo = DateTime(now.year - 18, now.month, now.day);
+      if (parsedDate.isAfter(eighteenYearsAgo)) {
+        _showError(l10n.authStep0AgeRestriction);
+        return false;
+      }
+    } catch (_) {
+      _showError(l10n.authStep0FillAllFields);
       return false;
     }
 
     if (firstName.length > 30) {
-      _showError('El nombre no puede superar los 30 caracteres.');
+      _showError(l10n.authStep0NameMaxLength);
       return false;
     }
 
     if (lastName.length > 30) {
-      _showError('El apellido no puede superar los 30 caracteres.');
+      _showError(l10n.authStep0LastNameMaxLength);
       return false;
     }
 
     if (email != repeatEmail) {
-      _showError('Los correos electrónicos no coinciden.');
+      _showError(l10n.authStep0EmailsDoNotMatch);
       return false;
     }
 
     if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
-      _showError('Por favor ingresa un correo electrónico válido.');
+      _showError(l10n.authStep0InvalidEmail);
       return false;
     }
 
     if (password.length < 6) {
-      _showError('La contraseña debe tener al menos 6 caracteres.');
+      _showError(l10n.authStep0PasswordLength);
       return false;
     }
 
     if (password != repeatPassword) {
-      _showError('Las contraseñas no coinciden.');
+      _showError(l10n.authStep0PasswordsDoNotMatch);
       return false;
     }
 
     return true;
   }
+
 
   // Step 1 Validation
   bool _isStep1FormValid() {
@@ -220,10 +249,14 @@ class _RegisterPageState extends State<RegisterPage> {
                 List<Map<String, dynamic>> saved = [];
                 if (jsonStr != null) {
                   final List<dynamic> decoded = json.decode(jsonStr);
-                  saved = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+                  saved = decoded
+                      .map((e) => Map<String, dynamic>.from(e))
+                      .toList();
                 }
-                
-                final bool exists = saved.any((element) => element['address'] == state.user.address);
+
+                final bool exists = saved.any(
+                  (element) => element['address'] == state.user.address,
+                );
                 if (!exists) {
                   saved.add({
                     'name': 'Hogar',
@@ -326,6 +359,7 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Widget _buildLogoHeader() {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       children: [
         Container(
@@ -346,18 +380,18 @@ class _RegisterPageState extends State<RegisterPage> {
           ),
         ),
         const SizedBox(height: 1),
-        const Text(
-          'Registro',
-          style: TextStyle(
+        Text(
+          l10n.authRegisterTitle,
+          style: const TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.bold,
             color: Color(0xFF0D2B45),
           ),
         ),
         const SizedBox(height: 4),
-        const Text(
-          'Crea tu cuenta para comenzar',
-          style: TextStyle(
+        Text(
+          l10n.authRegisterSubtitle,
+          style: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w500,
             color: Color(0xFF2E3135),
@@ -369,6 +403,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
   // STEP 0: DATOS PERSONALES
   Widget _buildStep0() {
+    final l10n = AppLocalizations.of(context)!;
     return SingleChildScrollView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
@@ -379,21 +414,25 @@ class _RegisterPageState extends State<RegisterPage> {
           const SizedBox(height: 10),
           _buildTextField(
             controller: _emailController,
-            hint: 'Correo electrónico',
+            hint: l10n.loginEmailLabel,
             keyboardType: TextInputType.emailAddress,
             icon: Icons.mail_outline,
+            textCapitalization: TextCapitalization.none,
+            inputFormatters: [LowerCaseTextFormatter()],
           ),
           const SizedBox(height: 12),
           _buildTextField(
             controller: _repeatEmailController,
-            hint: 'Repite el correo',
+            hint: l10n.authRepeatEmail,
             keyboardType: TextInputType.emailAddress,
             icon: Icons.mail_outline,
+            textCapitalization: TextCapitalization.none,
+            inputFormatters: [LowerCaseTextFormatter()],
           ),
           const SizedBox(height: 12),
           _buildTextField(
             controller: _passwordController,
-            hint: 'Contraseña',
+            hint: l10n.loginPasswordLabel,
             obscureText: _obscurePassword,
             icon: Icons.lock_outline,
             suffixIcon: IconButton(
@@ -414,7 +453,7 @@ class _RegisterPageState extends State<RegisterPage> {
           const SizedBox(height: 12),
           _buildTextField(
             controller: _repeatPasswordController,
-            hint: 'Repite la contraseña',
+            hint: l10n.authRepeatPassword,
             obscureText: _obscureRepeatPassword,
             icon: Icons.lock_outline,
             suffixIcon: IconButton(
@@ -435,7 +474,7 @@ class _RegisterPageState extends State<RegisterPage> {
           const SizedBox(height: 12),
           _buildTextField(
             controller: _firstNameController,
-            hint: 'Nombre',
+            hint: l10n.authFirstName,
             keyboardType: TextInputType.name,
             icon: Icons.person_outline,
             inputFormatters: [LengthLimitingTextInputFormatter(30)],
@@ -443,7 +482,7 @@ class _RegisterPageState extends State<RegisterPage> {
           const SizedBox(height: 12),
           _buildTextField(
             controller: _lastNameController,
-            hint: 'Apellido',
+            hint: l10n.authLastName,
             keyboardType: TextInputType.name,
             icon: Icons.person_outline,
             inputFormatters: [LengthLimitingTextInputFormatter(30)],
@@ -454,7 +493,7 @@ class _RegisterPageState extends State<RegisterPage> {
             child: AbsorbPointer(
               child: _buildTextField(
                 controller: _birthdateController,
-                hint: 'Fecha de Nacimiento',
+                hint: l10n.authBirthdate,
                 icon: Icons.calendar_month_outlined,
               ),
             ),
@@ -478,45 +517,21 @@ class _RegisterPageState extends State<RegisterPage> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'Siguiente',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    l10n.authNext,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
-                  SizedBox(width: 8),
-                  Icon(Icons.arrow_forward_ios, size: 14),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.arrow_forward_ios, size: 14),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 10),
-          const Text(
-            'o regístrate con',
-            style: TextStyle(
-              color: Color(0xFF2E3135),
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildSocialIcon(
-                FontAwesomeIcons.google,
-                const Color(0xFFEA4335),
-                () {
-                  _showError('Registro con Google en desarrollo.');
-                },
-              ),
-              const SizedBox(width: 24),
-              _buildSocialIcon(FontAwesomeIcons.apple, Colors.black, () {
-                _showError('Registro con Apple en desarrollo.');
-              }),
-            ],
-          ),
+
           const SizedBox(height: 12),
           // Footer terms row with dialog.svg
           Padding(
@@ -535,10 +550,10 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Al registrarte aceptas nuestros\nTérminos y Condiciones y Política de Privacidad',
-                    style: TextStyle(
+                    l10n.authStep0TermsFooter,
+                    style: const TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF0B6E4F),
@@ -554,29 +569,119 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   // STEP 1: UBICACIÓN Y CONTACTO
-  Future<void> _pickAvatar() async {
-    final picker = ImagePicker();
-    final XFile? image = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 800,
-      maxHeight: 800,
-      imageQuality: 60,
+  Future<void> _pickAvatar([ImageSource? source]) async {
+    final l10n = AppLocalizations.of(context)!;
+    final selectedSource = source ?? await _showImageSourceOptions();
+    if (selectedSource == null) return;
+
+    try {
+      final picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: selectedSource,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 60,
+      );
+
+      if (image == null) return;
+
+      final croppedPath = await ImageCropperHelper.cropImage(
+        imagePath: image.path,
+        isSquare: true,
+      );
+      if (croppedPath == null) return;
+
+      setState(() {
+        _avatarPath = croppedPath;
+      });
+    } catch (e) {
+      _showError(l10n.authPhotoPermissionError);
+    }
+  }
+
+  Future<ImageSource?> _showImageSourceOptions() async {
+    final l10n = AppLocalizations.of(context)!;
+    return await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              vertical: 12.0,
+              horizontal: 8.0,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Text(
+                  l10n.authProfilePhoto,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0D2B45),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0D2B45).withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.camera_alt_rounded,
+                      color: Color(0xFF0D2B45),
+                    ),
+                  ),
+                  title: Text(
+                    l10n.authCamera,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  onTap: () => Navigator.pop(context, ImageSource.camera),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0B6E4F).withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.photo_library_rounded,
+                      color: Color(0xFF0B6E4F),
+                    ),
+                  ),
+                  title: Text(
+                    l10n.authGallery,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  onTap: () => Navigator.pop(context, ImageSource.gallery),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
-
-    if (image == null) return;
-
-    final croppedPath = await ImageCropperHelper.cropImage(
-      imagePath: image.path,
-      isSquare: true,
-    );
-    if (croppedPath == null) return;
-
-    setState(() {
-      _avatarPath = croppedPath;
-    });
   }
 
   Widget _buildStep1() {
+    final l10n = AppLocalizations.of(context)!;
     final bool isValid = _isStep1FormValid();
 
     return SingleChildScrollView(
@@ -586,19 +691,19 @@ class _RegisterPageState extends State<RegisterPage> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const SizedBox(height: 20),
-          const Text(
-            'Ubicación y Contacto',
-            style: TextStyle(
+          Text(
+            l10n.authLocationContact,
+            style: const TextStyle(
               color: Color(0xFF0D2B45),
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Completa tus datos de contacto para continuar',
+          Text(
+            l10n.authStep1Subtitle,
             textAlign: TextAlign.center,
-            style: TextStyle(color: Color(0xFF2E3135), fontSize: 14),
+            style: const TextStyle(color: Color(0xFF2E3135), fontSize: 14),
           ),
           const SizedBox(height: 24),
           GestureDetector(
@@ -613,16 +718,13 @@ class _RegisterPageState extends State<RegisterPage> {
                     shape: BoxShape.circle,
                     color: Colors.white,
                     border: Border.all(
-                      color: const Color(0xFF0D2B45).withOpacity(0.2),
+                      color: const Color(0xFF0D2B45).withValues(alpha: 0.2),
                       width: 2,
                     ),
                   ),
                   child: ClipOval(
                     child: _avatarPath != null
-                        ? Image.file(
-                            File(_avatarPath!),
-                            fit: BoxFit.cover,
-                          )
+                        ? Image.file(File(_avatarPath!), fit: BoxFit.cover)
                         : const Icon(
                             Icons.person_add_alt_1_rounded,
                             size: 40,
@@ -650,12 +752,17 @@ class _RegisterPageState extends State<RegisterPage> {
             ),
           ),
           const SizedBox(height: 12),
-          const Text(
-            'Foto de perfil (Requerida)',
+          Text(
+            _avatarPath != null
+                ? l10n.authPhotoUploaded
+                : l10n.authPhotoRequired,
+            textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF2E3135),
+              color: _avatarPath != null
+                  ? const Color(0xFF4CAF50)
+                  : const Color(0xFFE53935),
             ),
           ),
           const SizedBox(height: 24),
@@ -664,7 +771,7 @@ class _RegisterPageState extends State<RegisterPage> {
             child: AbsorbPointer(
               child: _buildTextField(
                 controller: _addressController,
-                hint: 'Mi dirección',
+                hint: l10n.authMyAddress,
                 keyboardType: TextInputType.streetAddress,
                 icon: Icons.location_on_outlined,
                 onChanged: (_) => setState(() {}),
@@ -675,7 +782,9 @@ class _RegisterPageState extends State<RegisterPage> {
           _buildPhoneField(),
           const SizedBox(height: 32),
           GestureDetector(
-            onTap: _showTermsDialog,
+            onTap: () {
+              _showTermsDialog();
+            },
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -690,10 +799,10 @@ class _RegisterPageState extends State<RegisterPage> {
                   checkColor: Colors.white,
                   side: const BorderSide(color: Color(0xFF2E3135), width: 1.5),
                 ),
-                const Flexible(
+                Flexible(
                   child: Text(
-                    'Lee los términos y condiciones de uso',
-                    style: TextStyle(
+                    l10n.authReadTerms,
+                    style: const TextStyle(
                       color: Color(0xFF0D2B45),
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -722,7 +831,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       ? () {
                           context.read<AuthBloc>().add(
                             RegisterRequested(
-                              email: _emailController.text.trim(),
+                              email: _emailController.text.trim().toLowerCase(),
                               password: _passwordController.text,
                               firstName: _firstNameController.text.trim(),
                               lastName: _lastNameController.text.trim(),
@@ -751,9 +860,9 @@ class _RegisterPageState extends State<RegisterPage> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
-                    'Registrarme',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  child: Text(
+                    l10n.authSubmitRegister,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),
               );
@@ -774,6 +883,7 @@ class _RegisterPageState extends State<RegisterPage> {
     void Function(String)? onChanged,
     Widget? suffixIcon,
     List<TextInputFormatter>? inputFormatters,
+    TextCapitalization textCapitalization = TextCapitalization.none,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -791,6 +901,7 @@ class _RegisterPageState extends State<RegisterPage> {
         controller: controller,
         obscureText: obscureText,
         keyboardType: keyboardType,
+        textCapitalization: textCapitalization,
         onChanged: onChanged,
         inputFormatters: inputFormatters,
         style: const TextStyle(color: Color(0xFF2E3135), fontSize: 14),
@@ -833,6 +944,7 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Widget _buildPhoneField() {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -857,7 +969,7 @@ class _RegisterPageState extends State<RegisterPage> {
         style: const TextStyle(color: Color(0xFF2E3135), fontSize: 14),
         cursorColor: const Color(0xFF0D2B45),
         decoration: InputDecoration(
-          labelText: 'Número de teléfono',
+          labelText: l10n.authPhone,
           labelStyle: TextStyle(
             color: const Color(0xFF2E3135).withValues(alpha: 0.6),
             fontSize: 14,
@@ -916,30 +1028,15 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  Widget _buildSocialIcon(IconData icon, Color color, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(30),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 8,
-              spreadRadius: 1,
-            ),
-          ],
-          border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
-        ),
-        child: FaIcon(icon, color: color, size: 22),
-      ),
-    );
-  }
+  void _showTermsDialog() async {
+    final l10n = AppLocalizations.of(context)!;
+    final Uri url = Uri.parse('https://clanship.cl/terminos-y-condiciones');
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+      return;
+    }
+    if (!mounted) return;
 
-  void _showTermsDialog() {
     showDialog(
       context: context,
       builder: (context) {
@@ -948,9 +1045,9 @@ class _RegisterPageState extends State<RegisterPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          title: const Text(
-            'Términos y Condiciones',
-            style: TextStyle(
+          title: Text(
+            l10n.authTermsDialogTitle,
+            style: const TextStyle(
               color: Color(0xFF0D2B45),
               fontWeight: FontWeight.bold,
             ),
@@ -968,26 +1065,14 @@ class _RegisterPageState extends State<RegisterPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text(
-                'Cerrar',
-                style: TextStyle(
+              child: Text(
+                l10n.commonCancel,
+                style: const TextStyle(
                   color: Colors.grey,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
-            // ElevatedButton(
-            //   onPressed: () {
-            //     setState(() {
-            //       _acceptedTerms = true;
-            //     });
-            //     Navigator.pop(context);
-            //   },
-            //   style: ElevatedButton.styleFrom(
-            //     backgroundColor: const Color(0xFF0D2B45),
-            //     foregroundColor: Colors.white,
-            //     shape: RoundedRectangleBorder(
-            //       borderRadius: BorderRadius.circular(8),
             //     ),
             //   ),
             //   child: const Text('Aceptar'),

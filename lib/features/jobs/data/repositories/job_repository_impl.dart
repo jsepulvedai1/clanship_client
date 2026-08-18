@@ -1,8 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'package:clanship_cliente/core/di/injection.dart';
+import 'package:clanship_cliente/core/network/jobs_websocket_service.dart';
+import 'package:clanship_cliente/core/config/env_config.dart';
 import 'package:clanship_cliente/core/network/graphql_service.dart';
 import 'package:clanship_cliente/features/jobs/domain/entities/job_match.dart';
 import 'package:clanship_cliente/features/jobs/domain/repositories/job_repository.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:injectable/injectable.dart';
@@ -94,6 +100,11 @@ class JobRepositoryImpl implements JobRepository {
           hasUnreadMessages
           cancellationReason
           cancelledByUserName
+          hasBeenReviewed
+          review {
+            rating
+            comment
+          }
           professional {
             id
             username
@@ -203,6 +214,9 @@ class JobRepositoryImpl implements JobRepository {
       hasUnreadMessages: data['hasUnreadMessages'] ?? false,
       cancellationReason: data['cancellationReason']?.toString(),
       cancelledByUserName: data['cancelledByUserName']?.toString(),
+      hasBeenReviewed: data['hasBeenReviewed'] ?? false,
+      givenRating: int.tryParse(data['review']?['rating']?.toString() ?? ''),
+      reviewComment: data['review']?['comment']?.toString(),
     );
   }
 
@@ -223,8 +237,23 @@ class JobRepositoryImpl implements JobRepository {
     }
   }
 
+  StreamSubscription? _jobsSocketSub;
+
+  void _listenJobsWebSocket() {
+    if (_jobsSocketSub != null) return;
+    try {
+      _jobsSocketSub = getIt<JobsWebSocketService>().stream.listen((jsonData) {
+        final event = (jsonData['event'] ?? jsonData['type'] ?? '').toString().toLowerCase();
+        if (event == 'job_created' || event == 'job_updated' || event == 'job_cancelled' || event == 'job_status_changed') {
+          _updateStream();
+        }
+      });
+    } catch (_) {}
+  }
+
   @override
   Stream<List<JobMatch>> watchJobs() {
+    _listenJobsWebSocket();
     _updateStream();
     return _controller.stream;
   }
@@ -238,8 +267,16 @@ class JobRepositoryImpl implements JobRepository {
   }
 
   Future<void> _updateStream() async {
-    final jobs = await getJobs();
-    _controller.add(jobs);
+    try {
+      final jobs = await getJobs();
+      if (!_controller.isClosed) {
+        _controller.add(jobs);
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating jobs stream: $e');
+      }
+    }
   }
 
   Map<String, dynamic> _toMap(JobMatch job) {
@@ -376,5 +413,210 @@ class JobRepositoryImpl implements JobRepository {
     }
 
     return status;
+  }
+
+  @override
+  Future<void> rateJob(int jobId, int rating, String? comment) async {
+    const String mutation = r'''
+      mutation RateJob($jobId: Int!, $rating: Int!, $comment: String) {
+        rateJob(jobId: $jobId, rating: $rating, comment: $comment) {
+          success
+          job {
+            id
+            hasBeenReviewed
+            review {
+              rating
+              comment
+            }
+          }
+        }
+      }
+    ''';
+
+    final MutationOptions options = MutationOptions(
+      document: gql(mutation),
+      variables: {
+        'jobId': jobId,
+        'rating': rating,
+        'comment': comment,
+      },
+    );
+
+    final QueryResult result = await _graphQLService.client.mutate(options);
+
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
+
+    _updateStream();
+  }
+
+  @override
+  Future<bool> createPublicJobRequest({
+    int? specialtyId,
+    String? customSpecialty,
+    required String title,
+    required String description,
+    required String address,
+    double? latitude,
+    double? longitude,
+    double? budget,
+    bool isUrgent = false,
+    String? desiredDate,
+    List<String>? photosBase64,
+  }) async {
+    const String mutation = r'''
+      mutation CreatePublicJobRequest(
+        $specialtyId: Int,
+        $customSpecialty: String,
+        $title: String!,
+        $description: String!,
+        $address: String!,
+        $latitude: Float,
+        $longitude: Float,
+        $budget: Float,
+        $isUrgent: Boolean,
+        $desiredDate: String,
+        $photosBase64: [String]
+      ) {
+        createPublicJobRequest(
+          specialtyId: $specialtyId,
+          customSpecialty: $customSpecialty,
+          title: $title,
+          description: $description,
+          address: $address,
+          latitude: $latitude,
+          longitude: $longitude,
+          budget: $budget,
+          isUrgent: $isUrgent,
+          desiredDate: $desiredDate,
+          photosBase64: $photosBase64
+        ) {
+          success
+          publicRequest {
+            id
+            title
+            status
+          }
+        }
+      }
+    ''';
+
+    final MutationOptions options = MutationOptions(
+      document: gql(mutation),
+      variables: {
+        'specialtyId': specialtyId,
+        'customSpecialty': customSpecialty,
+        'title': title,
+        'description': description,
+        'address': address,
+        'latitude': latitude,
+        'longitude': longitude,
+        'budget': budget,
+        'isUrgent': isUrgent,
+        'desiredDate': desiredDate,
+        'photosBase64': photosBase64,
+      },
+    );
+
+    final QueryResult result = await _graphQLService.client.mutate(options);
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
+    return result.data?['createPublicJobRequest']?['success'] ?? false;
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getMyPublicJobRequests() async {
+    const String query = r'''
+      query MyPublicJobRequests {
+        myPublicJobRequests {
+          id
+          title
+          description
+          address
+          budget
+          isUrgent
+          status
+          createdAt
+          specialtyName
+          proposalsCount
+          proposals {
+            id
+            estimatedPrice
+            scheduledDate
+            scheduledTime
+            message
+            status
+            professionalName
+            professionalAvatarUrl
+            professionalRating
+          }
+        }
+      }
+    ''';
+
+    final QueryOptions options = QueryOptions(
+      document: gql(query),
+      fetchPolicy: FetchPolicy.networkOnly,
+    );
+
+    final QueryResult result = await _graphQLService.client.query(options);
+    if (result.hasException) {
+      debugPrint('getMyPublicJobRequests Exception: ${result.exception}');
+      return [];
+    }
+
+    final List list = result.data?['myPublicJobRequests'] ?? [];
+    return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  @override
+  Future<bool> acceptJobProposal(int proposalId) async {
+    const String mutation = r'''
+      mutation AcceptJobProposal($proposalId: Int!) {
+        acceptJobProposal(proposalId: $proposalId) {
+          success
+          job {
+            id
+            status
+          }
+        }
+      }
+    ''';
+
+    final MutationOptions options = MutationOptions(
+      document: gql(mutation),
+      variables: {'proposalId': proposalId},
+    );
+
+    final QueryResult result = await _graphQLService.client.mutate(options);
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
+    _updateStream();
+    return result.data?['acceptJobProposal']?['success'] ?? false;
+  }
+
+  @override
+  Future<bool> cancelPublicJobRequest(int requestId) async {
+    const String mutation = r'''
+      mutation CancelPublicJobRequest($publicRequestId: Int!) {
+        cancelPublicJobRequest(publicRequestId: $publicRequestId) {
+          success
+        }
+      }
+    ''';
+
+    final MutationOptions options = MutationOptions(
+      document: gql(mutation),
+      variables: {'publicRequestId': requestId},
+    );
+
+    final QueryResult result = await _graphQLService.client.mutate(options);
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
+    return result.data?['cancelPublicJobRequest']?['success'] ?? false;
   }
 }

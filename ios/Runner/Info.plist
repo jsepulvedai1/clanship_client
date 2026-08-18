@@ -29,9 +29,9 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Esta aplicación requiere acceso a tu cámara para que puedas tomarte una foto de perfil.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Clanship necesita tu ubicación para mostrarte los maestros más cercanos y facilitar el servicio a domicilio.</string>
+	<string>Necesitamos tu ubicación para coordinar los servicios en tiempo real y mejorar la navegación en la app.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Clanship necesita tu ubicación para mostrarte los maestros más cercanos y facilitar el servicio a domicilio.</string>
+	<string>Necesitamos tu ubicación para coordinar los servicios en tiempo real y mejorar la navegación en la app.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Esta aplicación requiere acceso al micrófono para grabar videos de perfil (opcional).</string>
 	<key>NSPhotoLibraryUsageDescription</key>
@@ -60,6 +60,12 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Allow Flutter tools to communicate with your device.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_dartobservatory._tcp</string>
 	</array>
 </dict>
 </plist>

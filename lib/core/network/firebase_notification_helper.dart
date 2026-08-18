@@ -90,19 +90,19 @@ class FirebaseNotificationHelper {
 
   static Future<void> uploadFcmToken() async {
     try {
-      if (!kIsWeb && Platform.isIOS) {
-        String? apnsToken = await FirebaseMessaging.instance.getAPNSToken();
-        int retries = 0;
-        // Aumentar los intentos a 8 con retraso de 1.5s para dar suficiente margen en iPhones reales
-        while (apnsToken == null && retries < 8) {
-          debugPrint('APNS token not set yet. Waiting 1.5 seconds... (Attempt ${retries + 1}/8)');
-          await Future.delayed(const Duration(milliseconds: 1500));
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        String? apnsToken;
+        for (int attempt = 1; attempt <= 6; attempt++) {
           apnsToken = await FirebaseMessaging.instance.getAPNSToken();
-          retries++;
+          if (apnsToken != null) break;
+          debugPrint('Waiting for APNS token (attempt $attempt/6)...');
+          await Future.delayed(const Duration(milliseconds: 1000));
         }
-        if (apnsToken == null) {
-          debugPrint('APNS token is null (check if Push Capability is added in Xcode and provisioning profiles). Skipping FCM token retrieval.');
-          return;
+
+        if (apnsToken != null) {
+          debugPrint('APNS token obtained: $apnsToken. Proceeding to fetch FCM token.');
+        } else {
+          debugPrint('APNS token check timed out, proceeding to fetch FCM token anyway.');
         }
       }
       final token = await FirebaseMessaging.instance.getToken();

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:clanship_cliente/core/network/local_notification_service.dart';
 import 'package:clanship_cliente/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
@@ -39,10 +38,31 @@ class _MainPageState extends State<MainPage> {
       debugPrint('MainPage received jobs websocket notification: $event');
 
       try {
-        final Map<String, dynamic> data = event;
-        if (data['event'] == 'new_message') {
-          final String msgText = data['message'] ?? 'Tienes un nuevo mensaje';
-          LocalNotificationService.saveNotification('Mensaje Nuevo', msgText);
+        final Map<String, dynamic> data = Map<String, dynamic>.from(event);
+        final String rawEvent = data['event']?.toString() ?? data['type']?.toString() ?? '';
+        final String eventType = rawEvent.toLowerCase();
+        final String msgText = data['message']?.toString() ?? '';
+
+        if (eventType == 'job_created' ||
+            eventType == 'new_message' ||
+            eventType == 'job_updated' ||
+            eventType == 'job_status_changed' ||
+            eventType == 'job_cancelled') {
+          String title = 'Actualización de Solicitud';
+          if (eventType == 'job_created') {
+            title = 'Solicitud Creada';
+          } else if (eventType == 'new_message') {
+            title = 'Mensaje Nuevo';
+          } else if (eventType == 'job_cancelled') {
+            title = 'Solicitud Cancelada';
+          } else if (eventType == 'job_updated' || eventType == 'job_status_changed') {
+            title = 'Estado de Solicitud Actualizado';
+          }
+
+          LocalNotificationService.saveNotification(
+            title,
+            msgText.isNotEmpty ? msgText : 'Tienes una nueva actualización',
+          );
         }
       } catch (_) {}
 
@@ -73,12 +93,27 @@ class _MainPageState extends State<MainPage> {
           return Scaffold(
             body: IndexedStack(
               index: currentIndex,
-              children: const [
-                HomePage(),
-                JobsPage(),
-                ExploreMapPage(), // Center (index 2)
-                FavoritesPage(),
-                SettingsPage(),
+              children: [
+                ExcludeSemantics(
+                  excluding: currentIndex != 0,
+                  child: const HomePage(),
+                ),
+                ExcludeSemantics(
+                  excluding: currentIndex != 1,
+                  child: const JobsPage(),
+                ),
+                ExcludeSemantics(
+                  excluding: currentIndex != 2,
+                  child: const ExploreMapPage(),
+                ),
+                ExcludeSemantics(
+                  excluding: currentIndex != 3,
+                  child: const FavoritesPage(),
+                ),
+                ExcludeSemantics(
+                  excluding: currentIndex != 4,
+                  child: const SettingsPage(),
+                ),
               ],
             ),
             bottomNavigationBar: BlocBuilder<JobsBloc, JobsState>(
@@ -189,22 +224,17 @@ class _ClanshipBottomBar extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: Badge(
-                isLabelVisible: showBadge,
-                largeSize: 20,
-                smallSize: 9,
-
-                backgroundColor: const Color(0xFFEF4444),
-                child: Icon(
-                  isSelected ? activeIcon : icon,
-                  key: ValueKey(isSelected),
-                  size: 24,
-                  color: isSelected
-                      ? AppColors.primary
-                      : theme.colorScheme.onSurface.withOpacity(0.4),
-                ),
+            Badge(
+              isLabelVisible: showBadge,
+              largeSize: 20,
+              smallSize: 9,
+              backgroundColor: const Color(0xFFEF4444),
+              child: Icon(
+                isSelected ? activeIcon : icon,
+                size: 24,
+                color: isSelected
+                    ? AppColors.primary
+                    : theme.colorScheme.onSurface.withOpacity(0.4),
               ),
             ),
             const SizedBox(height: 4),

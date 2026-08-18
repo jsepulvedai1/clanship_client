@@ -126,7 +126,7 @@ class ConfirmAddressBottomSheet extends StatelessWidget {
                           child: Text(
                             hasAddress 
                                 ? user.address! 
-                                : 'No has configurado una dirección de servicio.',
+                                : l10n.addressNoConfigured,
                             style: TextStyle(
                               color: theme.colorScheme.onSurface,
                               fontSize: 15,
@@ -142,9 +142,9 @@ class ConfirmAddressBottomSheet extends StatelessWidget {
                               foregroundColor: AppColors.primary,
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             ),
-                            child: const Text(
-                              'Cambiar',
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                            child: Text(
+                              l10n.addressChange,
+                              style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
                           ),
                       ],
@@ -157,7 +157,7 @@ class ConfirmAddressBottomSheet extends StatelessWidget {
                     ElevatedButton.icon(
                       onPressed: () => _navigateToAddressScreen(context),
                       icon: const Icon(Icons.add_location_alt_rounded),
-                      label: const Text('Agregar dirección'),
+                      label: Text(l10n.addressAdd),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
@@ -170,6 +170,7 @@ class ConfirmAddressBottomSheet extends StatelessWidget {
                     ),
                     const SizedBox(height: 24),
                   ],
+
 
                   // Caja de Advertencia
                   Container(

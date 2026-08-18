@@ -17,8 +17,13 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:clanship_cliente/features/jobs/domain/repositories/job_repository.dart';
 import 'package:record/record.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:clanship_cliente/core/utils/image_cropper_helper.dart';
+
+import 'dart:async';
+import 'package:clanship_cliente/core/network/jobs_websocket_service.dart';
+import 'package:clanship_cliente/core/navigation/bloc/navigation_bloc.dart';
+import 'package:clanship_cliente/core/navigation/bloc/navigation_event.dart';
+import 'package:clanship_cliente/features/jobs/presentation/widgets/rating_dialog.dart';
 
 class ChatPage extends StatefulWidget {
   final Professional professional;
@@ -36,7 +41,8 @@ class _ChatPageState extends State<ChatPage> {
   final bool _isUrgent = false;
   final AudioRecorder _audioRecorder = AudioRecorder();
   bool _isRecording = false;
-  String? _recordPath;
+  bool _hasPromptedRating = false;
+  StreamSubscription? _socketSubscription;
 
   @override
   void initState() {
@@ -44,12 +50,48 @@ class _ChatPageState extends State<ChatPage> {
     _controller.addListener(() {
       if (mounted) setState(() {});
     });
+
+    final socketService = getIt<JobsWebSocketService>();
+    _socketSubscription = socketService.stream.listen((event) {
+      final eventType =
+          (event['event']?.toString() ?? event['type']?.toString() ?? '').toLowerCase();
+      if (eventType == 'job_updated' || eventType == 'job_status_changed' || eventType == 'job_cancelled') {
+        final jobId = event['job_id']?.toString() ?? event['jobId']?.toString();
+        final status =
+            (event['status']?.toString() ?? event['new_status']?.toString() ?? '').toUpperCase();
+        if (widget.jobId != null &&
+            jobId == widget.jobId &&
+            (status == 'CANCELLED' || eventType == 'job_cancelled')) {
+          if (mounted) {
+            final reason = event['cancellation_reason'] ?? event['reason'];
+            final messageText = reason != null && reason.toString().isNotEmpty
+                ? 'La solicitud de trabajo ha sido cancelada. Motivo: $reason'
+                : 'La solicitud de trabajo ha sido cancelada.';
+            context.read<NavigationBloc>().add(const TabChanged(0));
+            Navigator.of(context).popUntil((route) => route.isFirst);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(messageText),
+                backgroundColor: AppColors.error,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        }
+      }
+    });
   }
 
-  Future<void> _pickAndSendImage(
-    BuildContext context,
-    ImageSource source,
-  ) async {
+  @override
+  void dispose() {
+    _socketSubscription?.cancel();
+    _controller.dispose();
+    _scrollController.dispose();
+    _audioRecorder.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickAndSendImage(ImageSource source) async {
     try {
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(
@@ -87,7 +129,7 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  void _showAttachmentOptions(BuildContext context) {
+  void _showAttachmentOptions() {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -105,7 +147,7 @@ class _ChatPageState extends State<ChatPage> {
                 title: const Text('Tomar Foto'),
                 onTap: () {
                   Navigator.pop(sheetContext);
-                  _pickAndSendImage(context, ImageSource.camera);
+                  _pickAndSendImage(ImageSource.camera);
                 },
               ),
               ListTile(
@@ -116,7 +158,7 @@ class _ChatPageState extends State<ChatPage> {
                 title: const Text('Elegir de Galería'),
                 onTap: () {
                   Navigator.pop(sheetContext);
-                  _pickAndSendImage(context, ImageSource.gallery);
+                  _pickAndSendImage(ImageSource.gallery);
                 },
               ),
             ],
@@ -126,7 +168,7 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  Future<void> _toggleRecording(BuildContext context) async {
+  Future<void> _toggleRecording() async {
     try {
       if (_isRecording) {
         final path = await _audioRecorder.stop();
@@ -154,8 +196,9 @@ class _ChatPageState extends State<ChatPage> {
           }
         }
       } else {
+        FocusScope.of(context).unfocus();
         if (await _audioRecorder.hasPermission()) {
-          final directory = await getTemporaryDirectory();
+          final directory = Directory.systemTemp;
           final String filePath =
               '${directory.path}/audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
 
@@ -166,7 +209,6 @@ class _ChatPageState extends State<ChatPage> {
 
           setState(() {
             _isRecording = true;
-            _recordPath = filePath;
           });
         }
       }
@@ -177,7 +219,6 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
 
     return BlocProvider(
@@ -186,19 +227,51 @@ class _ChatPageState extends State<ChatPage> {
             ..add(LoadMessages(widget.professional.id, jobId: widget.jobId)),
       child: BlocListener<ChatBloc, ChatState>(
         listener: (context, state) {
-          if (state is JobCancelledState) {
+          if (state is JobAcceptedState) {
+            context.read<NavigationBloc>().add(const TabChanged(1));
+            Navigator.of(context).popUntil((route) => route.isFirst);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  '¡Propuesta aceptada! Redirigiendo a Seguimiento.',
+                ),
+                backgroundColor: AppColors.success,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          } else if (state is JobCancelledState) {
+            context.read<NavigationBloc>().add(const TabChanged(0));
+            Navigator.of(context).popUntil((route) => route.isFirst);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
                   state.byMe
                       ? 'Has rechazado la propuesta de visita.'
-                      : 'El profesional ha cancelado o rechazado la solicitud de trabajo.',
+                      : 'La solicitud de trabajo ha sido cancelada.',
                 ),
                 backgroundColor: AppColors.error,
                 behavior: SnackBarBehavior.floating,
               ),
             );
-            Navigator.pop(context);
+          } else if (state is ChatLoaded &&
+              state.jobStatus == 'FINISHED' &&
+              !_hasPromptedRating &&
+              widget.jobId != null) {
+            _hasPromptedRating = true;
+            final jobIdInt = int.tryParse(widget.jobId!) ?? 0;
+            if (jobIdInt != 0) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  showDialog(
+                    context: context,
+                    builder: (_) => RatingDialog(
+                      jobId: jobIdInt,
+                      professionalName: widget.professional.name,
+                    ),
+                  );
+                }
+              });
+            }
           }
         },
         child: Scaffold(
@@ -220,14 +293,22 @@ class _ChatPageState extends State<ChatPage> {
                       final messages = state.messages.reversed.toList();
 
                       ChatMessage? latestProposalMsg;
-                      try {
-                        latestProposalMsg = state.messages.lastWhere(
-                          (m) =>
-                              !m.isMe &&
-                              m.text.startsWith('Propuesta de visita:'),
-                        );
-                      } catch (_) {
-                        latestProposalMsg = null;
+                      final hasProposalStatus =
+                          state.jobStatus == 'SCHEDULED' ||
+                          state.jobStatus == 'AGREED' ||
+                          state.jobStatus == 'IN_VISIT' ||
+                          state.jobStatus == 'FINISHED' ||
+                          state.jobStatus == 'CANCELLED';
+                      if (hasProposalStatus) {
+                        try {
+                          latestProposalMsg = state.messages.lastWhere(
+                            (m) =>
+                                !m.isMe &&
+                                m.text.startsWith('Propuesta de visita:'),
+                          );
+                        } catch (_) {
+                          latestProposalMsg = null;
+                        }
                       }
 
                       return ListView.builder(
@@ -281,11 +362,10 @@ class _ChatPageState extends State<ChatPage> {
     BuildContext context,
     AppLocalizations l10n,
   ) {
-    final theme = Theme.of(context);
     return AppBar(
       backgroundColor: _isUrgent
-          ? const Color(0xFFFFE5E5).withOpacity(0.7)
-          : Theme.of(context).scaffoldBackgroundColor.withOpacity(0.7),
+          ? const Color(0xFFFFE5E5).withValues(alpha: 0.7)
+          : Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.7),
       elevation: 0,
       flexibleSpace: ClipRRect(
         child: BackdropFilter(
@@ -307,40 +387,49 @@ class _ChatPageState extends State<ChatPage> {
             radius: 20,
           ),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.professional.name,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: AppColors.success,
-                      shape: BoxShape.circle,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.professional.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: AppColors.success,
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    l10n.chatStatusOnline,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: AppColors.success),
-                  ),
-                ],
-              ),
-            ],
+                    const SizedBox(width: 4),
+                    Text(
+                      l10n.chatStatusOnline,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: AppColors.success),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),
       actions: [
-        IconButton(icon: const Icon(Icons.more_vert_rounded), onPressed: () {}),
+        IconButton(
+          icon: const Icon(Icons.flag_outlined),
+          tooltip: 'Reportar usuario o chat',
+          onPressed: () => _showReportUserDialog(widget.professional.name),
+        ),
         const SizedBox(width: 8),
       ],
     );
@@ -356,14 +445,14 @@ class _ChatPageState extends State<ChatPage> {
             _buildActionButton(
               label: l10n.chatActionEnrich,
               icon: Icons.add_photo_alternate_outlined,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-              onTap: () => _showEnrichJobBottomSheet(context),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+              onTap: _showEnrichJobBottomSheet,
             )
           else
             _buildActionButton(
               label: l10n.chatActionJob,
               icon: Icons.work_outline_rounded,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
               onTap: () async {
                 final result = await showModalBottomSheet<dynamic>(
                   context: context,
@@ -406,7 +495,7 @@ class _ChatPageState extends State<ChatPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: isActive ? color.withOpacity(0.1) : Colors.transparent,
+          color: isActive ? color.withValues(alpha: 0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isActive ? color : Theme.of(context).dividerColor,
@@ -449,7 +538,7 @@ class _ChatPageState extends State<ChatPage> {
       child: Row(
         children: [
           GestureDetector(
-            onTap: () => _showAttachmentOptions(context),
+            onTap: _showAttachmentOptions,
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
@@ -476,7 +565,7 @@ class _ChatPageState extends State<ChatPage> {
                 boxShadow: [
                   if (Theme.of(context).brightness == Brightness.light)
                     BoxShadow(
-                      color: Theme.of(context).shadowColor.withOpacity(0.04),
+                      color: Theme.of(context).shadowColor.withValues(alpha: 0.04),
                       blurRadius: 10,
                       offset: const Offset(0, 2),
                     ),
@@ -509,7 +598,7 @@ class _ChatPageState extends State<ChatPage> {
                       decoration: InputDecoration(
                         hintText: l10n.chatInputPlaceholder,
                         hintStyle: TextStyle(
-                          color: Theme.of(context).hintColor.withOpacity(0.4),
+                          color: Theme.of(context).hintColor.withValues(alpha: 0.4),
                         ),
                         border: InputBorder.none,
                         focusedBorder: InputBorder.none,
@@ -527,7 +616,7 @@ class _ChatPageState extends State<ChatPage> {
             builder: (context) => GestureDetector(
               onTap: () {
                 if (_isRecording || _controller.text.isEmpty) {
-                  _toggleRecording(context);
+                  _toggleRecording();
                 } else {
                   context.read<ChatBloc>().add(
                     SendMessage(widget.professional.id, _controller.text),
@@ -558,7 +647,7 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  Future<void> _showEnrichJobBottomSheet(BuildContext context) async {
+  Future<void> _showEnrichJobBottomSheet() async {
     final l10n = AppLocalizations.of(context)!;
     final TextEditingController detailsController = TextEditingController();
     XFile? selectedImage;
@@ -617,7 +706,7 @@ class _ChatPageState extends State<ChatPage> {
                         hintStyle: TextStyle(
                           color: Theme.of(
                             context,
-                          ).colorScheme.onSurface.withOpacity(0.5),
+                          ).colorScheme.onSurface.withValues(alpha: 0.5),
                         ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
@@ -652,17 +741,13 @@ class _ChatPageState extends State<ChatPage> {
                                   Icon(
                                     Icons.add_a_photo_outlined,
                                     size: 36,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurface.withOpacity(0.6),
+                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
                                     l10n.chatEnrichAttachPhoto,
                                     style: TextStyle(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurface.withOpacity(0.6),
+                                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                                     ),
                                   ),
                                 ],
@@ -704,6 +789,10 @@ class _ChatPageState extends State<ChatPage> {
                                 isSaving = true;
                               });
 
+                              final messenger = ScaffoldMessenger.of(context);
+                              final navigator = Navigator.of(context);
+                              final chatBloc = context.read<ChatBloc>();
+
                               try {
                                 String? base64Photo;
                                 if (selectedImage != null) {
@@ -724,14 +813,14 @@ class _ChatPageState extends State<ChatPage> {
                                   );
 
                                   if (mounted) {
-                                    Navigator.pop(context);
-                                    ScaffoldMessenger.of(context).showSnackBar(
+                                    navigator.pop();
+                                    messenger.showSnackBar(
                                       SnackBar(
                                         content: Text(l10n.chatEnrichSuccess),
                                       ),
                                     );
                                     // Enviar un mensaje de aviso en el chat
-                                    context.read<ChatBloc>().add(
+                                    chatBloc.add(
                                       SendMessage(
                                         widget.professional.id,
                                         l10n.chatEnrichMessage,
@@ -740,7 +829,7 @@ class _ChatPageState extends State<ChatPage> {
                                   }
                                 }
                               } catch (e) {
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                messenger.showSnackBar(
                                   SnackBar(
                                     content: Text(
                                       'Error: ${getCleanErrorMessage(e)}',
@@ -778,11 +867,129 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    _scrollController.dispose();
-    _audioRecorder.dispose();
-    super.dispose();
+  void _showReportUserDialog(String targetName) {
+    final TextEditingController detailController = TextEditingController();
+    String selectedReason = 'Lenguaje inapropiado o acoso';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      const Icon(Icons.flag_outlined, color: AppColors.primary, size: 24),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Reportar a $targetName',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Selecciona el motivo por el cual deseas reportar a este usuario en el chat:',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ...[
+                    'Lenguaje inapropiado o acoso',
+                    'Spam o fraude',
+                    'Comportamiento sospechoso o agresivo',
+                    'Foto o contenido ofensivo',
+                    'Otro motivo',
+                  ].map((reason) => RadioListTile<String>(
+                        title: Text(reason, style: const TextStyle(fontSize: 14)),
+                        value: reason,
+                        groupValue: selectedReason,
+                        activeColor: AppColors.primary,
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: (val) {
+                          if (val != null) {
+                            setModalState(() => selectedReason = val);
+                          }
+                        },
+                      )),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: detailController,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      hintText: 'Detalles adicionales (opcional)',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(this.context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Reporte de chat recibido con éxito. El equipo de soporte revisará la conversación dentro de 24 horas.',
+                            ),
+                            backgroundColor: AppColors.success,
+                          ),
+                        );
+                      },
+                      child: const Text(
+                        'Enviar Reporte',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 }

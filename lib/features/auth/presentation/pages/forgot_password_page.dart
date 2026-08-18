@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:clanship_cliente/core/config/env_config.dart';
+import 'package:clanship_cliente/core/utils/lower_case_text_formatter.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
@@ -62,7 +63,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   }
 
   Future<void> _sendOtp() async {
-    final email = _emailController.text.trim();
+    final email = _emailController.text.trim().toLowerCase();
     if (email.isEmpty) {
       _showError('Por favor, ingresa tu correo electrónico.');
       return;
@@ -108,7 +109,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   }
 
   Future<void> _verifyOtp() async {
-    final email = _emailController.text.trim();
+    final email = _emailController.text.trim().toLowerCase();
     final otp = _otpController.text.trim();
     if (otp.length != 6) {
       _showError('Por favor, ingresa el código de 6 dígitos.');
@@ -153,7 +154,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   }
 
   Future<void> _resetPassword() async {
-    final email = _emailController.text.trim();
+    final email = _emailController.text.trim().toLowerCase();
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
@@ -316,6 +317,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         TextField(
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
+          textCapitalization: TextCapitalization.none,
+          inputFormatters: [LowerCaseTextFormatter()],
           style: const TextStyle(color: Color(0xFF2E3135), fontSize: 14),
           decoration: const InputDecoration(
             labelText: 'Correo electrónico',

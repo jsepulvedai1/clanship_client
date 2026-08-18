@@ -8,8 +8,7 @@ class SupportPage extends StatelessWidget {
 
   // Support contact info
   static const String supportEmail = 'soporte@clanship.cl';
-  static const String supportPhone = '+56912345678';
-  static const String supportWhatsApp = '56912345678'; // WhatsApp phone format without '+' or special chars
+  static const String supportWhatsApp = '56966547998'; // WhatsApp phone format without '+' or special chars
 
   Future<void> _launchEmail(BuildContext context) async {
     final Uri emailUri = Uri(
@@ -55,30 +54,6 @@ class SupportPage extends StatelessWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('No se pudo abrir WhatsApp.'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _launchCall(BuildContext context) async {
-    final Uri phoneUri = Uri(
-      scheme: 'tel',
-      path: supportPhone,
-    );
-
-    try {
-      if (await canLaunchUrl(phoneUri)) {
-        await launchUrl(phoneUri);
-      } else {
-        throw Exception('No se puede realizar llamadas en este dispositivo.');
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('No se pudo realizar la llamada.'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -206,16 +181,6 @@ class SupportPage extends StatelessWidget {
               icon: FaIcon(FontAwesomeIcons.whatsapp, size: 22, color: theme.colorScheme.onPrimary),
               label: 'WhatsApp',
               onTap: () => _launchWhatsApp(context),
-              theme: theme,
-            ),
-            const SizedBox(height: 20),
-            
-            // Llamar Button
-            _buildContactButton(
-              context: context,
-              icon: Icon(Icons.phone_in_talk_rounded, size: 22, color: theme.colorScheme.onPrimary),
-              label: 'Llamar',
-              onTap: () => _launchCall(context),
               theme: theme,
             ),
             

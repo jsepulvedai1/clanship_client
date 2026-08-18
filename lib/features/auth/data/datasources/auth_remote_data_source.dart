@@ -34,6 +34,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   Future<UserModel> login(String email, String password) async {
     const storage = FlutterSecureStorage();
     await storage.delete(key: 'jwt_token');
+    await storage.delete(key: 'refresh_token');
 
     const String loginMutation = r'''
       mutation TokenAuth($username: String!, $password: String!, $appType: String) {
@@ -76,11 +77,15 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     }
 
     final token = result.data?['tokenAuth']?['token'];
+    final refreshToken = result.data?['tokenAuth']?['refreshToken'];
 
-    // Save token in flutter_secure_storage so AuthLink caxP use it securely
+    // Save token in flutter_secure_storage so AuthLink can use it securely
     if (token != null) {
       const storage = FlutterSecureStorage();
       await storage.write(key: 'jwt_token', value: token);
+      if (refreshToken != null) {
+        await storage.write(key: 'refresh_token', value: refreshToken);
+      }
     }
 
     // Proceed to fetch 'me'
@@ -121,6 +126,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }) async {
     const storage = FlutterSecureStorage();
     await storage.delete(key: 'jwt_token');
+    await storage.delete(key: 'refresh_token');
 
     const String registerMutation = r'''
       mutation RegisterUser($email: String!, $password: String!, $firstName: String!, $lastName: String!, $phoneNumber: String, $userType: String!) {
@@ -299,6 +305,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     }
     const storage = FlutterSecureStorage();
     await storage.delete(key: 'jwt_token');
+    await storage.delete(key: 'refresh_token');
   }
 
   @override

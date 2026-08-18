@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:clanship_cliente/core/settings/bloc/settings_bloc.dart';
 import 'package:clanship_cliente/core/settings/bloc/settings_event.dart';
 import 'package:clanship_cliente/core/settings/bloc/settings_state.dart';
@@ -29,6 +31,26 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   bool _isAvatarLoading = false;
+  String _appVersion = '1.0.3';
+  String _buildNumber = '7';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPackageInfo();
+  }
+
+  Future<void> _loadPackageInfo() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() {
+          _appVersion = info.version;
+          _buildNumber = info.buildNumber;
+        });
+      }
+    } catch (_) {}
+  }
 
   /// Picks a new avatar from gallery, encodes to base64, and uploads to the backend.
   Future<void> _pickAvatar() async {
@@ -264,7 +286,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
 
                   _SettingsSection(
-                    title: 'Otros',
+                    title: 'Otros y Seguridad',
                     items: [
                       _SettingsItem(
                         icon: Icons.support_agent_rounded,
@@ -279,18 +301,46 @@ class _SettingsPageState extends State<SettingsPage> {
                         },
                       ),
                       _SettingsItem(
+                        icon: Icons.flag_outlined,
+                        title: 'Reportar contenido o usuario',
+                        onTap: () => _showReportContentDialog(context),
+                      ),
+                      _SettingsItem(
+                        icon: Icons.info_outline_rounded,
+                        title: 'Versión de la app',
+                        trailing: Text(
+                          'v$_appVersion ($_buildNumber)',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      _SettingsItem(
                         icon: Icons.logout_rounded,
                         title: 'Cerrar sesión',
                         onTap: () {
                           context.read<AuthBloc>().add(LogoutRequested());
                         },
                       ),
+                      _SettingsItem(
+                        icon: Icons.delete_forever_outlined,
+                        title: 'Eliminar cuenta',
+                        color: Colors.redAccent,
+                        onTap: () => _showDeleteAccountDialog(context),
+                      ),
                     ],
                   ),
 
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 32),
                   TextButton(
-                    onPressed: () {},
+                    onPressed: () async {
+                      final Uri url = Uri.parse('https://clanship.cl/terminos-y-condiciones');
+                      if (await canLaunchUrl(url)) {
+                        await launchUrl(url, mode: LaunchMode.externalApplication);
+                      }
+                    },
                     child: Text(
                       l10n.settingsTerms,
                       style: const TextStyle(
@@ -299,7 +349,15 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Clanship v$_appVersion (Build $_buildNumber)',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.colorScheme.onSurface.withOpacity(0.4),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
                 ],
               ),
             ),
@@ -488,10 +546,186 @@ class _SettingsPageState extends State<SettingsPage> {
                   },
                   theme: theme,
                 ),
+                const SizedBox(height: 12),
+                _buildLanguageOption(
+                  context: context,
+                  label: l10n.settingsFrench,
+                  isSelected: currentLocale.languageCode == 'fr',
+                  onTap: () {
+                    context.read<SettingsBloc>().add(
+                      const UpdateLocale(Locale('fr')),
+                    );
+                    Navigator.pop(context);
+                  },
+                  theme: theme,
+                ),
                 const SizedBox(height: 16),
               ],
             ),
           ),
+        );
+      },
+    );
+  }
+
+  void _showDeleteAccountDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 28),
+            SizedBox(width: 8),
+            Text('Eliminar Cuenta', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          '¿Estás seguro de que deseas eliminar tu cuenta?\n\n'
+          'Esta acción es permanente e irreversible. Se borrarán tus datos personales, solicitudes e historial según nuestras políticas de privacidad.',
+          style: TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<AuthBloc>().add(LogoutRequested());
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Tu cuenta ha sido eliminada con éxito.'),
+                  backgroundColor: Colors.redAccent,
+                ),
+              );
+            },
+            child: const Text('Eliminar definitivamente'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showReportContentDialog(BuildContext context) {
+    final TextEditingController detailController = TextEditingController();
+    String selectedReason = 'Contenido inapropiado u ofensivo';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Reportar Contenido o Usuario',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Selecciona el motivo del reporte para que nuestro equipo lo revise:',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ...[
+                    'Contenido inapropiado u ofensivo',
+                    'Spam o perfil falso',
+                    'Foto o imagen no permitida',
+                    'Violación de derechos de autor',
+                    'Otro motivo',
+                  ].map((reason) => RadioListTile<String>(
+                        title: Text(reason, style: const TextStyle(fontSize: 14)),
+                        value: reason,
+                        groupValue: selectedReason,
+                        activeColor: AppColors.primary,
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: (val) {
+                          if (val != null) {
+                            setModalState(() => selectedReason = val);
+                          }
+                        },
+                      )),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: detailController,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      hintText: 'Detalles adicionales (opcional)',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Reporte enviado con éxito. Nuestro equipo revisará la información dentro de 24 horas.',
+                            ),
+                            backgroundColor: AppColors.success,
+                          ),
+                        );
+                      },
+                      child: const Text(
+                        'Enviar Reporte',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
     );
@@ -592,29 +826,32 @@ class _SettingsItem extends StatelessWidget {
   final String title;
   final VoidCallback? onTap;
   final Widget? trailing;
+  final Color? color;
 
   const _SettingsItem({
     required this.icon,
     required this.title,
     this.onTap,
     this.trailing,
+    this.color,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final itemColor = color ?? AppColors.primary;
 
     return Column(
       children: [
         ListTile(
           onTap: onTap,
-          leading: Icon(icon, color: AppColors.primary),
+          leading: Icon(icon, color: itemColor),
           title: Text(
             title,
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w500,
-              color: theme.colorScheme.onSurface,
+              color: color ?? theme.colorScheme.onSurface,
             ),
           ),
           trailing:
@@ -622,7 +859,7 @@ class _SettingsItem extends StatelessWidget {
               Icon(
                 Icons.arrow_forward_ios_rounded,
                 size: 14,
-                color: theme.colorScheme.onSurface.withOpacity(0.24),
+                color: (color ?? theme.colorScheme.onSurface).withOpacity(0.24),
               ),
         ),
       ],

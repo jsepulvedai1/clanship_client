@@ -200,12 +200,13 @@ class ChatBubble extends StatelessWidget {
       priceText = parts[1].trim();
     }
 
-    final bool showActions = jobStatus == 'SCHEDULED';
+    final bool showActions = isLatestProposal && jobStatus == 'SCHEDULED';
     final bool isAccepted =
-        jobStatus == 'AGREED' ||
-        jobStatus == 'IN_VISIT' ||
-        jobStatus == 'FINISHED';
-    final bool isRejected = jobStatus == 'CANCELLED';
+        isLatestProposal &&
+        (jobStatus == 'AGREED' ||
+            jobStatus == 'IN_VISIT' ||
+            jobStatus == 'FINISHED');
+    final bool isRejected = isLatestProposal && jobStatus == 'CANCELLED';
 
     return Container(
       width: MediaQuery.of(context).size.width * 0.75,
@@ -269,6 +270,7 @@ class ChatBubble extends StatelessWidget {
           if (isAccepted) ...[
             const SizedBox(height: 12),
             Row(
+              key: const ValueKey('accepted'),
               children: [
                 const Icon(
                   Icons.check_circle_rounded,
@@ -288,6 +290,7 @@ class ChatBubble extends StatelessWidget {
           ] else if (isRejected) ...[
             const SizedBox(height: 12),
             Row(
+              key: const ValueKey('rejected'),
               children: [
                 const Icon(
                   Icons.cancel_rounded,
@@ -307,6 +310,7 @@ class ChatBubble extends StatelessWidget {
           ] else if (showActions) ...[
             const SizedBox(height: 16),
             Row(
+              key: const ValueKey('actions'),
               children: [
                 Expanded(
                   child: ElevatedButton(
@@ -350,6 +354,27 @@ class ChatBubble extends StatelessWidget {
                         fontSize: 13,
                       ),
                     ),
+                  ),
+                ),
+              ],
+            ),
+          ] else ...[
+            const SizedBox(height: 12),
+            Row(
+              key: const ValueKey('history'),
+              children: [
+                Icon(
+                  Icons.history_rounded,
+                  color: theme.colorScheme.onSurface.withOpacity(0.4),
+                  size: 18,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Propuesta Anterior / Reemplazada',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.5),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
                   ),
                 ),
               ],

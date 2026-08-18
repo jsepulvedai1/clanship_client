@@ -5,6 +5,8 @@ import 'package:clanship_cliente/core/settings/settings_repository.dart';
 
 import 'package:clanship_cliente/core/network/firebase_notification_helper.dart';
 
+import 'package:clanship_cliente/core/services/specialties_cache_service.dart';
+
 class AppStartup {
   static Future<void> init() async {
     WidgetsFlutterBinding.ensureInitialized();
@@ -21,5 +23,8 @@ class AppStartup {
     // Initialize Global Settings Persistence (Hive)
     final settingsRepo = getIt<SettingsRepository>();
     await settingsRepo.init();
+
+    // Initialize Specialties Cache from local disk
+    await getIt<SpecialtiesCacheService>().initCache();
   }
 }

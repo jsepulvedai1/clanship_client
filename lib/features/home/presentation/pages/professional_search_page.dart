@@ -12,6 +12,9 @@ import 'package:clanship_cliente/features/home/data/models/professional_model.da
 import 'package:clanship_cliente/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:clanship_cliente/features/auth/presentation/bloc/auth_state.dart';
 import 'package:clanship_cliente/features/home/presentation/widgets/services_filter_sheet.dart';
+import 'package:clanship_cliente/core/services/specialties_cache_service.dart';
+
+import 'package:clanship_cliente/l10n/app_localizations.dart';
 
 class ProfessionalSearchPage extends StatefulWidget {
   final List<Professional> initialProfessionals;
@@ -52,38 +55,18 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
 
   Future<void> _fetchSpecialties() async {
     try {
-      const String specialtiesQuery = r'''
-        query GetSpecialtiesTagsAndSubTags {
-          specialties {
-            id
-            name
-            color
-            tags {
-              id
-              name
-              subtags {
-                id
-                name
-              }
-            }
-          }
-        }
-      ''';
-
-      final client = getIt<GraphQLService>().client;
-      final result = await client.query(
-        QueryOptions(
-          document: gql(specialtiesQuery),
-          fetchPolicy: FetchPolicy.networkOnly,
-        ),
-      );
-
-      if (!result.hasException && result.data != null) {
-        if (mounted) {
-          setState(() {
-            _specialties = result.data?['specialties'] as List<dynamic>? ?? [];
-          });
-        }
+      final cacheService = getIt<SpecialtiesCacheService>();
+      List<dynamic> list = cacheService.getSpecialties();
+      if (list.isEmpty) {
+        await cacheService.preloadOrRefresh();
+        list = cacheService.getSpecialties();
+      } else {
+        cacheService.preloadOrRefresh();
+      }
+      if (mounted) {
+        setState(() {
+          _specialties = list;
+        });
       }
     } catch (e) {
       debugPrint('Error fetching specialties for filter: $e');
@@ -367,333 +350,364 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
           }
         }
       },
-      child: Scaffold(
-        backgroundColor: theme.scaffoldBackgroundColor,
-        appBar: AppBar(
-          title: const Text('Búsqueda'),
-          backgroundColor: theme.scaffoldBackgroundColor,
-          elevation: 0,
-          foregroundColor:
-              theme.appBarTheme.iconTheme?.color ?? theme.colorScheme.onSurface,
-        ),
-        body: Column(
-          children: [
-            // Unified Search Bar Design
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: Column(
-                children: [
-                  // Address Selector Row
-                  GestureDetector(
-                    onTap: () => AddressSelectionDialog.show(context),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.location_on_rounded,
-                          color: AppColors.primary,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Mi dirección:', // I should use l10n here if possible, but keeping it simple for now as requested
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onSurface.withOpacity(0.6),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: BlocBuilder<AuthBloc, AuthState>(
-                            builder: (context, state) {
-                              String displayAddress =
-                                  widget.currentAddress ??
-                                  'Calle 123, Villa Puerto, Puerto Montt';
-                              if (state is AuthAuthenticated &&
-                                  state.user.address != null &&
-                                  state.user.address!.isNotEmpty) {
-                                displayAddress = state.user.address!;
-                              }
-
-                              return Text(
-                                displayAddress,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.w600,
-                                  decoration: TextDecoration.underline,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              );
-                            },
-                          ),
-                        ),
-                        Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          color: theme.colorScheme.onSurface.withOpacity(0.4),
-                        ),
-                      ],
-                    ),
+      child: Builder(
+        builder: (context) {
+          final l10n = AppLocalizations.of(context)!;
+          return Scaffold(
+            backgroundColor: theme.scaffoldBackgroundColor,
+            appBar: AppBar(
+              title: Text(l10n.searchTitle),
+              backgroundColor: theme.scaffoldBackgroundColor,
+              elevation: 0,
+              foregroundColor:
+                  theme.appBarTheme.iconTheme?.color ??
+                  theme.colorScheme.onSurface,
+            ),
+            body: Column(
+              children: [
+                // Unified Search Bar Design
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
                   ),
-                  const SizedBox(height: 16),
-                  // Search Bar → abre el modal de filtro al tocar
-                  GestureDetector(
-                    onTap: _showFiltersBottomSheet,
-                    child: Container(
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surface,
-                        borderRadius: BorderRadius.circular(28),
-                        border:
-                            (_selectedTagIds.isNotEmpty ||
-                                _selectedSubtagIds.isNotEmpty)
-                            ? Border.all(color: AppColors.primary, width: 1.5)
-                            : null,
-                        boxShadow: [
-                          BoxShadow(
-                            color: theme.shadowColor.withOpacity(0.05),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          const SizedBox(width: 16),
-                          Icon(
-                            Icons.search_rounded,
-                            color: AppColors.primary,
-                            size: 28,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              (_selectedTagIds.isNotEmpty ||
-                                      _selectedSubtagIds.isNotEmpty)
-                                  ? '${_selectedTagIds.length + _selectedSubtagIds.length} filtro(s) activo(s)'
-                                  : '¿Qué servicio buscas?',
-                              style: theme.textTheme.bodyLarge?.copyWith(
-                                color:
-                                    (_selectedTagIds.isNotEmpty ||
-                                        _selectedSubtagIds.isNotEmpty)
-                                    ? AppColors.primary
-                                    : theme.colorScheme.onSurface.withOpacity(
-                                        0.4,
-                                      ),
-                                fontStyle: FontStyle.italic,
-                                fontSize: 16,
-                                fontWeight:
-                                    (_selectedTagIds.isNotEmpty ||
-                                        _selectedSubtagIds.isNotEmpty)
-                                    ? FontWeight.w600
-                                    : FontWeight.normal,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          // Botón tune integrado en el bar
-                          Container(
-                            margin: const EdgeInsets.only(right: 8),
-                            height: 40,
-                            width: 40,
-                            decoration: BoxDecoration(
-                              color:
-                                  (_selectedTagIds.isNotEmpty ||
-                                      _selectedSubtagIds.isNotEmpty)
-                                  ? AppColors.primary
-                                  : theme.colorScheme.onSurface.withOpacity(
-                                      0.08,
-                                    ),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.tune_rounded,
+                  child: Column(
+                    children: [
+                      // Address Selector Row
+                      GestureDetector(
+                        onTap: () => AddressSelectionDialog.show(context),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.location_on_rounded,
+                              color: AppColors.primary,
                               size: 20,
-                              color:
-                                  (_selectedTagIds.isNotEmpty ||
-                                      _selectedSubtagIds.isNotEmpty)
-                                  ? Colors.white
-                                  : AppColors.primary,
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  if (_selectedTagIds.isNotEmpty ||
-                      _selectedSubtagIds.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surface,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: theme.colorScheme.onSurface.withOpacity(0.1),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Resumen de selección',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
+                            const SizedBox(width: 8),
+                            Text(
+                              l10n.addressMyAddressLabel,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.6,
                                 ),
                               ),
-                              GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _selectedTagIds.clear();
-                                    _selectedSubtagIds.clear();
-                                  });
-                                  _performSearch(_searchController.text);
+                            ),
+                            const SizedBox(width: 4),
+
+                            Expanded(
+                              child: BlocBuilder<AuthBloc, AuthState>(
+                                builder: (context, state) {
+                                  String displayAddress =
+                                      widget.currentAddress ??
+                                      'Calle 123, Villa Puerto, Puerto Montt';
+                                  if (state is AuthAuthenticated &&
+                                      state.user.address != null &&
+                                      state.user.address!.isNotEmpty) {
+                                    displayAddress = state.user.address!;
+                                  }
+
+                                  return Text(
+                                    displayAddress,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.w600,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  );
                                 },
-                                child: const Text(
-                                  'Limpiar todo',
-                                  style: TextStyle(
+                              ),
+                            ),
+                            Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              color: theme.colorScheme.onSurface.withOpacity(
+                                0.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Search Bar → abre el modal de filtro al tocar
+                      GestureDetector(
+                        onTap: _showFiltersBottomSheet,
+                        child: Container(
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surface,
+                            borderRadius: BorderRadius.circular(28),
+                            border:
+                                (_selectedTagIds.isNotEmpty ||
+                                    _selectedSubtagIds.isNotEmpty)
+                                ? Border.all(
                                     color: AppColors.primary,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
+                                    width: 1.5,
+                                  )
+                                : null,
+                            boxShadow: [
+                              BoxShadow(
+                                color: theme.shadowColor.withOpacity(0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              const SizedBox(width: 16),
+                              Icon(
+                                Icons.search_rounded,
+                                color: AppColors.primary,
+                                size: 28,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  (_selectedTagIds.isNotEmpty ||
+                                          _selectedSubtagIds.isNotEmpty)
+                                      ? '${_selectedTagIds.length + _selectedSubtagIds.length} filtro(s) activo(s)'
+                                      : '¿Qué servicio buscas?',
+                                  style: theme.textTheme.bodyLarge?.copyWith(
+                                    color:
+                                        (_selectedTagIds.isNotEmpty ||
+                                            _selectedSubtagIds.isNotEmpty)
+                                        ? AppColors.primary
+                                        : theme.colorScheme.onSurface
+                                              .withOpacity(0.4),
+                                    fontStyle: FontStyle.italic,
+                                    fontSize: 16,
+                                    fontWeight:
+                                        (_selectedTagIds.isNotEmpty ||
+                                            _selectedSubtagIds.isNotEmpty)
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
                                   ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              // Botón tune integrado en el bar
+                              Container(
+                                margin: const EdgeInsets.only(right: 8),
+                                height: 40,
+                                width: 40,
+                                decoration: BoxDecoration(
+                                  color:
+                                      (_selectedTagIds.isNotEmpty ||
+                                          _selectedSubtagIds.isNotEmpty)
+                                      ? AppColors.primary
+                                      : theme.colorScheme.onSurface.withOpacity(
+                                          0.08,
+                                        ),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.tune_rounded,
+                                  size: 20,
+                                  color:
+                                      (_selectedTagIds.isNotEmpty ||
+                                          _selectedSubtagIds.isNotEmpty)
+                                      ? Colors.white
+                                      : AppColors.primary,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 12),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: _resolveSelectedFilterPaths().map((path) {
-                              return Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary.withOpacity(0.08),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: AppColors.primary.withOpacity(0.2),
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Flexible(
-                                      child: Text(
-                                        path['text'] as String,
-                                        style: const TextStyle(
-                                          color: AppColors.primary,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    GestureDetector(
-                                      onTap: () {
-                                        setState(() {
-                                          final id = path['id'] as int;
-                                          if (path['type'] == 'tag') {
-                                            _selectedTagIds.remove(id);
-                                          } else {
-                                            _selectedSubtagIds.remove(id);
-                                          }
-                                        });
-                                        _performSearch(_searchController.text);
-                                      },
-                                      child: const Icon(
-                                        Icons.close_rounded,
-                                        size: 14,
-                                        color: AppColors.primary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  // Urgency Toggle Bar
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFF5271),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
+                      if (_selectedTagIds.isNotEmpty ||
+                          _selectedSubtagIds.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surface,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: theme.colorScheme.onSurface.withOpacity(
+                                0.1,
+                              ),
+                            ),
+                          ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Activa el modo Urgencia',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Resumen de selección',
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedTagIds.clear();
+                                        _selectedSubtagIds.clear();
+                                      });
+                                      _performSearch(_searchController.text);
+                                    },
+                                    child: const Text(
+                                      'Limpiar todo',
+                                      style: TextStyle(
+                                        color: AppColors.primary,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                'Si necesitas solución a la brevedad',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: Colors.white.withAlpha(200),
-                                ),
+                              const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: _resolveSelectedFilterPaths().map((
+                                  path,
+                                ) {
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary.withOpacity(
+                                        0.08,
+                                      ),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: AppColors.primary.withOpacity(
+                                          0.2,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            path['text'] as String,
+                                            style: const TextStyle(
+                                              color: AppColors.primary,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        GestureDetector(
+                                          onTap: () {
+                                            setState(() {
+                                              final id = path['id'] as int;
+                                              if (path['type'] == 'tag') {
+                                                _selectedTagIds.remove(id);
+                                              } else {
+                                                _selectedSubtagIds.remove(id);
+                                              }
+                                            });
+                                            _performSearch(
+                                              _searchController.text,
+                                            );
+                                          },
+                                          child: const Icon(
+                                            Icons.close_rounded,
+                                            size: 14,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
                               ),
                             ],
                           ),
                         ),
-                        Switch(
-                          value: _isUrgencyMode,
-                          onChanged: (value) {
-                            setState(() {
-                              _isUrgencyMode = value;
-                            });
-                          },
-                          activeColor: const Color.fromARGB(255, 255, 255, 255),
-                          activeTrackColor: Colors.white.withAlpha(100),
-                          inactiveThumbColor: Colors.white,
-                          inactiveTrackColor: Colors.grey.withAlpha(150),
-                        ),
                       ],
-                    ),
+                      const SizedBox(height: 12),
+                      // Urgency Toggle Bar
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF5271),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Activa el modo Urgencia',
+                                    style: theme.textTheme.titleMedium
+                                        ?.copyWith(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                  ),
+                                  Text(
+                                    'Si necesitas solución a la brevedad',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: Colors.white.withAlpha(200),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Switch(
+                              value: _isUrgencyMode,
+                              onChanged: (value) {
+                                setState(() {
+                                  _isUrgencyMode = value;
+                                });
+                              },
+                              activeColor: const Color.fromARGB(
+                                255,
+                                255,
+                                255,
+                                255,
+                              ),
+                              activeTrackColor: Colors.white.withAlpha(100),
+                              inactiveThumbColor: Colors.white,
+                              inactiveTrackColor: Colors.grey.withAlpha(150),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                // List of results
+                Expanded(
+                  child: _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _filteredProfessionals.isEmpty
+                      ? Center(child: Text(l10n.searchNoResults))
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          itemCount: _filteredProfessionals.length,
+                          itemBuilder: (context, index) {
+                            return ProfessionalListTile(
+                              professional: _filteredProfessionals[index],
+                              isUrgencyMode: _isUrgencyMode,
+                            );
+                          },
+                        ),
+                ),
+              ],
             ),
-            // List of results
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _filteredProfessionals.isEmpty
-                  ? const Center(
-                      child: Text('No se encontraron profesionales.'),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      itemCount: _filteredProfessionals.length,
-                      itemBuilder: (context, index) {
-                        return ProfessionalListTile(
-                          professional: _filteredProfessionals[index],
-                          isUrgencyMode: _isUrgencyMode,
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

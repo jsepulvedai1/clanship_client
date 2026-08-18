@@ -1,7 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'package:clanship_cliente/core/config/env_config.dart';
 import 'package:clanship_cliente/core/network/graphql_service.dart';
 import 'package:clanship_cliente/features/chat/domain/entities/chat_message.dart';
 import 'package:clanship_cliente/features/chat/domain/repositories/chat_repository.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:injectable/injectable.dart';
 
@@ -9,6 +13,8 @@ import 'package:injectable/injectable.dart';
 class ChatRepositoryImpl implements ChatRepository {
   final GraphQLService _graphQLService;
   final Map<String, StreamController<List<ChatMessage>>> _controllers = {};
+  final Map<String, StreamController<Map<String, dynamic>>> _statusControllers = {};
+  final Map<String, WebSocket> _sockets = {};
 
   ChatRepositoryImpl(this._graphQLService);
 
@@ -61,36 +67,81 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
+  Stream<Map<String, dynamic>> getJobStatusEvents(String roomId) {
+    if (!_statusControllers.containsKey(roomId)) {
+      _statusControllers[roomId] = StreamController<Map<String, dynamic>>.broadcast();
+    }
+    return _statusControllers[roomId]!.stream;
+  }
+
+  @override
   Stream<List<ChatMessage>> getMessages(String roomId) {
     if (!_controllers.containsKey(roomId)) {
       late StreamController<List<ChatMessage>> controller;
-      Timer? roomTimer;
-
-      void startPolling() {
+      void startListening() {
         _fetchMessages(roomId, controller);
-        roomTimer?.cancel();
-        roomTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-          _fetchMessages(roomId, controller);
-        });
+        _connectWebSocket(roomId, controller);
       }
 
-      void stopPolling() {
-        roomTimer?.cancel();
-        roomTimer = null;
+      void stopListening() {
+        _sockets[roomId]?.close();
+        _sockets.remove(roomId);
       }
 
       controller = StreamController<List<ChatMessage>>.broadcast(
         onListen: () {
-          startPolling();
+          startListening();
         },
         onCancel: () {
-          stopPolling();
+          stopListening();
         },
       );
 
       _controllers[roomId] = controller;
     }
     return _controllers[roomId]!.stream;
+  }
+
+  Future<void> _connectWebSocket(
+    String roomId,
+    StreamController<List<ChatMessage>> controller,
+  ) async {
+    try {
+      const storage = FlutterSecureStorage();
+      final token = await storage.read(key: 'jwt_token');
+      final uri = Uri.parse(EnvConfig.instance.websocketUrl);
+      final scheme = uri.scheme == 'https'
+          ? 'wss'
+          : (uri.scheme == 'http' ? 'ws' : uri.scheme);
+      final baseUrl =
+          '$scheme://${uri.host}${uri.hasPort ? ':${uri.port}' : ''}';
+      final wsUrl = '$baseUrl/ws/chat/$roomId/?token=$token';
+
+      final socket = await WebSocket.connect(wsUrl);
+      _sockets[roomId] = socket;
+
+      socket.listen(
+        (data) {
+          try {
+            final Map<String, dynamic> jsonData = jsonDecode(data.toString());
+            final eventType = jsonData['event'] ?? jsonData['type'];
+            if (eventType == 'JOB_STATUS_CHANGED' ||
+                eventType == 'job_status_changed') {
+              if (_statusControllers.containsKey(roomId) &&
+                  !_statusControllers[roomId]!.isClosed) {
+                _statusControllers[roomId]!.add(jsonData);
+              }
+            } else {
+              _fetchMessages(roomId, controller);
+            }
+          } catch (_) {
+            _fetchMessages(roomId, controller);
+          }
+        },
+        onError: (_) {},
+        onDone: () {},
+      );
+    } catch (_) {}
   }
 
   String? _myUserId;
@@ -160,7 +211,7 @@ class ChatRepositoryImpl implements ChatRepository {
         return ChatMessage(
           id: m['id'].toString(),
           senderId: senderId,
-          receiverId: '', // We don't necessarily have the receiver here
+          receiverId: '',
           text: m['text'] ?? '',
           timestamp: DateTime.tryParse(m['createdAt'] ?? '') ?? DateTime.now(),
           isMe: senderId == myId,

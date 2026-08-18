@@ -1,10 +1,15 @@
 import 'package:clanship_cliente/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:clanship_cliente/features/auth/presentation/bloc/auth_event.dart';
 import 'package:clanship_cliente/features/auth/presentation/bloc/auth_state.dart';
+import 'package:clanship_cliente/core/utils/lower_case_text_formatter.dart';
 import 'package:clanship_cliente/features/dashboard/presentation/pages/main_page.dart';
+import 'package:clanship_cliente/core/settings/bloc/settings_bloc.dart';
+import 'package:clanship_cliente/core/settings/bloc/settings_event.dart';
+import 'package:clanship_cliente/core/settings/bloc/settings_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:clanship_cliente/l10n/app_localizations.dart';
 import 'register_page.dart';
 import 'forgot_password_page.dart';
 
@@ -30,6 +35,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -41,7 +47,7 @@ class _LoginPageState extends State<LoginPage> {
             );
           } else if (state is AuthFailure) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Correo o contraseña incorrecta')),
+              SnackBar(content: Text(l10n.loginInvalidCredentials)),
             );
           } else if (state is PasswordResetSuccess) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -74,7 +80,7 @@ class _LoginPageState extends State<LoginPage> {
                 height: 180,
                 child: CustomPaint(painter: TopWavePainter()),
               ),
-              // Bottom-right deep blue decoratgitive wave
+              // Bottom-right deep blue decorative wave
               Positioned(
                 bottom: 0,
                 left: 0,
@@ -92,18 +98,21 @@ class _LoginPageState extends State<LoginPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 8),
+                        // Selector de idioma en el inicio de la app
+                        _buildLanguageSelector(context),
+                        const SizedBox(height: 16),
                         // Logotipo (Sección 1)
-                        _buildLogoHeader(),
+                        _buildLogoHeader(l10n),
                         const SizedBox(height: 24),
                         // Conceptos (Sección 2)
-                        _buildConceptsRow(),
+                        _buildConceptsRow(l10n),
                         const SizedBox(height: 32),
                         // Formulario de Inicio de Sesión
                         _buildLoginForm(theme),
                         const SizedBox(height: 32),
                         // Beneficios (Sección Inferior)
-                        _buildBenefitsRow(),
+                        _buildBenefitsRow(l10n),
                         const SizedBox(height: 48),
                         // Footer
                         _buildFooter(theme),
@@ -120,7 +129,73 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildLogoHeader() {
+  Widget _buildLanguageSelector(BuildContext context) {
+    return BlocBuilder<SettingsBloc, SettingsState>(
+      builder: (context, state) {
+        final currentLocale = state.locale.languageCode;
+        return Align(
+          alignment: Alignment.topRight,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.9),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 6,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: currentLocale,
+                icon: const Padding(
+                  padding: EdgeInsets.only(left: 4.0),
+                  child: Icon(
+                    Icons.language_rounded,
+                    size: 18,
+                    color: Color(0xFF0D2B45),
+                  ),
+                ),
+                isDense: true,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF0D2B45),
+                ),
+                onChanged: (String? newLanguage) {
+                  if (newLanguage != null) {
+                    context.read<SettingsBloc>().add(
+                          UpdateLocale(Locale(newLanguage)),
+                        );
+                  }
+                },
+                items: const [
+                  DropdownMenuItem(
+                    value: 'es',
+                    child: Text('🇪🇸 Español'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'en',
+                    child: Text('🇬🇧 English'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'fr',
+                    child: Text('🇫🇷 Français'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildLogoHeader(AppLocalizations l10n) {
     return Column(
       children: [
         Container(
@@ -153,20 +228,20 @@ class _LoginPageState extends State<LoginPage> {
         ),
         const SizedBox(height: 2),
         RichText(
-          text: const TextSpan(
-            style: TextStyle(
+          text: TextSpan(
+            style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.bold,
               fontFamily: 'Plus Jakarta Sans',
             ),
             children: [
               TextSpan(
-                text: 'Tu red de confianza ',
-                style: TextStyle(color: Color(0xFF0D2B45)),
+                text: l10n.loginTaglinePart1,
+                style: const TextStyle(color: Color(0xFF0D2B45)),
               ),
               TextSpan(
-                text: 'para resolver',
-                style: TextStyle(color: Color(0xFFF28C28)),
+                text: l10n.loginTaglinePart2,
+                style: const TextStyle(color: Color(0xFFF28C28)),
               ),
             ],
           ),
@@ -175,7 +250,7 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildConceptsRow() {
+  Widget _buildConceptsRow(AppLocalizations l10n) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 12),
       decoration: BoxDecoration(
@@ -195,20 +270,20 @@ class _LoginPageState extends State<LoginPage> {
         children: [
           _buildConceptColumn(
             'assets/icon/icons_ 0D2B45/shield-check.svg',
-            'Confianza',
-            'Verificación\ny seguridad',
+            l10n.loginConceptTrustTitle,
+            l10n.loginConceptTrustSubtitle,
             const Color.fromARGB(255, 104, 173, 233),
           ),
           _buildConceptColumn(
             'assets/icon/icons_ 0B6E4F/siren.svg',
-            'Rapidez',
-            'Respuesta\ninmediata',
+            l10n.loginConceptSpeedTitle,
+            l10n.loginConceptSpeedSubtitle,
             const Color(0xFF0B6E4F),
           ),
           _buildConceptColumn(
             'assets/icon/icons_ F28C28/dialog.svg',
-            'Conexión',
-            'Personas que\nresuelven',
+            l10n.loginConceptConnectionTitle,
+            l10n.loginConceptConnectionSubtitle,
             const Color(0xFFF28C28),
           ),
         ],
@@ -263,14 +338,17 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _buildLoginForm(ThemeData theme) {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       children: [
         TextField(
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(
-            labelText: 'Correo electrónico',
-            prefixIcon: Icon(Icons.mail_outline, size: 20),
+          textCapitalization: TextCapitalization.none,
+          inputFormatters: [LowerCaseTextFormatter()],
+          decoration: InputDecoration(
+            labelText: l10n.loginEmailLabel,
+            prefixIcon: const Icon(Icons.mail_outline, size: 20),
           ),
         ),
         const SizedBox(height: 16),
@@ -278,7 +356,7 @@ class _LoginPageState extends State<LoginPage> {
           controller: _passwordController,
           obscureText: _obscurePassword,
           decoration: InputDecoration(
-            labelText: 'Contraseña',
+            labelText: l10n.loginPasswordLabel,
             prefixIcon: const Icon(Icons.lock_outline, size: 20),
             suffixIcon: IconButton(
               icon: Icon(
@@ -307,9 +385,9 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               );
             },
-            child: const Text(
-              '¿Olvidaste tu contraseña?',
-              style: TextStyle(
+            child: Text(
+              l10n.authForgotPassword,
+              style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: Color.fromARGB(255, 71, 169, 255),
@@ -321,7 +399,7 @@ class _LoginPageState extends State<LoginPage> {
         ElevatedButton(
           onPressed: () {
             context.read<AuthBloc>().add(
-              LoginRequested(_emailController.text, _passwordController.text),
+              LoginRequested(_emailController.text.trim().toLowerCase(), _passwordController.text),
             );
           },
           style: ElevatedButton.styleFrom(
@@ -332,32 +410,32 @@ class _LoginPageState extends State<LoginPage> {
               borderRadius: BorderRadius.circular(12),
             ),
           ),
-          child: const Text(
-            'Ingresar',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          child: Text(
+            l10n.loginSignInButton,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildBenefitsRow() {
+  Widget _buildBenefitsRow(AppLocalizations l10n) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         _buildBenefitItem(
           'assets/icon/icons_ 0B6E4F/shield-check.svg',
-          'Especialistas\nverificados',
+          l10n.loginBenefitVerified,
           const Color(0xFF0B6E4F),
         ),
         _buildBenefitItem(
           'assets/icon/icons_ F28C28/star.svg',
-          'Evaluaciones\nreales',
+          l10n.loginBenefitRatings,
           const Color(0xFFF28C28),
         ),
         _buildBenefitItem(
           'assets/icon/icons_ 0B6E4F/map-point.svg',
-          'Seguimiento\nde servicios',
+          l10n.loginBenefitTracking,
           const Color(0xFF0B6E4F),
         ),
       ],
@@ -390,11 +468,12 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _buildFooter(ThemeData theme) {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       children: [
-        const Text(
-          '¿No tienes cuenta?',
-          style: TextStyle(
+        Text(
+          l10n.authNoAccount,
+          style: const TextStyle(
             color: Color(0xFF2E3135),
             fontSize: 14,
             fontWeight: FontWeight.w500,
@@ -407,19 +486,24 @@ class _LoginPageState extends State<LoginPage> {
               context,
             ).push(MaterialPageRoute(builder: (_) => const RegisterPage()));
           },
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Regístrate',
-                style: TextStyle(
+                l10n.authRegisterHere,
+                style: const TextStyle(
                   color: Color(0xFF0D2B45),
+                  fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  fontSize: 15,
+                  decoration: TextDecoration.underline,
                 ),
               ),
-              SizedBox(width: 4),
-              Icon(Icons.arrow_forward_ios, size: 12, color: Color(0xFF0D2B45)),
+              const SizedBox(width: 4),
+              const Icon(
+                Icons.arrow_forward_rounded,
+                color: Color(0xFF0D2B45),
+                size: 16,
+              ),
             ],
           ),
         ),
@@ -427,122 +511,8 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  void _showForgotPasswordDialog(BuildContext context) {
-    final emailController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Text(
-            'Recuperar contraseña',
-            style: TextStyle(
-              color: Color(0xFF0D2B45),
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Ingresa tu correo electrónico y te enviaremos las instrucciones para restablecer tu contraseña.',
-                style: TextStyle(color: Color(0xFF2E3135), fontSize: 14),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: emailController,
-                keyboardType: TextInputType.emailAddress,
-                style: const TextStyle(color: Color(0xFF2E3135), fontSize: 14),
-                cursorColor: const Color(0xFF0D2B45),
-                decoration: InputDecoration(
-                  labelText: 'Correo electrónico',
-                  labelStyle: TextStyle(
-                    color: const Color(0xFF2E3135).withValues(alpha: 0.6),
-                    fontSize: 14,
-                  ),
-                  prefixIcon: const Icon(
-                    Icons.mail_outline,
-                    color: Color(0xFF0D2B45),
-                    size: 20,
-                  ),
-                  filled: true,
-                  fillColor: Colors.transparent,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: Color(0xFFE2E8F0),
-                      width: 1,
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: Color(0xFFE2E8F0),
-                      width: 1,
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: Color(0xFF0D2B45),
-                      width: 1.5,
-                    ),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text(
-                'Cerrar',
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final email = emailController.text.trim();
-                if (email.isNotEmpty) {
-                  context.read<AuthBloc>().add(PasswordResetRequested(email));
-                  Navigator.pop(dialogContext);
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Por favor, ingresa tu correo electrónico.',
-                      ),
-                      backgroundColor: Color(0xFFFF5252),
-                    ),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0D2B45),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text('Enviar'),
-            ),
-          ],
-        );
-      },
-    );
-  }
 }
+
 
 // Background Wave Painters
 class TopWavePainter extends CustomPainter {

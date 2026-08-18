@@ -11,6 +11,7 @@ class ChatRoomInfo {
 abstract class ChatRepository {
   Future<ChatRoomInfo> getOrCreateChatRoom(int professionalId, {int? jobId});
   Stream<List<ChatMessage>> getMessages(String roomId);
+  Stream<Map<String, dynamic>> getJobStatusEvents(String roomId);
   Future<void> sendMessage(
     String roomId, 
     String text, {

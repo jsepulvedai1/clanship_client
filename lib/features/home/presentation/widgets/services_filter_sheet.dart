@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:clanship_cliente/core/theme/app_colors.dart';
+import 'package:clanship_cliente/l10n/app_localizations.dart';
+
 
 class ServicesFilterSheet extends StatefulWidget {
   final List<dynamic> specialties;
@@ -245,8 +248,47 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
     return Icons.work_outline_rounded;
   }
 
+  Widget _buildSpecialtyIconWidget(String name, String? iconUrl, {String? colorHex, double size = 22}) {
+    final fallbackIcon = Icon(
+      _getSpecialtyIcon(name),
+      color: _getSpecialtyIconColor(name, colorHex),
+      size: size,
+    );
+
+    if (iconUrl != null && iconUrl.trim().isNotEmpty) {
+      final cleanUrl = iconUrl.trim();
+      final isSvg = cleanUrl.toLowerCase().endsWith('.svg');
+      if (isSvg) {
+        return SvgPicture.network(
+          cleanUrl,
+          width: size,
+          height: size,
+          fit: BoxFit.contain,
+          placeholderBuilder: (_) => fallbackIcon,
+        );
+      } else {
+        return Image.network(
+          cleanUrl,
+          width: size,
+          height: size,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => fallbackIcon,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return fallbackIcon;
+          },
+        );
+      }
+    }
+    return fallbackIcon;
+  }
+
   // Color Mapping Helper (Container Background)
-  Color _getSpecialtyColor(String name) {
+  Color _getSpecialtyColor(String name, String? colorHex) {
+    if (colorHex != null && colorHex.trim().isNotEmpty) {
+      final base = _parseHexColor(colorHex);
+      return base.withOpacity(0.12);
+    }
     final n = name.toLowerCase();
     if (n.contains('elec')) return const Color(0xFFE2FBE9);
     if (n.contains('const') || n.contains('remod')) return const Color(0xFFE3F2FD);
@@ -260,7 +302,10 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
   }
 
   // Color Mapping Helper (Icon Color)
-  Color _getSpecialtyIconColor(String name) {
+  Color _getSpecialtyIconColor(String name, String? colorHex) {
+    if (colorHex != null && colorHex.trim().isNotEmpty) {
+      return _parseHexColor(colorHex);
+    }
     final n = name.toLowerCase();
     if (n.contains('elec')) return const Color(0xFF0F973D);
     if (n.contains('const') || n.contains('remod')) return const Color(0xFF1565C0);
@@ -271,6 +316,51 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
     if (n.contains('carp')) return const Color(0xFF00695C);
     if (n.contains('clim')) return const Color(0xFF37474F);
     return const Color(0xFF616161);
+  }
+
+  Color _parseHexColor(String? colorHex, {Color defaultColor = AppColors.primary}) {
+    if (colorHex == null || colorHex.trim().isEmpty) return defaultColor;
+    try {
+      final hex = colorHex.trim().replaceAll('#', '');
+      return Color(int.parse('FF$hex', radix: 16));
+    } catch (_) {
+      return defaultColor;
+    }
+  }
+
+  Widget _buildTagIconWidget(String name, String? iconUrl, {double size = 22}) {
+    final fallbackIcon = Icon(
+      _getTagIcon(name),
+      color: AppColors.primary,
+      size: size,
+    );
+
+    if (iconUrl != null && iconUrl.trim().isNotEmpty) {
+      final cleanUrl = iconUrl.trim();
+      final isSvg = cleanUrl.toLowerCase().endsWith('.svg');
+      if (isSvg) {
+        return SvgPicture.network(
+          cleanUrl,
+          width: size,
+          height: size,
+          fit: BoxFit.contain,
+          placeholderBuilder: (_) => fallbackIcon,
+        );
+      } else {
+        return Image.network(
+          cleanUrl,
+          width: size,
+          height: size,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => fallbackIcon,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return fallbackIcon;
+          },
+        );
+      }
+    }
+    return fallbackIcon;
   }
 
   // Tag Icon Mapping Helper
@@ -299,6 +389,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context)!;
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.9,
@@ -323,16 +414,15 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
           const SizedBox(height: 12),
 
           // ─── Barra de búsqueda SIEMPRE presente (nunca se desmonta)
-          // Esto evita que Flutter destruya el TextField al cambiar de rama
-          // if/else, lo que hacía perder el foco tras la primera letra.
-          _buildSearchBar(theme),
+          _buildSearchBar(theme, l10n),
 
           // ─── Contenido dinámico según estado de búsqueda / navegación
           if (_searchQuery.isNotEmpty) ...[
             const Divider(height: 1),
-            Expanded(child: _buildSearchResultsList(theme)),
+            Expanded(child: _buildSearchResultsList(theme, l10n)),
             _buildBottomActionBar(
               theme,
+              l10n,
               onPressedApply: () {
                 Navigator.pop(context);
                 widget.onApply(_selectedTagIds, _selectedSubtagIds);
@@ -340,15 +430,16 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
               onPressedCancel: () {
                 _searchSheetController.clear();
               },
-              cancelText: 'Limpiar búsqueda',
+              cancelText: l10n.exploreClearFilters(0).replaceAll('(0)', '').trim(),
             ),
           ] else ...[
             if (_currentView == 0) ...[
-              _buildHeader(theme, 'Filtrar Servicios', showClear: true),
-              _buildInfoTip(theme),
-              Expanded(child: _buildCategoriesView(theme)),
+              _buildHeader(theme, l10n.searchFilterSpecialty, l10n, showClear: true),
+              _buildInfoTip(theme, l10n),
+              Expanded(child: _buildCategoriesView(theme, l10n)),
               _buildBottomActionBar(
                 theme,
+                l10n,
                 onPressedApply: () {
                   Navigator.pop(context);
                   widget.onApply(_selectedTagIds, _selectedSubtagIds);
@@ -356,12 +447,13 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                 onPressedCancel: () {
                   Navigator.pop(context);
                 },
-                cancelText: 'Cancelar',
+                cancelText: l10n.filterSheetCancel,
               ),
             ] else if (_currentView == 1) ...[
               _buildHeader(
                 theme,
                 _activeSpecialty!['name'] as String,
+                l10n,
                 onBack: () {
                   setState(() {
                     _currentView = 0;
@@ -369,10 +461,11 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                   });
                 },
               ),
-              _buildBreadcrumb(theme, 'Categoría', _activeSpecialty!['name'] as String),
+              _buildBreadcrumb(theme, l10n.filterSheetCategoryBreadcrumb, _activeSpecialty!['name'] as String),
               Expanded(child: _buildSubcategoriesView(theme)),
               _buildBottomActionBar(
                 theme,
+                l10n,
                 onPressedApply: () {
                   Navigator.pop(context);
                   widget.onApply(_selectedTagIds, _selectedSubtagIds);
@@ -383,12 +476,13 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                     _activeSpecialty = null;
                   });
                 },
-                cancelText: 'Cancelar',
+                cancelText: l10n.filterSheetCancel,
               ),
             ] else if (_currentView == 2) ...[
               _buildHeader(
                 theme,
                 _activeTag!['name'] as String,
+                l10n,
                 onBack: () {
                   setState(() {
                     _currentView = 1;
@@ -404,6 +498,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
               Expanded(child: _buildServicesView(theme)),
               _buildBottomActionBar(
                 theme,
+                l10n,
                 onPressedApply: () {
                   Navigator.pop(context);
                   widget.onApply(_selectedTagIds, _selectedSubtagIds);
@@ -414,8 +509,8 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                     _activeTag = null;
                   });
                 },
-                cancelText: 'Cancelar',
-                selectedCountText: '${_getTagSelectedCount(_activeTag!)} servicios seleccionados',
+                cancelText: l10n.filterSheetCancel,
+                selectedCountText: l10n.filterSheetSelectedServices(_getTagSelectedCount(_activeTag!)),
               ),
             ],
           ],
@@ -425,7 +520,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
   }
 
   // Header Widget
-  Widget _buildHeader(ThemeData theme, String title, {bool showClear = false, VoidCallback? onBack}) {
+  Widget _buildHeader(ThemeData theme, String title, AppLocalizations l10n, {bool showClear = false, VoidCallback? onBack}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       child: Row(
@@ -461,9 +556,9 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                   _selectedSubtagIds.clear();
                 });
               },
-              child: const Text(
-                'Limpiar todo',
-                style: TextStyle(
+              child: Text(
+                l10n.filterSheetClearAll,
+                style: const TextStyle(
                   color: AppColors.primary,
                   fontWeight: FontWeight.bold,
                 ),
@@ -485,13 +580,13 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
             '$parent ',
             style: TextStyle(
               fontSize: 14,
-              color: theme.colorScheme.onSurface.withOpacity(0.4),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
             ),
           ),
           Icon(
             Icons.arrow_forward_ios_rounded,
             size: 10,
-            color: theme.colorScheme.onSurface.withOpacity(0.4),
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
           ),
           Text(
             ' $child',
@@ -507,7 +602,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
   }
 
   // Search Bar (siempre presente en el árbol para mantener el foco del TextField)
-  Widget _buildSearchBar(ThemeData theme) {
+  Widget _buildSearchBar(ThemeData theme, AppLocalizations l10n) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       child: Container(
@@ -517,16 +612,16 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
             color: _searchQuery.isNotEmpty
-                ? AppColors.primary.withOpacity(0.4)
-                : theme.colorScheme.onSurface.withOpacity(0.1),
+                ? AppColors.primary.withValues(alpha: 0.4)
+                : theme.colorScheme.onSurface.withValues(alpha: 0.1),
           ),
         ),
         child: TextField(
           controller: _searchSheetController,
           decoration: InputDecoration(
-            hintText: 'Buscar servicio',
+            hintText: l10n.filterSheetSearchPlaceholder,
             hintStyle: TextStyle(
-              color: theme.colorScheme.onSurface.withOpacity(0.4),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
               fontSize: 15,
             ),
             prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
@@ -534,7 +629,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                 ? IconButton(
                     icon: Icon(
                       Icons.close_rounded,
-                      color: theme.colorScheme.onSurface.withOpacity(0.5),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                     ),
                     onPressed: () => _searchSheetController.clear(),
                   )
@@ -548,7 +643,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
   }
 
   // Lightbulb Helper tip
-  Widget _buildInfoTip(ThemeData theme) {
+  Widget _buildInfoTip(ThemeData theme, AppLocalizations l10n) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       child: Row(
@@ -559,11 +654,13 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
             size: 18,
           ),
           const SizedBox(width: 8),
-          Text(
-            'Navega y selecciona los servicios que necesitas',
-            style: TextStyle(
-              fontSize: 13,
-              color: theme.colorScheme.onSurface.withOpacity(0.6),
+          Expanded(
+            child: Text(
+              l10n.filterSheetInfoTip,
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
             ),
           ),
         ],
@@ -571,14 +668,17 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
     );
   }
 
+
   // SCREEN 1: Categories View
-  Widget _buildCategoriesView(ThemeData theme) {
+  Widget _buildCategoriesView(ThemeData theme, AppLocalizations l10n) {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       itemCount: widget.specialties.length,
       itemBuilder: (context, index) {
         final spec = widget.specialties[index];
         final name = spec['name'] as String;
+        final iconUrl = spec['iconUrl'] as String?;
+        final specColorHex = spec['color'] as String?;
         final tags = spec['tags'] as List<dynamic>? ?? [];
         final selectedCount = _getSpecialtySelectedCount(spec);
         final isFullySelected = _isSpecialtyFullySelected(spec);
@@ -599,7 +699,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: theme.colorScheme.onSurface.withOpacity(0.1),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
                 ),
               ),
               child: Row(
@@ -620,13 +720,11 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: _getSpecialtyColor(name),
+                      color: _getSpecialtyColor(name, specColorHex),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      _getSpecialtyIcon(name),
-                      color: _getSpecialtyIconColor(name),
-                      size: 22,
+                    child: Center(
+                      child: _buildSpecialtyIconWidget(name, iconUrl, colorHex: specColorHex, size: 22),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -648,10 +746,10 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${tags.length} subcategorías',
+                          l10n.filterSheetSubcategories(tags.length),
                           style: TextStyle(
                             fontSize: 13,
-                            color: theme.colorScheme.onSurface.withOpacity(0.5),
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                           ),
                         ),
                       ],
@@ -675,12 +773,12 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
                   ],
                   Icon(
                     Icons.arrow_forward_ios_rounded,
-                    size: 14,
-                    color: theme.colorScheme.onSurface.withOpacity(0.3),
+                    size: 16,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
                   ),
                 ],
               ),
@@ -692,6 +790,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
   }
 
   // SCREEN 2: Subcategories View
+
   Widget _buildSubcategoriesView(ThemeData theme) {
     final tags = _activeSpecialty!['tags'] as List<dynamic>? ?? [];
 
@@ -701,6 +800,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
       itemBuilder: (context, index) {
         final tag = tags[index];
         final name = tag['name'] as String;
+        final iconUrl = tag['iconUrl'] as String?;
         final subtags = tag['subtags'] as List<dynamic>? ?? [];
         final selectedCount = _getTagSelectedCount(tag);
         final isFullySelected = _isTagFullySelected(tag);
@@ -749,10 +849,8 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                       color: AppColors.primary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(
-                      _getTagIcon(name),
-                      color: AppColors.primary,
-                      size: 22,
+                    child: Center(
+                      child: _buildTagIconWidget(name, iconUrl, size: 22),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -849,6 +947,8 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
         final name = subtag['name'] as String;
         final subtagId = int.parse(subtag['id'].toString());
         final isSelected = _selectedSubtagIds.contains(subtagId);
+        final colorHex = subtag['color'] as String?;
+        final accentColor = _parseHexColor(colorHex, defaultColor: AppColors.primary);
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
@@ -867,10 +967,11 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
               height: 60,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
+                color: isSelected ? accentColor.withOpacity(0.06) : null,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: isSelected
-                      ? AppColors.primary.withOpacity(0.5)
+                      ? accentColor.withOpacity(0.6)
                       : theme.colorScheme.onSurface.withOpacity(0.1),
                   width: isSelected ? 1.5 : 1.0,
                 ),
@@ -879,7 +980,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                 children: [
                   Checkbox(
                     value: isSelected,
-                    activeColor: AppColors.primary,
+                    activeColor: accentColor,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(4),
                     ),
@@ -915,11 +1016,11 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
   }
 
   // Flat Search Results List View
-  Widget _buildSearchResultsList(ThemeData theme) {
+  Widget _buildSearchResultsList(ThemeData theme, AppLocalizations l10n) {
     final results = _getFlatSearchResults();
 
     if (results.isEmpty) {
-      return const Center(child: Text('No se encontraron servicios.'));
+      return Center(child: Text(l10n.filterSheetNoServices));
     }
 
     return ListView.builder(
@@ -934,6 +1035,8 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
         final isTag = item['type'] == 'tag';
 
         final isSelected = isTag ? _selectedTagIds.contains(id) : _selectedSubtagIds.contains(id);
+        final colorHex = item['color'] as String?;
+        final accentColor = _parseHexColor(colorHex, defaultColor: AppColors.primary);
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
@@ -941,13 +1044,13 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
             onTap: () {
               setState(() {
                 if (isTag) {
-                  if (isSelected) {
+                  if (_selectedTagIds.contains(id)) {
                     _selectedTagIds.remove(id);
                   } else {
                     _selectedTagIds.add(id);
                   }
                 } else {
-                  if (isSelected) {
+                  if (_selectedSubtagIds.contains(id)) {
                     _selectedSubtagIds.remove(id);
                   } else {
                     _selectedSubtagIds.add(id);
@@ -960,11 +1063,12 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
               height: 72,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
+                color: isSelected ? accentColor.withValues(alpha: 0.06) : null,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: isSelected
-                      ? AppColors.primary.withOpacity(0.5)
-                      : theme.colorScheme.onSurface.withOpacity(0.1),
+                      ? accentColor.withValues(alpha: 0.6)
+                      : theme.colorScheme.onSurface.withValues(alpha: 0.1),
                   width: isSelected ? 1.5 : 1.0,
                 ),
               ),
@@ -972,7 +1076,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                 children: [
                   Checkbox(
                     value: isSelected,
-                    activeColor: AppColors.primary,
+                    activeColor: accentColor,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(4),
                     ),
@@ -1014,7 +1118,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                           '$specName > $tagName',
                           style: TextStyle(
                             fontSize: 12,
-                            color: theme.colorScheme.onSurface.withOpacity(0.4),
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -1033,13 +1137,14 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
 
   // Bottom action bar widget matching the designs
   Widget _buildBottomActionBar(
-    ThemeData theme, {
+    ThemeData theme,
+    AppLocalizations l10n, {
     required VoidCallback onPressedApply,
     required VoidCallback onPressedCancel,
     required String cancelText,
     String? selectedCountText,
   }) {
-    final countText = selectedCountText ?? '$_totalSelectedCount filtros seleccionados';
+    final countText = selectedCountText ?? l10n.filterSheetSelectedServices(_totalSelectedCount);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -1047,7 +1152,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
         color: theme.colorScheme.surface,
         border: Border(
           top: BorderSide(
-            color: theme.colorScheme.onSurface.withOpacity(0.1),
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
           ),
         ),
       ),
@@ -1078,9 +1183,9 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                   borderRadius: BorderRadius.circular(24),
                 ),
               ),
-              child: const Text(
-                'Aplicar filtros',
-                style: TextStyle(
+              child: Text(
+                l10n.filterSheetApply,
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -1098,7 +1203,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
               child: Text(
                 cancelText,
                 style: TextStyle(
-                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -1109,3 +1214,4 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
     );
   }
 }
+

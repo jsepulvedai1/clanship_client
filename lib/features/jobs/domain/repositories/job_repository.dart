@@ -23,5 +23,26 @@ abstract class JobRepository {
     String status, {
     String? cancellationReason,
   });
+  Future<void> rateJob(
+    int jobId,
+    int rating,
+    String? comment,
+  );
   Future<String> getJobStatus(int jobId);
+  Future<bool> createPublicJobRequest({
+    int? specialtyId,
+    String? customSpecialty,
+    required String title,
+    required String description,
+    required String address,
+    double? latitude,
+    double? longitude,
+    double? budget,
+    bool isUrgent = false,
+    String? desiredDate,
+    List<String>? photosBase64,
+  });
+  Future<List<Map<String, dynamic>>> getMyPublicJobRequests();
+  Future<bool> acceptJobProposal(int proposalId);
+  Future<bool> cancelPublicJobRequest(int requestId);
 }

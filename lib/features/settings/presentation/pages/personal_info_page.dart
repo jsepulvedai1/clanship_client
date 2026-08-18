@@ -1,14 +1,9 @@
-import 'package:clanship_cliente/core/di/injection.dart';
 import 'package:clanship_cliente/core/theme/app_colors.dart';
-import 'package:clanship_cliente/features/auth/data/mappers/user_mapper.dart';
-import 'package:clanship_cliente/features/auth/data/models/user_model.dart';
 import 'package:clanship_cliente/features/auth/domain/entities/user.dart';
 import 'package:clanship_cliente/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:clanship_cliente/features/auth/presentation/bloc/auth_event.dart';
 import 'package:clanship_cliente/features/auth/presentation/bloc/auth_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:graphql_flutter/graphql_flutter.dart';
 
 class PersonalInfoPage extends StatefulWidget {
   const PersonalInfoPage({super.key});
@@ -18,20 +13,16 @@ class PersonalInfoPage extends StatefulWidget {
 }
 
 class _PersonalInfoPageState extends State<PersonalInfoPage> {
-  final _formKey = GlobalKey<FormState>();
-  
   late final TextEditingController _firstNameController;
   late final TextEditingController _lastNameController;
   late final TextEditingController _emailController;
   late final TextEditingController _phoneController;
-
-  bool _isLoading = false;
+  late final TextEditingController _addressController;
 
   @override
   void initState() {
     super.initState();
-    
-    // Get current user details from AuthBloc
+
     final authState = context.read<AuthBloc>().state;
     User? currentUser;
     if (authState is AuthAuthenticated) {
@@ -42,8 +33,8 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
     String initialLastName = currentUser?.lastName ?? '';
     final String initialEmail = currentUser?.email ?? '';
     final String initialPhone = currentUser?.phoneNumber ?? '';
+    final String initialAddress = currentUser?.address ?? '';
 
-    // Smart fallback if first/last name are empty but full name is set
     if (initialFirstName.isEmpty && currentUser != null && currentUser.name.isNotEmpty) {
       final parts = currentUser.name.trim().split(' ');
       initialFirstName = parts.first;
@@ -56,6 +47,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
     _lastNameController = TextEditingController(text: initialLastName);
     _emailController = TextEditingController(text: initialEmail);
     _phoneController = TextEditingController(text: initialPhone);
+    _addressController = TextEditingController(text: initialAddress);
   }
 
   @override
@@ -64,95 +56,62 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
     _lastNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _addressController.dispose();
     super.dispose();
   }
 
-  Future<void> _saveProfile() async {
-    if (!_formKey.currentState!.validate()) return;
+  Widget _buildReadOnlyField({
+    required BuildContext context,
+    required String label,
+    required TextEditingController controller,
+    required IconData prefixIcon,
+    String? hintText,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
-    setState(() {
-      _isLoading = true;
-    });
-
-    const String updateProfileMutation = r'''
-      mutation UpdateProfile($firstName: String!, $lastName: String!, $email: String!, $phoneNumber: String) {
-        updateProfile(firstName: $firstName, lastName: $lastName, email: $email, phoneNumber: $phoneNumber) {
-          success
-          user {
-            id
-            username
-            email
-            phoneNumber
-            firstName
-            lastName
-            avatarUrl
-          }
-        }
-      }
-    ''';
-
-    try {
-      final client = getIt<GraphQLClient>();
-      final MutationOptions options = MutationOptions(
-        document: gql(updateProfileMutation),
-        variables: {
-          'firstName': _firstNameController.text.trim(),
-          'lastName': _lastNameController.text.trim(),
-          'email': _emailController.text.trim(),
-          'phoneNumber': _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
-        },
-        fetchPolicy: FetchPolicy.networkOnly,
-      );
-
-      final QueryResult result = await client.mutate(options);
-
-      if (result.hasException) {
-        throw Exception(result.exception.toString());
-      }
-
-      final success = result.data?['updateProfile']?['success'] as bool? ?? false;
-      if (success) {
-        final userData = result.data?['updateProfile']?['user'] as Map<String, dynamic>;
-        final updatedUserModel = UserModel.fromJson(userData);
-        final updatedUser = UserMapper.toEntity(updatedUserModel);
-
-        if (mounted) {
-          // Update the user state globally in BLoC
-          context.read<AuthBloc>().add(ProfileUpdated(updatedUser));
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Información personal actualizada con éxito'),
-              backgroundColor: AppColors.success,
-            ),
-          );
-          
-          Navigator.of(context).pop();
-        }
-      } else {
-        throw Exception('Error al actualizar el perfil en el servidor');
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lo sentimos, hubo un error al guardar tus datos.'),
-            backgroundColor: AppColors.error,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextFormField(
+          controller: controller,
+          readOnly: true,
+          style: TextStyle(
+            color: isDark ? Colors.white70 : Colors.black87,
+            fontWeight: FontWeight.w500,
           ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
+          decoration: InputDecoration(
+            labelText: label,
+            prefixIcon: Icon(prefixIcon, color: AppColors.primary),
+            hintText: hintText,
+            filled: true,
+            fillColor: isDark
+                ? Colors.white.withOpacity(0.05)
+                : Colors.black.withOpacity(0.04),
+            suffixIcon: const Tooltip(
+              message: 'Este campo no puede ser modificado',
+              child: Icon(Icons.lock_outline_rounded, size: 18, color: Colors.grey),
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: isDark ? Colors.white10 : Colors.black12,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -161,7 +120,10 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_rounded, color: theme.appBarTheme.iconTheme?.color ?? theme.colorScheme.onSurface),
+          icon: Icon(
+            Icons.arrow_back_ios_rounded,
+            color: theme.appBarTheme.iconTheme?.color ?? theme.colorScheme.onSurface,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
@@ -174,142 +136,107 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 10),
-              Text(
-                'Mantén tus datos actualizados para que los profesionales de ClanShip puedan contactarte fácilmente.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: theme.colorScheme.onSurface.withOpacity(0.54),
-                ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 10),
+            Text(
+              'Consulta tus datos personales registrados. Todos los campos están bloqueados por seguridad.',
+              style: TextStyle(
+                fontSize: 14,
+                color: theme.colorScheme.onSurface.withOpacity(0.6),
               ),
-              const SizedBox(height: 30),
-              
-              // Inputs Container Card
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surface,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    if (theme.brightness == Brightness.light)
-                      BoxShadow(
-                        color: theme.shadowColor.withOpacity(0.04),
-                        blurRadius: 15,
-                        offset: const Offset(0, 4),
-                      ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    // Nombre (solo lectura)
-                    TextFormField(
-                      controller: _firstNameController,
-                      readOnly: true,
-                      decoration: InputDecoration(
-                        labelText: 'Nombre',
-                        prefixIcon: const Icon(Icons.person_outline_rounded),
-                        filled: true,
-                        fillColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.04),
-                        suffixIcon: const Tooltip(
-                          message: 'El nombre no puede ser modificado',
-                          child: Icon(Icons.lock_outline, size: 16, color: Colors.grey),
-                        ),
-                      ),
+            ),
+            const SizedBox(height: 24),
+            
+            // Inputs Container Card
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  if (!isDark)
+                    BoxShadow(
+                      color: theme.shadowColor.withOpacity(0.04),
+                      blurRadius: 15,
+                      offset: const Offset(0, 4),
                     ),
-                    const SizedBox(height: 20),
-                    
-                    // Apellido (solo lectura)
-                    TextFormField(
-                      controller: _lastNameController,
-                      readOnly: true,
-                      decoration: InputDecoration(
-                        labelText: 'Apellido',
-                        prefixIcon: const Icon(Icons.person_outline_rounded),
-                        filled: true,
-                        fillColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.04),
-                        suffixIcon: const Tooltip(
-                          message: 'El apellido no puede ser modificado',
-                          child: Icon(Icons.lock_outline, size: 16, color: Colors.grey),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    
-                    // Correo (solo lectura)
-                    TextFormField(
-                      controller: _emailController,
-                      readOnly: true,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: InputDecoration(
-                        labelText: 'Correo Electrónico',
-                        prefixIcon: const Icon(Icons.email_outlined),
-                        filled: true,
-                        fillColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.04),
-                        suffixIcon: const Tooltip(
-                          message: 'El correo no puede ser modificado',
-                          child: Icon(Icons.lock_outline, size: 16, color: Colors.grey),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    
-                    // Teléfono
-                    TextFormField(
-                      controller: _phoneController,
-                      keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(
-                        labelText: 'Número de Teléfono',
-                        prefixIcon: Icon(Icons.phone_outlined),
-                        hintText: '+56 9 1234 5678',
-                      ),
-                      validator: (value) {
-                        // Phone is optional but if entered, should be valid length
-                        if (value != null && value.trim().isNotEmpty && value.trim().length < 8) {
-                          return 'Ingresa un número de teléfono válido';
-                        }
-                        return null;
-                      },
-                    ),
-                  ],
-                ),
+                ],
               ),
-              const SizedBox(height: 40),
-              
-              // Save Button
-              ElevatedButton(
-                onPressed: _isLoading ? null : _saveProfile,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  disabledBackgroundColor: AppColors.primary.withOpacity(0.6),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
+              child: Column(
+                children: [
+                  _buildReadOnlyField(
+                    context: context,
+                    label: 'Nombre',
+                    controller: _firstNameController,
+                    prefixIcon: Icons.person_outline_rounded,
                   ),
-                ),
-                child: _isLoading
-                    ? SizedBox(
-                        height: 24,
-                        width: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.onPrimary),
-                        ),
-                      )
-                    : Text(
-                        'Guardar cambios',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.onPrimary,
-                        ),
-                      ),
+                  const SizedBox(height: 18),
+                  _buildReadOnlyField(
+                    context: context,
+                    label: 'Apellido',
+                    controller: _lastNameController,
+                    prefixIcon: Icons.person_outline_rounded,
+                  ),
+                  const SizedBox(height: 18),
+                  _buildReadOnlyField(
+                    context: context,
+                    label: 'Correo Electrónico',
+                    controller: _emailController,
+                    prefixIcon: Icons.email_outlined,
+                  ),
+                  const SizedBox(height: 18),
+                  _buildReadOnlyField(
+                    context: context,
+                    label: 'Número de Teléfono',
+                    controller: _phoneController,
+                    prefixIcon: Icons.phone_outlined,
+                    hintText: 'No registrado',
+                  ),
+                  const SizedBox(height: 18),
+                  _buildReadOnlyField(
+                    context: context,
+                    label: 'Dirección',
+                    controller: _addressController,
+                    prefixIcon: Icons.location_on_outlined,
+                    hintText: 'No registrada',
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 28),
+
+            // Security Info Notice Card
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: AppColors.primary.withOpacity(0.2),
+                ),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.lock_rounded, color: AppColors.primary, size: 24),
+                  SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      'Tus datos personales no pueden ser editados directamente. Si necesitas cambiar algún dato, por favor contacta al equipo de soporte.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        height: 1.4,
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
         ),
       ),
     );

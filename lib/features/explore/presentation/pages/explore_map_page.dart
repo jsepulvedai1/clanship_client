@@ -1,6 +1,6 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
-import 'dart:math'; // Importante para generar el desplazamiento aleatorio
 import 'dart:ui' as ui;
 import 'package:clanship_cliente/core/theme/app_colors.dart';
 import 'package:clanship_cliente/features/home/domain/entities/professional.dart';
@@ -14,11 +14,34 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:graphql_flutter/graphql_flutter.dart';
-import 'package:clanship_cliente/core/network/graphql_service.dart';
 import 'package:clanship_cliente/features/home/presentation/widgets/services_filter_sheet.dart';
+import 'package:clanship_cliente/core/services/specialties_cache_service.dart';
+import 'package:clanship_cliente/l10n/app_localizations.dart';
+
+class _MapCluster {
+  double latSum;
+  double lngSum;
+  final List<Professional> items;
+
+  _MapCluster({
+    required double initialLat,
+    required double initialLng,
+    required Professional initialProf,
+  })  : latSum = initialLat,
+        lngSum = initialLng,
+        items = [initialProf];
+
+  LatLng get center => LatLng(latSum / items.length, lngSum / items.length);
+
+  void add(Professional prof) {
+    items.add(prof);
+    latSum += prof.latitude;
+    lngSum += prof.longitude;
+  }
+}
 
 class ExploreMapPage extends StatefulWidget {
+
   final bool initialUrgencyMode;
   const ExploreMapPage({super.key, this.initialUrgencyMode = false});
 
@@ -29,12 +52,14 @@ class ExploreMapPage extends StatefulWidget {
 class _ExploreMapPageState extends State<ExploreMapPage>
     with AutomaticKeepAliveClientMixin {
   GoogleMapController? _mapController;
-  final Set<Marker> _markers = {};
+  Set<Marker> _markers = {};
+  List<Professional> _filteredProfessionals = [];
+  double _currentZoom = 14.5;
+  final Map<int, BitmapDescriptor> _clusterIconCache = {};
   final TextEditingController _searchController = TextEditingController();
   final LocationService _locationService = getIt<LocationService>();
   Position? _currentPosition;
   Professional? _selectedProfessional;
-  bool _mapReady = false;
   bool _isUrgencyMode = false;
   final Set<int> _selectedTagIds = {};
   final Set<int> _selectedSubtagIds = {};
@@ -64,132 +89,6 @@ class _ExploreMapPageState extends State<ExploreMapPage>
   @override
   bool get wantKeepAlive => true;
 
-  /// Genera profesionales simulados distribuidos aleatoriamente en un radio cercano (aprox. 1.5km)
-  /// tomando como origen la ubicación real recibida.
-  List<Professional> _generateMockProfessionalsAround(LatLng center) {
-    final Random random = Random(42);
-
-    final List<Map<String, dynamic>> baseData = [
-      {
-        'name': 'Carolina R.',
-        'specialty': 'Electricista',
-        'rating': 4.8,
-        'verified': true,
-        'price': 35.0,
-      },
-      {
-        'name': 'Diego M.',
-        'specialty': 'Gasfitería',
-        'rating': 4.6,
-        'verified': true,
-        'price': 28.0,
-      },
-      {
-        'name': 'Valentina S.',
-        'specialty': 'Pintura',
-        'rating': 4.9,
-        'verified': false,
-        'price': 22.0,
-      },
-      {
-        'name': 'Andrés P.',
-        'specialty': 'Carpintería',
-        'rating': 4.5,
-        'verified': true,
-        'price': 32.0,
-      },
-      {
-        'name': 'Lucía F.',
-        'specialty': 'Limpieza',
-        'rating': 4.7,
-        'verified': true,
-        'price': 18.0,
-      },
-      {
-        'name': 'Roberto C.',
-        'specialty': 'Mecánica',
-        'rating': 4.3,
-        'verified': false,
-        'price': 40.0,
-      },
-      {
-        'name': 'Patricia G.',
-        'specialty': 'Jardinería',
-        'rating': 4.9,
-        'verified': true,
-        'price': 20.0,
-      },
-      {
-        'name': 'Felipe O.',
-        'specialty': 'Electricista',
-        'rating': 4.4,
-        'verified': false,
-        'price': 30.0,
-      },
-      {
-        'name': 'Isabel T.',
-        'specialty': 'Gasfitería',
-        'rating': 4.8,
-        'verified': true,
-        'price': 26.0,
-      },
-      {
-        'name': 'Matías H.',
-        'specialty': 'Carpintería',
-        'rating': 4.6,
-        'verified': true,
-        'price': 35.0,
-      },
-      {
-        'name': 'Sofía B.',
-        'specialty': 'Pintura',
-        'rating': 4.7,
-        'verified': true,
-        'price': 24.0,
-      },
-      {
-        'name': 'Juan V.',
-        'specialty': 'Limpieza',
-        'rating': 4.5,
-        'verified': false,
-        'price': 16.0,
-      },
-    ];
-
-    return List.generate(baseData.length, (index) {
-      final data = baseData[index];
-
-      final double u = random.nextDouble();
-      final double v = random.nextDouble();
-      final double radiusInDegrees = 0.015 * sqrt(u);
-      final double theta = v * 2 * pi;
-
-      final double latOffset = radiusInDegrees * cos(theta);
-      final double lngOffset = radiusInDegrees * sin(theta);
-
-      // Calculamos la distancia asegurándonos de que retorne un double
-      final double calculatedDistance = double.parse(
-        (0.3 + (random.nextDouble() * 1.5)).toStringAsFixed(1),
-      );
-
-      return Professional(
-        id: 'mock_${index + 1}',
-        name: data['name'] as String,
-        specialty: data['specialty'] as String,
-        rating: (data['rating'] as num).toDouble(), // Casteo seguro a double
-        distance: calculatedDistance,
-        imageUrl:
-            'https://i.pravatar.cc/150?u=${(data['name'] as String).toLowerCase().split(' ')[0]}',
-        isVerified: data['verified'] as bool,
-        pricePerHour: (data['price'] as num)
-            .toDouble(), // Conversión explícita a double
-        description: 'Servicio profesional garantizado a domicilio.',
-        latitude: center.latitude + latOffset,
-        longitude: center.longitude + lngOffset,
-      );
-    });
-  }
-
   @override
   void initState() {
     super.initState();
@@ -201,36 +100,19 @@ class _ExploreMapPageState extends State<ExploreMapPage>
 
   Future<void> _fetchSpecialties() async {
     try {
-      const String specialtiesQuery = r'''
-        query GetSpecialtiesTagsAndSubTags {
-          specialties {
-            id
-            name
-            color
-            tags {
-              id
-              name
-              subtags {
-                id
-                name
-              }
-            }
-          }
-        }
-      ''';
-      
-      final client = getIt<GraphQLService>().client;
-      final result = await client.query(QueryOptions(
-        document: gql(specialtiesQuery),
-        fetchPolicy: FetchPolicy.networkOnly,
-      ));
-      
-      if (!result.hasException && result.data != null) {
-        if (mounted) {
-          setState(() {
-            _specialties = result.data?['specialties'] as List<dynamic>? ?? [];
-          });
-        }
+      final cacheService = getIt<SpecialtiesCacheService>();
+
+      List<dynamic> list = cacheService.getSpecialties();
+      if (list.isEmpty) {
+        await cacheService.preloadOrRefresh();
+        list = cacheService.getSpecialties();
+      } else {
+        cacheService.preloadOrRefresh();
+      }
+      if (mounted) {
+        setState(() {
+          _specialties = list;
+        });
       }
     } catch (e) {
       debugPrint('Error fetching specialties for filter: $e');
@@ -385,13 +267,183 @@ class _ExploreMapPageState extends State<ExploreMapPage>
     }
   }
 
-  Future<void> _buildMarkers(
-    List<Professional> professionals, {
-    String query = '',
-  }) async {
-    final List<Professional> listToUse = professionals;
+  void _onCameraMove(CameraPosition position) {
+    _currentZoom = position.zoom;
+  }
+
+  void _onCameraIdle() {
+    _recluster();
+  }
+
+  Future<BitmapDescriptor> _getClusterMarkerIcon(int count) async {
+    if (_clusterIconCache.containsKey(count)) {
+      return _clusterIconCache[count]!;
+    }
+
+    const double size = 48.0;
+    final ui.PictureRecorder recorder = ui.PictureRecorder();
+    final ui.Canvas canvas = ui.Canvas(recorder);
+
+    // 1. Sombra circular
+    final shadowPaint = ui.Paint()
+      ..color = Colors.black.withValues(alpha: 0.25)
+      ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 4);
+    canvas.drawCircle(const Offset(size / 2, size / 2 + 1), 19.0, shadowPaint);
+
+    // 2. Borde exterior blanco
+    final whitePaint = ui.Paint()
+      ..color = Colors.white
+      ..isAntiAlias = true;
+    canvas.drawCircle(const Offset(size / 2, size / 2), 19.0, whitePaint);
+
+    // 3. Círculo interior con color temático
+    final clusterColor = _isUrgencyMode ? AppColors.urgency : AppColors.primary;
+    final colorPaint = ui.Paint()
+      ..color = clusterColor
+      ..isAntiAlias = true;
+    canvas.drawCircle(const Offset(size / 2, size / 2), 16.0, colorPaint);
+
+    // 4. Conteo de profesionales
+    final String text = count > 99 ? '+99' : '$count';
+    final textPainter = TextPainter(textDirection: TextDirection.ltr)
+      ..text = TextSpan(
+        text: text,
+        style: TextStyle(
+          fontSize: text.length > 2 ? 12.0 : 14.0,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+          fontFamily: 'Plus Jakarta Sans',
+        ),
+      )
+      ..layout();
+
+    textPainter.paint(
+      canvas,
+      Offset(
+        (size / 2) - (textPainter.width / 2),
+        (size / 2) - (textPainter.height / 2),
+      ),
+    );
+
+    final picture = recorder.endRecording();
+    final img = await picture.toImage(size.toInt(), size.toInt());
+    final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
+    final descriptor = BitmapDescriptor.bytes(byteData!.buffer.asUint8List());
+    _clusterIconCache[count] = descriptor;
+    return descriptor;
+  }
+
+  Future<void> _recluster() async {
+    if (_filteredProfessionals.isEmpty) {
+      if (mounted && _markers.isNotEmpty) {
+        setState(() => _markers = {});
+      }
+      return;
+    }
+
+    // Radio en grados aproximado a 48 píxeles de pantalla según el nivel de zoom
+    final double threshold = (360.0 / (math.pow(2, _currentZoom) * 256.0)) * 48.0;
+    final double thresholdSq = threshold * threshold;
+
+    final List<_MapCluster> clusters = [];
+    for (final prof in _filteredProfessionals) {
+      bool added = false;
+      for (final c in clusters) {
+        final dLat = c.center.latitude - prof.latitude;
+        final dLng = c.center.longitude - prof.longitude;
+        if ((dLat * dLat + dLng * dLng) <= thresholdSq) {
+          c.add(prof);
+          added = true;
+          break;
+        }
+      }
+      if (!added) {
+        clusters.add(_MapCluster(
+          initialLat: prof.latitude,
+          initialLng: prof.longitude,
+          initialProf: prof,
+        ));
+      }
+    }
 
     final Set<Marker> newMarkers = {};
+    for (int i = 0; i < clusters.length; i++) {
+      final cluster = clusters[i];
+      if (cluster.items.length > 1) {
+        final clusterIcon = await _getClusterMarkerIcon(cluster.items.length);
+        newMarkers.add(
+          Marker(
+            markerId: MarkerId('cluster_${i}_${cluster.items.length}_${cluster.center.latitude}_${cluster.center.longitude}'),
+            position: cluster.center,
+            icon: clusterIcon,
+            anchor: const Offset(0.5, 0.5),
+            onTap: () {
+              _mapController?.animateCamera(
+                CameraUpdate.newLatLngZoom(
+                  cluster.center,
+                  (_currentZoom + 2.5).clamp(1.0, 20.0),
+                ),
+              );
+            },
+          ),
+        );
+      } else {
+        final prof = cluster.items.first;
+        try {
+          final Color pinColor = _getProfessionalColor(prof);
+          final IconData categoryIcon = _getCategoryIcon(prof.specialty);
+
+          ui.Image? specialtyImage;
+          if (prof.specialtyIconUrl != null && prof.specialtyIconUrl!.isNotEmpty) {
+            try {
+              specialtyImage = await _loadSpecialtyImage(prof.specialtyIconUrl!);
+            } catch (e) {
+              debugPrint('Error loading specialty icon from network: $e');
+            }
+          }
+
+          final markerIcon = await _createModernMarkerIcon(
+            icon: categoryIcon,
+            color: pinColor,
+            label: prof.name,
+            specialtyImage: specialtyImage,
+          );
+
+          newMarkers.add(
+            Marker(
+              markerId: MarkerId(prof.id),
+              position: LatLng(prof.latitude, prof.longitude),
+              onTap: () => _onMarkerTapped(prof),
+              icon: markerIcon,
+              anchor: const Offset(0.5, 1.0),
+            ),
+          );
+        } catch (e) {
+          debugPrint('Error creating marker for ${prof.name}: $e');
+          newMarkers.add(
+            Marker(
+              markerId: MarkerId(prof.id),
+              position: LatLng(prof.latitude, prof.longitude),
+              onTap: () => _onMarkerTapped(prof),
+              anchor: const Offset(0.5, 1.0),
+            ),
+          );
+        }
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _markers = newMarkers;
+      });
+    }
+  }
+
+  void _buildMarkers(
+    List<Professional> professionals, {
+    String query = '',
+  }) {
+    final List<Professional> listToUse = professionals;
 
     final filteredList = listToUse.where((p) {
       if (_isUrgencyMode && !p.acceptsUrgency) return false;
@@ -428,59 +480,12 @@ class _ExploreMapPageState extends State<ExploreMapPage>
           });
     }).toList();
 
-    debugPrint('Building ${filteredList.length} markers around center...');
-
-    for (final prof in filteredList) {
-      try {
-        final Color pinColor = _getProfessionalColor(prof);
-        final IconData categoryIcon = _getCategoryIcon(prof.specialty);
-
-        ui.Image? specialtyImage;
-        if (prof.specialtyIconUrl != null &&
-            prof.specialtyIconUrl!.isNotEmpty) {
-          try {
-            specialtyImage = await _loadSpecialtyImage(prof.specialtyIconUrl!);
-          } catch (e) {
-            debugPrint('Error loading specialty icon from network: $e');
-          }
-        }
-
-        final markerIcon = await _createModernMarkerIcon(
-          icon: categoryIcon,
-          color: pinColor,
-          label: prof.name,
-          specialtyImage: specialtyImage,
-        );
-
-        newMarkers.add(
-          Marker(
-            markerId: MarkerId(prof.id),
-            position: LatLng(prof.latitude, prof.longitude),
-            onTap: () => _onMarkerTapped(prof),
-            icon: markerIcon,
-            anchor: const Offset(0.5, 1.0),
-          ),
-        );
-      } catch (e) {
-        debugPrint('Error creating marker for ${prof.name}: $e');
-        newMarkers.add(
-          Marker(
-            markerId: MarkerId(prof.id),
-            position: LatLng(prof.latitude, prof.longitude),
-            onTap: () => _onMarkerTapped(prof),
-          ),
-        );
-      }
-    }
-
-    if (mounted) {
-      setState(() {
-        _markers
-          ..clear()
-          ..addAll(newMarkers);
-      });
-    }
+    _filteredProfessionals = filteredList;
+    _clusterIconCache.clear();
+    _recluster();
   }
+
+
 
   Color _getProfessionalColor(Professional prof) {
     if (_isUrgencyMode) {
@@ -567,9 +572,9 @@ class _ExploreMapPageState extends State<ExploreMapPage>
     required String label,
     ui.Image? specialtyImage,
   }) async {
-    // Dimensiones del lienzo optimizadas para pines grandes y nítidos
-    const double w = 120.0;
-    const double h = 150.0;
+    // Dimensiones compactas y proporcionadas para Google Maps en móvil
+    const double w = 54.0;
+    const double h = 68.0;
 
     final ui.PictureRecorder recorder = ui.PictureRecorder();
     final ui.Canvas canvas = ui.Canvas(recorder);
@@ -577,69 +582,66 @@ class _ExploreMapPageState extends State<ExploreMapPage>
     // 1. Sombra base difuminada en la punta del pin
     final shadowPaint = ui.Paint()
       ..color = Colors.black.withValues(alpha: 0.25)
-      ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 6);
+      ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 4);
     canvas.drawOval(
       Rect.fromCenter(
-        center: const Offset(w / 2, h - 10),
-        width: 32,
-        height: 10,
+        center: const Offset(w / 2, h - 4),
+        width: 18,
+        height: 6,
       ),
       shadowPaint,
     );
 
     // 2. PATH DE LA GOTA EXTERIOR (Borde Blanco)
     final Path outerPath = Path();
-    outerPath.moveTo(w / 2, h - 8); // Punta inferior externa
+    outerPath.moveTo(w / 2, h - 4); // Punta inferior externa
 
     // Curva izquierda desde la punta hacia la curvatura del círculo
     outerPath.cubicTo(
-      w / 2 - 35,
-      h - 55, // Punto de control 1 (fuerza de la curva)
-      w / 2 - 46,
-      75, // Punto de control 2
-      w / 2 - 46,
-      52, // Destino: extremo izquierdo del círculo
+      w / 2 - 16,
+      h - 26, // Punto de control 1
+      w / 2 - 22,
+      36, // Punto de control 2
+      w / 2 - 22,
+      24, // Destino: extremo izquierdo del círculo
     );
 
     // Arco superior completo (Cabeza del pin)
     outerPath.addArc(
-      Rect.fromCircle(center: const Offset(w / 2, 52), radius: 46),
+      Rect.fromCircle(center: const Offset(w / 2, 24), radius: 22),
       3.14159, // Comienza en la izquierda
       3.14159, // Gira 180 grados hacia la derecha
     );
 
     // Curva derecha desde el círculo bajando hacia la punta inferior
-    outerPath.cubicTo(w / 2 + 46, 75, w / 2 + 35, h - 55, w / 2, h - 8);
+    outerPath.cubicTo(w / 2 + 22, 36, w / 2 + 16, h - 26, w / 2, h - 4);
     outerPath.close();
 
     // 3. PATH DE LA GOTA INTERIOR (Relleno de Color)
     final Path innerPath = Path();
     innerPath.moveTo(
       w / 2,
-      h - 14,
-    ); // Punta inferior interna (un poco más arriba)
+      h - 7,
+    ); // Punta inferior interna
 
-    innerPath.cubicTo(w / 2 - 30, h - 55, w / 2 - 40, 72, w / 2 - 40, 52);
+    innerPath.cubicTo(w / 2 - 13, h - 25, w / 2 - 18.5, 34, w / 2 - 18.5, 24);
     innerPath.addArc(
       Rect.fromCircle(
-        center: const Offset(w / 2, 52),
-        radius: 40,
+        center: const Offset(w / 2, 24),
+        radius: 18.5,
       ), // Radio menor para dejar borde
       3.14159,
       3.14159,
     );
-    innerPath.cubicTo(w / 2 + 40, 72, w / 2 + 30, h - 55, w / 2, h - 14);
+    innerPath.cubicTo(w / 2 + 18.5, 34, w / 2 + 13, h - 25, w / 2, h - 7);
     innerPath.close();
 
     // 4. DIBUJAR EN EL CANVAS
-
-    // Primero pintamos la gota exterior en Blanco
     final Paint whitePaint = Paint()
       ..color = Colors.white
       ..isAntiAlias = true;
     canvas.drawPath(outerPath, whitePaint);
 
-    // Luego pintamos la gota interior con el Color de la categoría
     final Paint colorPaint = Paint()
       ..color = color
       ..isAntiAlias = true;
@@ -647,10 +649,10 @@ class _ExploreMapPageState extends State<ExploreMapPage>
 
     // 5. PINTAR EL ICONO EN EL CENTRO DE LA CABEZA
     if (specialtyImage != null) {
-      final double targetWidth = 54.0;
-      final double targetHeight = 54.0;
+      final double targetWidth = 24.0;
+      final double targetHeight = 24.0;
       final Rect destRect = Rect.fromCenter(
-        center: const Offset(w / 2, 52),
+        center: const Offset(w / 2, 24),
         width: targetWidth,
         height: targetHeight,
       );
@@ -670,7 +672,7 @@ class _ExploreMapPageState extends State<ExploreMapPage>
         ..text = TextSpan(
           text: String.fromCharCode(icon.codePoint),
           style: TextStyle(
-            fontSize: 44.0, // Tamaño del icono proporcional
+            fontSize: 20.0,
             fontFamily: icon.fontFamily,
             package: icon.fontPackage,
             color: Colors.white,
@@ -678,12 +680,11 @@ class _ExploreMapPageState extends State<ExploreMapPage>
         )
         ..layout();
 
-      // Centramos el icono exactamente en el centro de la cabeza (Y = 52)
       iconPainter.paint(
         canvas,
         Offset(
           (w / 2) - (iconPainter.width / 2),
-          52 - (iconPainter.height / 2),
+          24 - (iconPainter.height / 2),
         ),
       );
     }
@@ -692,7 +693,7 @@ class _ExploreMapPageState extends State<ExploreMapPage>
     final picture = recorder.endRecording();
     final img = await picture.toImage(w.toInt(), h.toInt());
     final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
-    return BitmapDescriptor.fromBytes(byteData!.buffer.asUint8List());
+    return BitmapDescriptor.bytes(byteData!.buffer.asUint8List());
   }
 
   @override
@@ -700,6 +701,7 @@ class _ExploreMapPageState extends State<ExploreMapPage>
     super.build(context);
     final topPadding = MediaQuery.of(context).padding.top;
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       body: Stack(
@@ -726,7 +728,6 @@ class _ExploreMapPageState extends State<ExploreMapPage>
               ),
               onMapCreated: (controller) {
                 _mapController = controller;
-                setState(() => _mapReady = true);
 
                 final state = context.read<HomeBloc>().state;
                 if (state is HomeLoaded) {
@@ -750,9 +751,12 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                   );
                 }
               },
+              onCameraMove: _onCameraMove,
+              onCameraIdle: _onCameraIdle,
               onTap: (_) {
                 setState(() => _selectedProfessional = null);
               },
+
 
               markers: _markers,
               myLocationEnabled: true,
@@ -764,6 +768,7 @@ class _ExploreMapPageState extends State<ExploreMapPage>
               trafficEnabled: false,
             ),
           ),
+
 
           // ───── Search Bar ─────
           Positioned(
@@ -780,7 +785,7 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Theme.of(context).shadowColor.withOpacity(0.08),
+                        color: Theme.of(context).shadowColor.withValues(alpha: 0.08),
                         blurRadius: 24,
                         offset: const Offset(0, 4),
                       ),
@@ -806,11 +811,11 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                         fontWeight: FontWeight.w400,
                       ),
                       decoration: InputDecoration(
-                        hintText: 'Buscar servicios cercanos...',
+                        hintText: l10n.exploreSearchHint,
                         hintStyle: TextStyle(
                           color: Theme.of(
                             context,
-                          ).colorScheme.onSurface.withOpacity(0.38),
+                          ).colorScheme.onSurface.withValues(alpha: 0.38),
                           fontSize: 16,
                         ),
                         border: InputBorder.none,
@@ -826,7 +831,7 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                         Icons.close_rounded,
                         color: Theme.of(
                           context,
-                        ).colorScheme.onSurface.withOpacity(0.38),
+                        ).colorScheme.onSurface.withValues(alpha: 0.38),
                         size: 20,
                       ),
                       onPressed: () {
@@ -842,7 +847,7 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                         decoration: BoxDecoration(
                           color: (_selectedTagIds.isNotEmpty || _selectedSubtagIds.isNotEmpty)
                               ? AppColors.primary
-                              : AppColors.primary.withOpacity(0.1),
+                              : AppColors.primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Icon(
@@ -869,7 +874,7 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFFF5271).withOpacity(0.2),
+                    color: const Color(0xFFFF5271).withValues(alpha: 0.2),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -884,16 +889,16 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Modo Urgencia',
+                          l10n.exploreUrgencyMode,
                           style: theme.textTheme.titleSmall?.copyWith(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         Text(
-                          'Solo profesionales disponibles ahora',
+                          l10n.exploreUrgencySubtitle,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: Colors.white.withOpacity(0.9),
+                            color: Colors.white.withValues(alpha: 0.9),
                             fontSize: 11,
                           ),
                         ),
@@ -915,9 +920,9 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                       });
                     },
                     activeColor: const Color(0xFF00FF7F),
-                    activeTrackColor: Colors.white.withOpacity(0.3),
+                    activeTrackColor: Colors.white.withValues(alpha: 0.3),
                     inactiveThumbColor: Colors.white,
-                    inactiveTrackColor: Colors.grey.withOpacity(0.5),
+                    inactiveTrackColor: Colors.grey.withValues(alpha: 0.5),
                   ),
                 ],
               ),
@@ -931,21 +936,21 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                     padding: EdgeInsets.zero,
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     backgroundColor: Theme.of(context).colorScheme.surface,
-                    shadowColor: Theme.of(context).shadowColor.withOpacity(0.1),
+                    shadowColor: Theme.of(context).shadowColor.withValues(alpha: 0.1),
                     elevation: 2,
                     label: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Limpiar filtros (${_selectedTagIds.length + _selectedSubtagIds.length})',
-                          style: TextStyle(
+                          l10n.exploreClearFilters(_selectedTagIds.length + _selectedSubtagIds.length),
+                          style: const TextStyle(
                             color: AppColors.primary,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         const SizedBox(width: 4),
-                        Icon(
+                        const Icon(
                           Icons.close_rounded,
                           color: AppColors.primary,
                           size: 14,
@@ -1099,7 +1104,7 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Theme.of(context).shadowColor.withOpacity(0.1),
+                        color: Theme.of(context).shadowColor.withValues(alpha: 0.1),
                         blurRadius: 24,
                         offset: const Offset(0, 8),
                       ),
@@ -1116,7 +1121,7 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              _getProfessionalColor(_selectedProfessional!).withOpacity(0.8),
+                              _getProfessionalColor(_selectedProfessional!).withValues(alpha: 0.8),
                               _getProfessionalColor(_selectedProfessional!),
                             ],
                           ),
@@ -1178,8 +1183,8 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                                       vertical: 2,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: AppColors.success.withOpacity(
-                                        0.15,
+                                      color: AppColors.success.withValues(
+                                        alpha: 0.15,
                                       ),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
@@ -1193,8 +1198,8 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                                         ),
                                         const SizedBox(width: 2),
                                         Text(
-                                          'Verificado',
-                                          style: TextStyle(
+                                          l10n.exploreVerified,
+                                          style: const TextStyle(
                                             color: AppColors.success,
                                             fontSize: 11,
                                             fontWeight: FontWeight.w600,
@@ -1226,10 +1231,10 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                                       vertical: 3,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: _getProfessionalColor(_selectedProfessional!).withOpacity(0.1),
+                                      color: _getProfessionalColor(_selectedProfessional!).withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(6),
                                       border: Border.all(
-                                        color: _getProfessionalColor(_selectedProfessional!).withOpacity(0.2),
+                                        color: _getProfessionalColor(_selectedProfessional!).withValues(alpha: 0.2),
                                         width: 1,
                                       ),
                                     ),
@@ -1277,8 +1282,8 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
-                                    'Ver perfil',
-                                    style: TextStyle(
+                                    l10n.exploreViewProfile,
+                                    style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
@@ -1317,7 +1322,7 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                           BoxShadow(
                             color: Theme.of(
                               context,
-                            ).shadowColor.withOpacity(0.08),
+                            ).shadowColor.withValues(alpha: 0.08),
                             blurRadius: 16,
                           ),
                         ],
@@ -1325,7 +1330,7 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          SizedBox(
+                          const SizedBox(
                             width: 16,
                             height: 16,
                             child: CircularProgressIndicator(
@@ -1335,13 +1340,13 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                           ),
                           const SizedBox(width: 10),
                           Text(
-                            'Buscando servicios...',
+                            l10n.exploreSearchingServices,
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                               color: Theme.of(
                                 context,
-                              ).colorScheme.onSurface.withOpacity(0.54),
+                              ).colorScheme.onSurface.withValues(alpha: 0.54),
                             ),
                           ),
                         ],
@@ -1368,7 +1373,7 @@ class _ExploreMapPageState extends State<ExploreMapPage>
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).shadowColor.withOpacity(0.1),
+            color: Theme.of(context).shadowColor.withValues(alpha: 0.1),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -1385,74 +1390,5 @@ class _ExploreMapPageState extends State<ExploreMapPage>
     );
   }
 
-  // Colorful map style — keeps POIs visible and uses vibrant water/park colors
-  static const String _silverMapStyle = '''
-[
-  {
-    "featureType": "water",
-    "elementType": "geometry.fill",
-    "stylers": [{"color": "#a3ccff"}]
-  },
-  {
-    "featureType": "water",
-    "elementType": "labels.text.fill",
-    "stylers": [{"color": "#5b8cb4"}]
-  },
-  {
-    "featureType": "poi.park",
-    "elementType": "geometry.fill",
-    "stylers": [{"color": "#b6e59e"}]
-  },
-  {
-    "featureType": "poi.park",
-    "elementType": "labels.text.fill",
-    "stylers": [{"color": "#447530"}]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "geometry.fill",
-    "stylers": [{"color": "#ffd47b"}]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "geometry.stroke",
-    "stylers": [{"color": "#e8b84e"}]
-  },
-  {
-    "featureType": "road.arterial",
-    "elementType": "geometry.fill",
-    "stylers": [{"color": "#ffffff"}]
-  },
-  {
-    "featureType": "road.local",
-    "elementType": "geometry.fill",
-    "stylers": [{"color": "#f0f0f0"}]
-  },
-  {
-    "featureType": "landscape.man_made",
-    "elementType": "geometry.fill",
-    "stylers": [{"color": "#f5f1eb"}]
-  },
-  {
-    "featureType": "landscape.natural",
-    "elementType": "geometry.fill",
-    "stylers": [{"color": "#eef2e4"}]
-  },
-  {
-    "featureType": "poi",
-    "elementType": "labels.icon",
-    "stylers": [{"saturation": 20}, {"lightness": 10}]
-  },
-  {
-    "featureType": "transit.station",
-    "elementType": "geometry.fill",
-    "stylers": [{"color": "#e0dbd3"}]
-  },
-  {
-    "featureType": "administrative",
-    "elementType": "labels.text.fill",
-    "stylers": [{"color": "#6b6b6b"}]
-  }
-]
-''';
+
 }

@@ -13,6 +13,9 @@ import 'package:clanship_cliente/features/auth/presentation/bloc/auth_state.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:clanship_cliente/features/home/presentation/bloc/home_bloc.dart';
+import 'package:clanship_cliente/features/home/presentation/bloc/home_event.dart';
+import 'package:clanship_cliente/l10n/app_localizations.dart';
 
 class AddAddressScreen extends StatefulWidget {
   const AddAddressScreen({super.key});
@@ -22,7 +25,6 @@ class AddAddressScreen extends StatefulWidget {
 }
 
 class _AddAddressScreenState extends State<AddAddressScreen> {
-  // REEMPLAZA ESTO POR TU API KEY REAL
   final String _googleApiKey = "AIzaSyB985z0U9nO1LXSrpnn4qwnbDAe-7opBHI";
   late GoogleMapsPlaces _places;
   GoogleMapController? _mapController;
@@ -37,12 +39,14 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   }
 
   Future<void> _handlePressButton() async {
+    final langCode = Localizations.localeOf(context).languageCode;
+    final l10n = AppLocalizations.of(context)!;
     Prediction? p = await PlacesAutocomplete.show(
       context: context,
       apiKey: _googleApiKey,
-      mode: Mode.fullscreen, // Cambiado de overlay a fullscreen
-      language: "es",
-      hint: "Escribe tu dirección...",
+      mode: Mode.fullscreen,
+      language: langCode,
+      hint: l10n.addressTypeHint,
       components: [Component(Component.country, "cl")],
     );
 
@@ -156,6 +160,12 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
 
         if (mounted) {
           context.read<AuthBloc>().add(ProfileUpdated(updatedUser));
+          context.read<HomeBloc>().add(
+            FetchNearbyProfessionals(
+              latitude: _selectedLocation!.latitude,
+              longitude: _selectedLocation!.longitude,
+            ),
+          );
           Navigator.pop(context, _selectedLocation);
         }
       } else {
@@ -163,9 +173,10 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Lo sentimos, hubo un error al guardar la dirección.')));
+        ).showSnackBar(SnackBar(content: Text(l10n.addressSaveError)));
       }
     } finally {
       if (mounted) {
@@ -179,8 +190,9 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      appBar: AppBar(title: const Text("Nueva Dirección")),
+      appBar: AppBar(title: Text(l10n.addressNewTitle)),
       body: Column(
         children: [
           Padding(
@@ -204,19 +216,19 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                       Icons.search,
                       color: Theme.of(
                         context,
-                      ).colorScheme.onSurface.withOpacity(0.6),
+                      ).colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         _controller.text.isEmpty
-                            ? "Buscar dirección..."
+                            ? l10n.mapSearchAddressHint
                             : _controller.text,
                         style: TextStyle(
                           color: _controller.text.isEmpty
                               ? Theme.of(
                                   context,
-                                ).colorScheme.onSurface.withOpacity(0.6)
+                                ).colorScheme.onSurface.withValues(alpha: 0.6)
                               : Theme.of(context).colorScheme.onSurface,
                           fontSize: 16,
                         ),
@@ -267,7 +279,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                           ),
                         ),
                       )
-                    : const Text("Guardar dirección"),
+                    : Text(l10n.addressSave),
               ),
             ),
           ),
@@ -276,3 +288,4 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
     );
   }
 }
+

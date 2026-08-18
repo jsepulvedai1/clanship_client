@@ -48,8 +48,9 @@ class LocationService {
 
     return await Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.low,
-      timeLimit: const Duration(seconds: 5),
-    );
+    ).timeout(const Duration(seconds: 5), onTimeout: () {
+      throw 'Location timeout';
+    });
   }
 
   /// Request permissions without necessarily getting the position.

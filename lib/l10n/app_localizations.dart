@@ -7,6 +7,7 @@ import 'package:intl/intl.dart' as intl;
 
 import 'app_localizations_en.dart';
 import 'app_localizations_es.dart';
+import 'app_localizations_fr.dart';
 
 // ignore_for_file: type=lint
 
@@ -96,6 +97,7 @@ abstract class AppLocalizations {
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
     Locale('es'),
+    Locale('fr'),
   ];
 
   /// No description provided for @loginTitle.
@@ -145,6 +147,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Search for a professional...'**
   String get homeSearchPlaceholder;
+
+  /// No description provided for @homeSearchNeed.
+  ///
+  /// In en, this message translates to:
+  /// **'What do you need?'**
+  String get homeSearchNeed;
+
+  /// No description provided for @homeUrgency.
+  ///
+  /// In en, this message translates to:
+  /// **'Urgent'**
+  String get homeUrgency;
+
+  /// No description provided for @homeBannerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Specific Services'**
+  String get homeBannerTitle;
+
+  /// No description provided for @homeBannerSubTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Post your requirement or check received quotes'**
+  String get homeBannerSubTitle;
+
+  /// No description provided for @homeBtnRequest.
+  ///
+  /// In en, this message translates to:
+  /// **'Request'**
+  String get homeBtnRequest;
+
+  /// No description provided for @homeBtnMyRequests.
+  ///
+  /// In en, this message translates to:
+  /// **'My Requests'**
+  String get homeBtnMyRequests;
 
   /// No description provided for @homeTagNear.
   ///
@@ -319,6 +357,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Spanish'**
   String get settingsSpanish;
+
+  /// No description provided for @settingsFrench.
+  ///
+  /// In en, this message translates to:
+  /// **'French'**
+  String get settingsFrench;
 
   /// No description provided for @chatStatusOnline.
   ///
@@ -619,6 +663,810 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Profile'**
   String get navSettings;
+
+  /// No description provided for @authSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to access your account'**
+  String get authSubtitle;
+
+  /// No description provided for @authForgotPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot your password?'**
+  String get authForgotPassword;
+
+  /// No description provided for @authNoAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t have an account?'**
+  String get authNoAccount;
+
+  /// No description provided for @authRegisterHere.
+  ///
+  /// In en, this message translates to:
+  /// **'Register here'**
+  String get authRegisterHere;
+
+  /// No description provided for @authRegisterTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Account'**
+  String get authRegisterTitle;
+
+  /// No description provided for @authPersonalData.
+  ///
+  /// In en, this message translates to:
+  /// **'Personal Information'**
+  String get authPersonalData;
+
+  /// No description provided for @authLocationContact.
+  ///
+  /// In en, this message translates to:
+  /// **'Location & Contact'**
+  String get authLocationContact;
+
+  /// No description provided for @authFirstName.
+  ///
+  /// In en, this message translates to:
+  /// **'First Name'**
+  String get authFirstName;
+
+  /// No description provided for @authLastName.
+  ///
+  /// In en, this message translates to:
+  /// **'Last Name'**
+  String get authLastName;
+
+  /// No description provided for @authBirthdate.
+  ///
+  /// In en, this message translates to:
+  /// **'Date of Birth'**
+  String get authBirthdate;
+
+  /// No description provided for @authRepeatEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Repeat Email'**
+  String get authRepeatEmail;
+
+  /// No description provided for @authRepeatPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Repeat Password'**
+  String get authRepeatPassword;
+
+  /// No description provided for @authPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact Phone'**
+  String get authPhone;
+
+  /// No description provided for @authAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'Address'**
+  String get authAddress;
+
+  /// No description provided for @authAcceptTerms.
+  ///
+  /// In en, this message translates to:
+  /// **'I accept the terms and conditions of service'**
+  String get authAcceptTerms;
+
+  /// No description provided for @authProfilePhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile Photo'**
+  String get authProfilePhoto;
+
+  /// No description provided for @authCamera.
+  ///
+  /// In en, this message translates to:
+  /// **'Take photo with camera'**
+  String get authCamera;
+
+  /// No description provided for @authGallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose from gallery'**
+  String get authGallery;
+
+  /// No description provided for @authNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get authNext;
+
+  /// No description provided for @authPrevious.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous'**
+  String get authPrevious;
+
+  /// No description provided for @authCompleteRegister.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete Registration'**
+  String get authCompleteRegister;
+
+  /// No description provided for @authForgotTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot Your Password?'**
+  String get authForgotTitle;
+
+  /// No description provided for @authForgotSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your email to receive recovery instructions'**
+  String get authForgotSubtitle;
+
+  /// No description provided for @authSendCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Send Code'**
+  String get authSendCode;
+
+  /// No description provided for @authVerifyOtpTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Code Verification'**
+  String get authVerifyOtpTitle;
+
+  /// No description provided for @authVerifyOtpSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the code sent to your email'**
+  String get authVerifyOtpSubtitle;
+
+  /// No description provided for @authResetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New Password'**
+  String get authResetTitle;
+
+  /// No description provided for @authResetSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter and confirm your new password'**
+  String get authResetSubtitle;
+
+  /// No description provided for @authConfirmNewPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm new password'**
+  String get authConfirmNewPassword;
+
+  /// No description provided for @authChangePasswordBtn.
+  ///
+  /// In en, this message translates to:
+  /// **'Change Password'**
+  String get authChangePasswordBtn;
+
+  /// No description provided for @commonCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get commonCancel;
+
+  /// No description provided for @commonAccept.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept'**
+  String get commonAccept;
+
+  /// No description provided for @commonSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get commonSave;
+
+  /// No description provided for @commonLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading...'**
+  String get commonLoading;
+
+  /// No description provided for @commonError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error'**
+  String get commonError;
+
+  /// No description provided for @commonSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Success'**
+  String get commonSuccess;
+
+  /// No description provided for @versionUpdateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Update Required'**
+  String get versionUpdateTitle;
+
+  /// No description provided for @versionUpdateMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'To continue using Clanship safely, please update the app to the latest available version.'**
+  String get versionUpdateMessage;
+
+  /// No description provided for @versionUpdateBtn.
+  ///
+  /// In en, this message translates to:
+  /// **'Update in App Store'**
+  String get versionUpdateBtn;
+
+  /// No description provided for @sessionExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Your session was opened on another device.'**
+  String get sessionExpired;
+
+  /// No description provided for @settingsConfirmLogoutTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Log Out?'**
+  String get settingsConfirmLogoutTitle;
+
+  /// No description provided for @settingsConfirmLogoutMsg.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to log out of your current session?'**
+  String get settingsConfirmLogoutMsg;
+
+  /// No description provided for @settingsLogoutBtn.
+  ///
+  /// In en, this message translates to:
+  /// **'Log Out'**
+  String get settingsLogoutBtn;
+
+  /// No description provided for @searchTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Search Professional'**
+  String get searchTitle;
+
+  /// No description provided for @searchFilterSpecialty.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter by Specialty'**
+  String get searchFilterSpecialty;
+
+  /// No description provided for @searchNoResults.
+  ///
+  /// In en, this message translates to:
+  /// **'No professionals found'**
+  String get searchNoResults;
+
+  /// No description provided for @loginTaglinePart1.
+  ///
+  /// In en, this message translates to:
+  /// **'Your trusted network '**
+  String get loginTaglinePart1;
+
+  /// No description provided for @loginTaglinePart2.
+  ///
+  /// In en, this message translates to:
+  /// **'to solve your needs'**
+  String get loginTaglinePart2;
+
+  /// No description provided for @loginConceptTrustTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Trust'**
+  String get loginConceptTrustTitle;
+
+  /// No description provided for @loginConceptTrustSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Verification\n& security'**
+  String get loginConceptTrustSubtitle;
+
+  /// No description provided for @loginConceptSpeedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Speed'**
+  String get loginConceptSpeedTitle;
+
+  /// No description provided for @loginConceptSpeedSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Immediate\nresponse'**
+  String get loginConceptSpeedSubtitle;
+
+  /// No description provided for @loginConceptConnectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection'**
+  String get loginConceptConnectionTitle;
+
+  /// No description provided for @loginConceptConnectionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'People who\nsolve'**
+  String get loginConceptConnectionSubtitle;
+
+  /// No description provided for @loginBenefitVerified.
+  ///
+  /// In en, this message translates to:
+  /// **'Verified\nspecialists'**
+  String get loginBenefitVerified;
+
+  /// No description provided for @loginBenefitRatings.
+  ///
+  /// In en, this message translates to:
+  /// **'Real\nreviews'**
+  String get loginBenefitRatings;
+
+  /// No description provided for @loginBenefitTracking.
+  ///
+  /// In en, this message translates to:
+  /// **'Service\ntracking'**
+  String get loginBenefitTracking;
+
+  /// No description provided for @loginInvalidCredentials.
+  ///
+  /// In en, this message translates to:
+  /// **'Incorrect email or password'**
+  String get loginInvalidCredentials;
+
+  /// No description provided for @loginForgotDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset password'**
+  String get loginForgotDialogTitle;
+
+  /// No description provided for @loginForgotDialogMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your email address and we\'ll send instructions to reset your password.'**
+  String get loginForgotDialogMessage;
+
+  /// No description provided for @loginForgotDialogEmailRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter your email address.'**
+  String get loginForgotDialogEmailRequired;
+
+  /// No description provided for @authRegisterSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create your account to get started'**
+  String get authRegisterSubtitle;
+
+  /// No description provided for @authStep1Subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete your contact details to continue'**
+  String get authStep1Subtitle;
+
+  /// No description provided for @authStep0FillAllFields.
+  ///
+  /// In en, this message translates to:
+  /// **'Please fill in all fields.'**
+  String get authStep0FillAllFields;
+
+  /// No description provided for @authStep0NameMaxLength.
+  ///
+  /// In en, this message translates to:
+  /// **'First name cannot exceed 30 characters.'**
+  String get authStep0NameMaxLength;
+
+  /// No description provided for @authStep0LastNameMaxLength.
+  ///
+  /// In en, this message translates to:
+  /// **'Last name cannot exceed 30 characters.'**
+  String get authStep0LastNameMaxLength;
+
+  /// No description provided for @authStep0EmailsDoNotMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Emails do not match.'**
+  String get authStep0EmailsDoNotMatch;
+
+  /// No description provided for @authStep0InvalidEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a valid email address.'**
+  String get authStep0InvalidEmail;
+
+  /// No description provided for @authStep0PasswordLength.
+  ///
+  /// In en, this message translates to:
+  /// **'Password must be at least 6 characters.'**
+  String get authStep0PasswordLength;
+
+  /// No description provided for @authStep0PasswordsDoNotMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords do not match.'**
+  String get authStep0PasswordsDoNotMatch;
+
+  /// No description provided for @authStep0AgeRestriction.
+  ///
+  /// In en, this message translates to:
+  /// **'You must be at least 18 years old to register.'**
+  String get authStep0AgeRestriction;
+
+  /// No description provided for @authStep0TermsFooter.
+  ///
+  /// In en, this message translates to:
+  /// **'By registering you accept our\nTerms and Conditions and Privacy Policy'**
+  String get authStep0TermsFooter;
+
+  /// No description provided for @authPhotoUploaded.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile photo uploaded ✓'**
+  String get authPhotoUploaded;
+
+  /// No description provided for @authPhotoRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile photo * (Required: upload a clear photo of your face)'**
+  String get authPhotoRequired;
+
+  /// No description provided for @authPhotoPermissionError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open camera or gallery. Please check permissions.'**
+  String get authPhotoPermissionError;
+
+  /// No description provided for @authMyAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'My address'**
+  String get authMyAddress;
+
+  /// No description provided for @authReadTerms.
+  ///
+  /// In en, this message translates to:
+  /// **'Read the terms and conditions of use'**
+  String get authReadTerms;
+
+  /// No description provided for @authSubmitRegister.
+  ///
+  /// In en, this message translates to:
+  /// **'Register'**
+  String get authSubmitRegister;
+
+  /// No description provided for @authTermsDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Terms and Conditions'**
+  String get authTermsDialogTitle;
+
+  /// No description provided for @mapSearchAddressHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search address...'**
+  String get mapSearchAddressHint;
+
+  /// No description provided for @mapCurrentGpsTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Current GPS'**
+  String get mapCurrentGpsTooltip;
+
+  /// No description provided for @mapSelectLocationHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a location'**
+  String get mapSelectLocationHint;
+
+  /// No description provided for @mapConfirmLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm Location'**
+  String get mapConfirmLocation;
+
+  /// No description provided for @addressDialogNoSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'You have no saved addresses.'**
+  String get addressDialogNoSaved;
+
+  /// No description provided for @addressDialogLimitReached.
+  ///
+  /// In en, this message translates to:
+  /// **'Limit of 3 addresses reached.'**
+  String get addressDialogLimitReached;
+
+  /// No description provided for @commonClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get commonClose;
+
+  /// No description provided for @addressNewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New Address'**
+  String get addressNewTitle;
+
+  /// No description provided for @addressSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save address'**
+  String get addressSave;
+
+  /// No description provided for @addressSaveError.
+  ///
+  /// In en, this message translates to:
+  /// **'Sorry, there was an error saving the address.'**
+  String get addressSaveError;
+
+  /// No description provided for @addressNoConfigured.
+  ///
+  /// In en, this message translates to:
+  /// **'You have not set a service address.'**
+  String get addressNoConfigured;
+
+  /// No description provided for @addressChange.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get addressChange;
+
+  /// No description provided for @addressAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add address'**
+  String get addressAdd;
+
+  /// No description provided for @addressMyAddressLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'My address:'**
+  String get addressMyAddressLabel;
+
+  /// No description provided for @jobAddressVisitRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Visit Address *'**
+  String get jobAddressVisitRequired;
+
+  /// No description provided for @jobAddressGoogleMapsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search address on Google Maps...'**
+  String get jobAddressGoogleMapsHint;
+
+  /// No description provided for @jobAddressValidation.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the address'**
+  String get jobAddressValidation;
+
+  /// No description provided for @addressTypeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Type your address...'**
+  String get addressTypeHint;
+
+  /// No description provided for @exploreSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search nearby services...'**
+  String get exploreSearchHint;
+
+  /// No description provided for @exploreUrgencyMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Urgency Mode'**
+  String get exploreUrgencyMode;
+
+  /// No description provided for @exploreUrgencySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Only professionals available now'**
+  String get exploreUrgencySubtitle;
+
+  /// No description provided for @exploreClearFilters.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear filters ({count})'**
+  String exploreClearFilters(int count);
+
+  /// No description provided for @exploreVerified.
+  ///
+  /// In en, this message translates to:
+  /// **'Verified'**
+  String get exploreVerified;
+
+  /// No description provided for @exploreViewProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'View profile'**
+  String get exploreViewProfile;
+
+  /// No description provided for @exploreSearchingServices.
+  ///
+  /// In en, this message translates to:
+  /// **'Searching for services...'**
+  String get exploreSearchingServices;
+
+  /// No description provided for @exploreSearchThisArea.
+  ///
+  /// In en, this message translates to:
+  /// **'Search in this area'**
+  String get exploreSearchThisArea;
+
+  /// No description provided for @filterSheetCategoriesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Categories'**
+  String get filterSheetCategoriesTitle;
+
+  /// No description provided for @filterSheetCategoryBreadcrumb.
+  ///
+  /// In en, this message translates to:
+  /// **'Category'**
+  String get filterSheetCategoryBreadcrumb;
+
+  /// No description provided for @filterSheetSubcategories.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} subcategories'**
+  String filterSheetSubcategories(int count);
+
+  /// No description provided for @filterSheetClearAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all'**
+  String get filterSheetClearAll;
+
+  /// No description provided for @filterSheetSearchPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Search service'**
+  String get filterSheetSearchPlaceholder;
+
+  /// No description provided for @filterSheetInfoTip.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse and select the services you need'**
+  String get filterSheetInfoTip;
+
+  /// No description provided for @filterSheetNoServices.
+  ///
+  /// In en, this message translates to:
+  /// **'No services found.'**
+  String get filterSheetNoServices;
+
+  /// No description provided for @filterSheetSelectedServices.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} services selected'**
+  String filterSheetSelectedServices(int count);
+
+  /// No description provided for @filterSheetApply.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply filters'**
+  String get filterSheetApply;
+
+  /// No description provided for @filterSheetCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get filterSheetCancel;
+
+  /// No description provided for @jobsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Job Description'**
+  String get jobsDescription;
+
+  /// No description provided for @jobsTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Total'**
+  String get jobsTotal;
+
+  /// No description provided for @jobsVisitProposalTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Visit Proposal'**
+  String get jobsVisitProposalTitle;
+
+  /// No description provided for @jobsVisitProposalDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'The professional has scheduled a date and time for the visit:'**
+  String get jobsVisitProposalDesc;
+
+  /// No description provided for @jobsRejectedBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected by: {name}'**
+  String jobsRejectedBy(String name);
+
+  /// No description provided for @jobsRejectedDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Job Rejected / Cancelled'**
+  String get jobsRejectedDefault;
+
+  /// No description provided for @jobsRejectionReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejection reason:'**
+  String get jobsRejectionReason;
+
+  /// No description provided for @jobsRejectDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject Proposal'**
+  String get jobsRejectDialogTitle;
+
+  /// No description provided for @jobsRejectReasonOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Do you want to specify a rejection reason? (Optional)'**
+  String get jobsRejectReasonOptional;
+
+  /// No description provided for @jobsReasonHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Write your reason here...'**
+  String get jobsReasonHint;
+
+  /// No description provided for @jobsRejectConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm Rejection'**
+  String get jobsRejectConfirm;
+
+  /// No description provided for @jobsCancelDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel Request'**
+  String get jobsCancelDialogTitle;
+
+  /// No description provided for @jobsCancelDialogMsg.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to cancel this request? The professional will be notified.'**
+  String get jobsCancelDialogMsg;
+
+  /// No description provided for @jobsCancelReasonLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancellation reason (optional):'**
+  String get jobsCancelReasonLabel;
+
+  /// No description provided for @jobsCancelConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm Cancellation'**
+  String get jobsCancelConfirm;
+
+  /// No description provided for @jobsYourRating.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Rating'**
+  String get jobsYourRating;
+
+  /// No description provided for @jobsRateProfessional.
+  ///
+  /// In en, this message translates to:
+  /// **'Rate Professional'**
+  String get jobsRateProfessional;
+
+  /// No description provided for @jobsRejectAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject'**
+  String get jobsRejectAction;
+
+  /// No description provided for @jobsConfirmAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get jobsConfirmAction;
 }
 
 class _AppLocalizationsDelegate
@@ -632,7 +1480,7 @@ class _AppLocalizationsDelegate
 
   @override
   bool isSupported(Locale locale) =>
-      <String>['en', 'es'].contains(locale.languageCode);
+      <String>['en', 'es', 'fr'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
@@ -645,6 +1493,8 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
       return AppLocalizationsEn();
     case 'es':
       return AppLocalizationsEs();
+    case 'fr':
+      return AppLocalizationsFr();
   }
 
   throw FlutterError(

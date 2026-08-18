@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:http/http.dart' as http;
 import 'package:clanship_cliente/core/theme/app_colors.dart';
+import 'package:clanship_cliente/l10n/app_localizations.dart';
 
 class AddressPickerPage extends StatefulWidget {
   final String? initialAddress;
@@ -16,14 +17,17 @@ class AddressPickerPage extends StatefulWidget {
 }
 
 class _AddressPickerPageState extends State<AddressPickerPage> {
-  final Completer<GoogleMapController> _mapController = Completer<GoogleMapController>();
+  final Completer<GoogleMapController> _mapController =
+      Completer<GoogleMapController>();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
 
-  LatLng _currentCenter = const LatLng(-33.4489, -70.6693); // Default Santiago Centro
+  LatLng _currentCenter = const LatLng(
+    -33.4489,
+    -70.6693,
+  ); // Default Santiago Centro
   String _currentAddress = '';
   bool _isLoadingAddress = false;
-  bool _isSearching = false;
   List<Map<String, dynamic>> _predictions = [];
   Timer? _debounce;
 
@@ -80,8 +84,9 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
 
     return await Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.low,
-      timeLimit: const Duration(seconds: 5),
-    );
+    ).timeout(const Duration(seconds: 5), onTimeout: () {
+      throw 'Location timeout';
+    });
   }
 
   Future<void> _reverseGeocode(LatLng position) async {
@@ -100,11 +105,13 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
         final subLocality = pm.subLocality ?? '';
         final locality = pm.locality ?? '';
         final subAdministrativeArea = pm.subAdministrativeArea ?? '';
-        
+
         // Build clean address format
         final List<String> parts = [];
         if (street.isNotEmpty) parts.add(street);
-        if (subLocality.isNotEmpty && subLocality != street) parts.add(subLocality);
+        if (subLocality.isNotEmpty && subLocality != street) {
+          parts.add(subLocality);
+        }
         if (locality.isNotEmpty) {
           parts.add(locality);
         } else if (subAdministrativeArea.isNotEmpty) {
@@ -144,8 +151,9 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
 
   Future<void> _fetchAutocomplete(String input) async {
     const apiKey = 'AIzaSyB985z0U9nO1LXSrpnn4qwnbDAe-7opBHI';
+    final langCode = Localizations.localeOf(context).languageCode;
     final url = Uri.parse(
-      'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${Uri.encodeComponent(input)}&key=$apiKey&components=country:cl&language=es',
+      'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${Uri.encodeComponent(input)}&key=$apiKey&components=country:cl&language=$langCode',
     );
 
     try {
@@ -154,10 +162,14 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
         final data = json.decode(response.body);
         final predictions = data['predictions'] as List? ?? [];
         setState(() {
-          _predictions = predictions.map((p) => {
-            'description': p['description'] as String,
-            'placeId': p['place_id'] as String,
-          }).toList();
+          _predictions = predictions
+              .map(
+                (p) => {
+                  'description': p['description'] as String,
+                  'placeId': p['place_id'] as String,
+                },
+              )
+              .toList();
         });
       }
     } catch (e) {
@@ -169,7 +181,6 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
     _searchFocusNode.unfocus();
     setState(() {
       _predictions = [];
-      _isSearching = false;
       _currentAddress = prediction['description'];
       _searchController.text = _currentAddress;
     });
@@ -204,47 +215,46 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
     return Scaffold(
       body: Stack(
         children: [
-          // Google Map Background
           GoogleMap(
             initialCameraPosition: CameraPosition(
               target: _currentCenter,
-              zoom: 15,
+              zoom: 16,
             ),
-            myLocationEnabled: true,
-            myLocationButtonEnabled: false,
-            zoomControlsEnabled: false,
-            onMapCreated: (GoogleMapController controller) {
+            onMapCreated: (controller) {
               if (!_mapController.isCompleted) {
                 _mapController.complete(controller);
               }
             },
-            onCameraMove: (CameraPosition position) {
+            onCameraMove: (position) {
               _currentCenter = position.target;
             },
             onCameraIdle: () {
               _reverseGeocode(_currentCenter);
             },
+            myLocationEnabled: true,
+            myLocationButtonEnabled: false,
+            zoomControlsEnabled: false,
           ),
 
-          // Central Static Pin Indicator
-          Center(
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 38), // Offset to align point of pin
-              child: const Icon(
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: 35),
+              child: Icon(
                 Icons.location_on,
-                size: 48,
-                color: Colors.redAccent,
+                size: 45,
+                color: AppColors.primary,
               ),
             ),
           ),
 
-          // Top Header & Search Bar Overlay
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
                   Row(
@@ -252,19 +262,23 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
                       CircleAvatar(
                         backgroundColor: Colors.white,
                         child: IconButton(
-                          icon: const Icon(Icons.arrow_back, color: AppColors.secondary),
+                          icon: const Icon(
+                            Icons.arrow_back,
+                            color: Colors.black87,
+                          ),
                           onPressed: () => Navigator.pop(context),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(30),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
+                                color: Colors.black.withValues(alpha: 0.1),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
@@ -275,12 +289,17 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
                             focusNode: _searchFocusNode,
                             onChanged: _onSearchChanged,
                             decoration: InputDecoration(
-                              hintText: 'Buscar dirección...',
-                              hintStyle: const TextStyle(color: Colors.black38),
-                              prefixIcon: const Icon(Icons.search, color: Colors.black45),
+                              hintText: l10n.mapSearchAddressHint,
+                              prefixIcon: const Icon(
+                                Icons.search,
+                                color: Colors.black45,
+                              ),
                               suffixIcon: _searchController.text.isNotEmpty
                                   ? IconButton(
-                                      icon: const Icon(Icons.clear, color: Colors.black45),
+                                      icon: const Icon(
+                                        Icons.clear,
+                                        color: Colors.black45,
+                                      ),
                                       onPressed: () {
                                         _searchController.clear();
                                         setState(() {
@@ -290,15 +309,12 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
                                     )
                                   : null,
                               border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(vertical: 14),
                             ),
                           ),
                         ),
                       ),
                     ],
                   ),
-
-                  // Search Results Dropdown List
                   if (_predictions.isNotEmpty)
                     Container(
                       margin: const EdgeInsets.only(top: 8, left: 52),
@@ -306,13 +322,6 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
                       ),
                       child: ListView.builder(
                         shrinkWrap: true,
@@ -321,7 +330,10 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
                         itemBuilder: (context, index) {
                           final p = _predictions[index];
                           return ListTile(
-                            leading: const Icon(Icons.location_on_outlined, color: AppColors.primary),
+                            leading: const Icon(
+                              Icons.location_on_outlined,
+                              color: AppColors.primary,
+                            ),
                             title: Text(
                               p['description'],
                               style: const TextStyle(fontSize: 14),
@@ -336,7 +348,6 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
             ),
           ),
 
-          // Floating Action Button to re-center location
           Positioned(
             right: 16,
             bottom: 150,
@@ -344,11 +355,14 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
               mini: true,
               backgroundColor: Colors.white,
               onPressed: _initializeLocation,
-              child: const Icon(Icons.my_location, color: AppColors.secondary),
+              tooltip: l10n.mapCurrentGpsTooltip,
+              child: const Icon(
+                Icons.my_location,
+                color: AppColors.secondary,
+              ),
             ),
           ),
 
-          // Confirm Button Overlay
           Positioned(
             left: 20,
             right: 20,
@@ -359,7 +373,7 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.15),
+                    color: Colors.black.withValues(alpha: 0.15),
                     blurRadius: 15,
                     offset: const Offset(0, 5),
                   ),
@@ -376,9 +390,13 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: _isLoadingAddress
-                            ? const LinearProgressIndicator(color: AppColors.primary)
+                            ? const LinearProgressIndicator(
+                                color: AppColors.primary,
+                              )
                             : Text(
-                                _currentAddress.isNotEmpty ? _currentAddress : 'Selecciona una ubicación',
+                                _currentAddress.isNotEmpty
+                                    ? _currentAddress
+                                    : l10n.mapSelectLocationHint,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,
@@ -410,9 +428,12 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
                       ),
                       elevation: 0,
                     ),
-                    child: const Text(
-                      'Confirmar Ubicación',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    child: Text(
+                      l10n.mapConfirmLocation,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
                 ],
@@ -424,3 +445,4 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
     );
   }
 }
+

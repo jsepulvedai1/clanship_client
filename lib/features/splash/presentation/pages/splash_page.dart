@@ -9,6 +9,11 @@ import 'package:clanship_cliente/features/splash/presentation/bloc/splash_state.
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:package_info_plus/package_info_plus.dart';
+
+import 'package:clanship_cliente/core/config/env_config.dart';
+import 'package:clanship_cliente/core/network/app_version_checker.dart';
+
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
 
@@ -43,8 +48,29 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
       ),
     );
 
+    _checkVersionAndStart();
+  }
+
+  Future<void> _checkVersionAndStart() async {
     _animationController.forward();
-    context.read<SplashBloc>().add(AppStarted());
+    String currentVersion = '1.0.0';
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (info.version.isNotEmpty) {
+        currentVersion = info.version;
+      }
+    } catch (_) {}
+
+    final bool isBlocked = await AppVersionChecker.checkVersion(
+      context: context,
+      appType: 'CLIENT',
+      currentVersion: currentVersion,
+      baseUrl: EnvConfig.instance.baseUrl,
+    );
+
+    if (!isBlocked && mounted) {
+      context.read<SplashBloc>().add(AppStarted());
+    }
   }
 
   @override

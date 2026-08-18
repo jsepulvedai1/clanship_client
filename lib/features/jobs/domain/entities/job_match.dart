@@ -24,6 +24,9 @@ class JobMatch extends Equatable {
   final bool hasUnreadMessages;
   final String? cancellationReason;
   final String? cancelledByUserName;
+  final bool hasBeenReviewed;
+  final int? givenRating;
+  final String? reviewComment;
 
   const JobMatch({
     required this.id,
@@ -41,6 +44,9 @@ class JobMatch extends Equatable {
     this.hasUnreadMessages = false,
     this.cancellationReason,
     this.cancelledByUserName,
+    this.hasBeenReviewed = false,
+    this.givenRating,
+    this.reviewComment,
   });
 
   @override
@@ -60,6 +66,9 @@ class JobMatch extends Equatable {
         hasUnreadMessages,
         cancellationReason,
         cancelledByUserName,
+        hasBeenReviewed,
+        givenRating,
+        reviewComment,
       ];
 
   JobMatch copyWith({
@@ -71,6 +80,9 @@ class JobMatch extends Equatable {
     bool? hasUnreadMessages,
     String? cancellationReason,
     String? cancelledByUserName,
+    bool? hasBeenReviewed,
+    int? givenRating,
+    String? reviewComment,
   }) {
     return JobMatch(
       id: id,
@@ -88,6 +100,9 @@ class JobMatch extends Equatable {
       hasUnreadMessages: hasUnreadMessages ?? this.hasUnreadMessages,
       cancellationReason: cancellationReason ?? this.cancellationReason,
       cancelledByUserName: cancelledByUserName ?? this.cancelledByUserName,
+      hasBeenReviewed: hasBeenReviewed ?? this.hasBeenReviewed,
+      givenRating: givenRating ?? this.givenRating,
+      reviewComment: reviewComment ?? this.reviewComment,
     );
   }
 }

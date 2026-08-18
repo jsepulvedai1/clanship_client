@@ -8,8 +8,10 @@ import 'package:clanship_cliente/core/network/location_service.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:clanship_cliente/l10n/app_localizations.dart';
 
 class HomeMapPage extends StatefulWidget {
+
   final List<Professional> professionals;
 
   const HomeMapPage({super.key, required this.professionals});
@@ -296,6 +298,7 @@ class _HomeMapPageState extends State<HomeMapPage> {
   Widget build(BuildContext context) {
     final topPadding = MediaQuery.of(context).padding.top;
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       body: Stack(
@@ -331,12 +334,12 @@ class _HomeMapPageState extends State<HomeMapPage> {
                 color: theme.colorScheme.surface,
                 borderRadius: BorderRadius.circular(15),
                 border: Border.all(
-                  color: Colors.blue.withOpacity(0.3),
+                  color: Colors.blue.withValues(alpha: 0.3),
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: theme.shadowColor.withOpacity(0.08),
+                    color: theme.shadowColor.withValues(alpha: 0.08),
                     blurRadius: 20,
                     offset: const Offset(0, 8),
                   ),
@@ -365,9 +368,9 @@ class _HomeMapPageState extends State<HomeMapPage> {
                         fontFamily: 'Plus Jakarta Sans',
                       ),
                       decoration: InputDecoration(
-                        hintText: 'Buscar profesional...',
+                        hintText: l10n.exploreSearchHint,
                         hintStyle: TextStyle(
-                          color: theme.colorScheme.onSurface.withOpacity(0.38),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.38),
                           fontSize: 17,
                         ),
                         border: InputBorder.none,
@@ -401,9 +404,9 @@ class _HomeMapPageState extends State<HomeMapPage> {
                 onPressed: () {},
                 backgroundColor: AppColors.primary,
                 elevation: 10,
-                label: const Text(
-                  'Buscar en esta área',
-                  style: TextStyle(
+                label: Text(
+                  l10n.exploreSearchThisArea,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.5,
@@ -413,6 +416,7 @@ class _HomeMapPageState extends State<HomeMapPage> {
               ),
             ),
           ),
+
 
           // Side Control: Recenter
           Positioned(

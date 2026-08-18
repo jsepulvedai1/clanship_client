@@ -43,3 +43,13 @@ class UpdateJobStatus extends JobsEvent {
   @override
   List<Object?> get props => [jobId, status, cancellationReason];
 }
+
+class RateJobEvent extends JobsEvent {
+  final int jobId;
+  final int rating;
+  final String? comment;
+  const RateJobEvent({required this.jobId, required this.rating, this.comment});
+
+  @override
+  List<Object?> get props => [jobId, rating, comment];
+}

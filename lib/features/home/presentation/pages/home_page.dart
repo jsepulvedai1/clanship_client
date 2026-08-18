@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'package:clanship_cliente/core/network/firebase_notification_helper.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:clanship_cliente/features/auth/data/models/user_model.dart';
 import 'package:clanship_cliente/features/auth/data/mappers/user_mapper.dart';
@@ -10,7 +11,7 @@ import 'package:clanship_cliente/features/auth/presentation/bloc/auth_state.dart
 import 'package:clanship_cliente/core/di/injection.dart';
 import 'package:clanship_cliente/core/network/location_service.dart';
 import 'package:clanship_cliente/core/network/graphql_service.dart';
-import 'package:clanship_cliente/core/network/firebase_notification_helper.dart';
+import 'package:clanship_cliente/core/services/specialties_cache_service.dart';
 import 'package:clanship_cliente/features/home/domain/entities/professional.dart';
 import 'package:clanship_cliente/features/home/presentation/pages/professional_search_page.dart';
 import 'package:clanship_cliente/features/home/presentation/widgets/services_filter_sheet.dart';
@@ -21,6 +22,9 @@ import 'package:clanship_cliente/features/home/presentation/bloc/home_bloc.dart'
 import 'package:clanship_cliente/features/home/presentation/bloc/home_event.dart';
 import 'package:clanship_cliente/features/home/presentation/bloc/home_state.dart';
 import 'package:clanship_cliente/l10n/app_localizations.dart';
+import 'package:clanship_cliente/features/jobs/presentation/pages/create_public_job_page.dart';
+import 'package:clanship_cliente/core/navigation/bloc/navigation_bloc.dart';
+import 'package:clanship_cliente/core/navigation/bloc/navigation_event.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
@@ -28,8 +32,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:clanship_cliente/core/utils/image_cropper_helper.dart';
 import 'dart:async';
 import 'package:clanship_cliente/core/network/local_notification_service.dart';
-import 'package:clanship_cliente/core/navigation/bloc/navigation_bloc.dart';
-import 'package:clanship_cliente/core/navigation/bloc/navigation_event.dart';
+import 'package:clanship_cliente/features/home/presentation/pages/help_webview_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -52,6 +55,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    getIt<SpecialtiesCacheService>().preloadOrRefresh();
     _checkLocationPermission();
     FirebaseNotificationHelper.uploadFcmToken();
     _loadLocalNotifications();
@@ -127,7 +131,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// Carga las especialidades y muestra el filtro. Al aplicar, navega a la búsqueda.
+  /// Carga las especialidades de forma instantánea desde el caché local y abre el filtro.
   Future<void> _openFilterThenSearch(
     BuildContext context, {
     String? savedAddress,
@@ -138,38 +142,16 @@ class _HomePageState extends State<HomePage> {
     if (_isOpeningFilter) return;
     setState(() => _isOpeningFilter = true);
 
-    // Fetch specialties for the filter sheet
-    List<dynamic> specialties = [];
-    try {
-      const String specialtiesQuery = r'''
-        query GetSpecialtiesTagsAndSubTags {
-          specialties {
-            id
-            name
-            color
-            tags {
-              id
-              name
-              subtags {
-                id
-                name
-              }
-            }
-          }
-        }
-      ''';
-      final client = getIt<GraphQLService>().client;
-      final result = await client.query(
-        QueryOptions(
-          document: gql(specialtiesQuery),
-          fetchPolicy: FetchPolicy.networkOnly,
-        ),
-      );
-      if (!result.hasException && result.data != null) {
-        specialties = result.data?['specialties'] as List<dynamic>? ?? [];
-      }
-    } catch (e) {
-      debugPrint('Error fetching specialties: $e');
+    // Fetch specialties from local cache instantly (0ms)
+    final cacheService = getIt<SpecialtiesCacheService>();
+    List<dynamic> specialties = cacheService.getSpecialties();
+
+    if (specialties.isEmpty) {
+      await cacheService.preloadOrRefresh();
+      specialties = cacheService.getSpecialties();
+    } else {
+      // Trigger background refresh in parallel so future opens have fresh data if updated
+      cacheService.preloadOrRefresh();
     }
 
     if (!context.mounted) {
@@ -196,8 +178,8 @@ class _HomePageState extends State<HomePage> {
                   initialProfessionals: _currentProfessionals,
                   latitude: _currentPosition?.latitude ?? savedLat,
                   longitude: _currentPosition?.longitude ?? savedLng,
-                  currentAddress: _currentAddress !=
-                          'Calle 123, Villa Puerto, Puerto Montt'
+                  currentAddress:
+                      _currentAddress != 'Calle 123, Villa Puerto, Puerto Montt'
                       ? _currentAddress
                       : (savedAddress ?? _currentAddress),
                   initialSelectedTagIds: selectedTagIds,
@@ -526,7 +508,9 @@ class _HomePageState extends State<HomePage> {
                             child: ListTile(
                               onTap: () {
                                 Navigator.of(context).pop();
-                                context.read<NavigationBloc>().add(const TabChanged(1));
+                                context.read<NavigationBloc>().add(
+                                  const TabChanged(1),
+                                );
                               },
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 16,
@@ -626,9 +610,75 @@ class _HomePageState extends State<HomePage> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
+                      const SizedBox(height: 2),
+                      GestureDetector(
+                        onTap: () => AddressSelectionDialog.show(context),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.location_on_rounded,
+                              color: AppColors.primary,
+                              size: 14,
+                            ),
+                            const SizedBox(width: 3),
+                            Flexible(
+                              child: Text(
+                                (state is AuthAuthenticated &&
+                                        state.user.address != null &&
+                                        state.user.address!.isNotEmpty)
+                                    ? state.user.address!
+                                    : _currentAddress,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.add_circle_outline_rounded,
+                              color: AppColors.primary,
+                              size: 14,
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
+                // Help & Tips Icon (WebView / Offline Fallback)
+                GestureDetector(
+                  onTap: () => HelpWebViewPage.show(context),
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
+                      border: Border.all(
+                        color: const Color(0xFFE2E8F0),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.help_outline_rounded,
+                      color: Color(0xFF0D2B45),
+                      size: 22,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 // Notification Bell Icon (Interactive)
                 GestureDetector(
                   onTap: _showLocalNotificationsBottomSheet,
@@ -757,63 +807,12 @@ class _HomePageState extends State<HomePage> {
                 Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
-                    vertical: 16,
+                    vertical: 1,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Address Selector Row
-                      GestureDetector(
-                        onTap: () => AddressSelectionDialog.show(context),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.location_on_rounded,
-                              color: AppColors.primary,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Mi dirección:',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.onSurface.withOpacity(
-                                  0.6,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: BlocBuilder<AuthBloc, AuthState>(
-                                builder: (context, state) {
-                                  String displayAddress = _currentAddress;
-                                  if (state is AuthAuthenticated &&
-                                      state.user.address != null &&
-                                      state.user.address!.isNotEmpty) {
-                                    displayAddress = state.user.address!;
-                                  }
-
-                                  return Text(
-                                    displayAddress,
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: AppColors.primary,
-                                      fontWeight: FontWeight.w600,
-                                      decoration: TextDecoration.underline,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  );
-                                },
-                              ),
-                            ),
-                            Icon(
-                              Icons.keyboard_arrow_down_rounded,
-                              color: theme.colorScheme.onSurface.withOpacity(
-                                0.4,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      // Banner Prominente y Botones para Publicar y Ver Solicitudes Abiertas
                       const SizedBox(height: 16),
                       // Standalone Search Bar
                       GestureDetector(
@@ -873,7 +872,7 @@ class _HomePageState extends State<HomePage> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  '¿Qué servicio buscas?',
+                                  l10n.homeSearchNeed,
                                   style: theme.textTheme.bodyLarge?.copyWith(
                                     color: theme.colorScheme.onSurface
                                         .withOpacity(0.4),
@@ -901,14 +900,14 @@ class _HomePageState extends State<HomePage> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
-                                      'Urgencia',
+                                      l10n.homeUrgency,
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
                                         color: _isUrgencyMode
                                             ? AppColors.urgency
                                             : theme.colorScheme.onSurface
-                                                .withOpacity(0.6),
+                                                  .withOpacity(0.6),
                                       ),
                                     ),
                                     const SizedBox(width: 2),
@@ -923,7 +922,8 @@ class _HomePageState extends State<HomePage> {
                                         },
                                         activeColor: Colors.white,
                                         activeTrackColor: AppColors.urgency,
-                                        inactiveThumbColor: Colors.grey.shade400,
+                                        inactiveThumbColor:
+                                            Colors.grey.shade400,
                                         inactiveTrackColor:
                                             Colors.grey.shade200,
                                         materialTapTargetSize:
@@ -935,6 +935,151 @@ class _HomePageState extends State<HomePage> {
                               ),
                             ],
                           ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF0D2B45), Color(0xFF163E63)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(18),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF0D2B45).withOpacity(0.25),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.15),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.campaign_rounded,
+                                    color: Colors.white,
+                                    size: 24,
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        l10n.homeBannerTitle,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        l10n.homeBannerSubTitle,
+                                        style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.primary,
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 10,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    onPressed: () async {
+                                      final res = await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              const CreatePublicJobPage(),
+                                        ),
+                                      );
+                                      if (res == true && mounted) {
+                                        context.read<NavigationBloc>().add(
+                                          const TabChanged(1),
+                                        );
+                                      }
+                                    },
+                                    icon: const Icon(
+                                      Icons.add_rounded,
+                                      size: 18,
+                                    ),
+                                    label: Text(
+                                      l10n.homeBtnRequest,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.white.withOpacity(
+                                        0.2,
+                                      ),
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 10,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    onPressed: () {
+                                      context.read<NavigationBloc>().add(
+                                        const TabChanged(1),
+                                      );
+                                    },
+                                    icon: const Icon(
+                                      Icons.list_alt_rounded,
+                                      size: 18,
+                                    ),
+                                    label: Text(
+                                      l10n.homeBtnMyRequests,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
                     ],

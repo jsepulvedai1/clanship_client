@@ -178,9 +178,9 @@ class _AddressSelectionDialogState extends State<AddressSelectionDialog> {
                     vertical: 16,
                   ),
                   child: Text(
-                    'No tienes direcciones guardadas.',
+                    l10n.addressDialogNoSaved,
                     style: TextStyle(
-                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       fontSize: 14,
                     ),
                   ),
@@ -239,14 +239,14 @@ class _AddressSelectionDialogState extends State<AddressSelectionDialog> {
                       children: [
                         Icon(
                           Icons.add,
-                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                           size: 20,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           l10n.addressDialogAdd,
                           style: TextStyle(
-                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                             fontSize: 15,
                             fontWeight: FontWeight.w500,
                           ),
@@ -262,7 +262,7 @@ class _AddressSelectionDialogState extends State<AddressSelectionDialog> {
                     vertical: 8,
                   ),
                   child: Text(
-                    'Límite de 3 direcciones alcanzado.',
+                    l10n.addressDialogLimitReached,
                     style: TextStyle(
                       color: Colors.red.shade400,
                       fontSize: 13,
@@ -275,9 +275,9 @@ class _AddressSelectionDialogState extends State<AddressSelectionDialog> {
             const Divider(height: 1, thickness: 1),
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text(
-                'Cerrar',
-                style: TextStyle(
+              child: Text(
+                l10n.commonClose,
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: AppColors.primary,
@@ -290,3 +290,4 @@ class _AddressSelectionDialogState extends State<AddressSelectionDialog> {
     );
   }
 }
+
