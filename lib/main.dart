@@ -3,6 +3,7 @@ import 'package:clanship_cliente/core/config/app_startup.dart';
 import 'package:clanship_cliente/core/config/env_config.dart';
 import 'package:clanship_cliente/features/chat/presentation/pages/chat_page.dart';
 import 'package:clanship_cliente/core/di/injection.dart';
+import 'package:clanship_cliente/core/theme/app_colors.dart';
 import 'package:clanship_cliente/core/theme/app_theme.dart';
 import 'package:clanship_cliente/core/settings/bloc/settings_bloc.dart';
 import 'package:clanship_cliente/core/settings/bloc/settings_event.dart';
@@ -19,13 +20,14 @@ import 'package:clanship_cliente/features/jobs/presentation/bloc/matching_bloc.d
 import 'package:clanship_cliente/features/jobs/presentation/bloc/matching_event.dart';
 import 'package:clanship_cliente/features/jobs/presentation/bloc/matching_state.dart';
 import 'package:clanship_cliente/features/jobs/presentation/bloc/jobs_bloc.dart';
-import 'package:clanship_cliente/features/jobs/presentation/bloc/jobs_event.dart';
 import 'package:clanship_cliente/features/home/presentation/bloc/home_bloc.dart';
 import 'package:clanship_cliente/core/navigation/bloc/navigation_event.dart';
 import 'package:clanship_cliente/features/splash/presentation/bloc/splash_bloc.dart';
 import 'package:clanship_cliente/features/splash/presentation/pages/splash_page.dart';
 import 'package:clanship_cliente/features/favorites/presentation/bloc/favorites_bloc.dart';
-import 'package:clanship_cliente/features/favorites/presentation/bloc/favorites_event.dart';
+import 'package:clanship_cliente/core/theme/bloc/seasonal_theme_bloc.dart';
+import 'package:clanship_cliente/core/theme/bloc/seasonal_theme_event.dart';
+import 'package:clanship_cliente/core/theme/bloc/seasonal_theme_state.dart';
 
 void main() async {
   await AppStartup.init();
@@ -98,11 +100,12 @@ class _ClanshipAppState extends State<ClanshipApp> {
         BlocProvider(create: (context) => getIt<NavigationBloc>()),
         BlocProvider(create: (context) => getIt<AuthBloc>()),
         BlocProvider(create: (context) => getIt<MatchingBloc>()),
-        BlocProvider(create: (context) => getIt<JobsBloc>()..add(LoadJobs())),
+        BlocProvider(create: (context) => getIt<JobsBloc>()),
         BlocProvider(create: (context) => getIt<HomeBloc>()),
         BlocProvider(create: (context) => getIt<SplashBloc>()),
+        BlocProvider(create: (context) => getIt<FavoritesBloc>()),
         BlocProvider(
-          create: (context) => getIt<FavoritesBloc>()..add(LoadFavorites()),
+          create: (context) => getIt<SeasonalThemeBloc>()..add(const LoadSeasonalTheme()),
         ),
       ],
       child: Builder(
@@ -140,21 +143,48 @@ class _ClanshipAppState extends State<ClanshipApp> {
             },
             child: BlocBuilder<SettingsBloc, SettingsState>(
               builder: (context, state) {
-                final navBloc = context.read<NavigationBloc>();
-                return MaterialApp(
-                  title: 'Clanship Cliente',
-                  navigatorKey: navBloc.navigatorKey,
-                  debugShowCheckedModeBanner: false,
-                  theme: AppTheme.lightTheme,
-                  darkTheme: AppTheme.darkTheme,
-                  themeMode: ThemeMode.light,
-                  localizationsDelegates: AppLocalizations.localizationsDelegates,
-                  supportedLocales: AppLocalizations.supportedLocales,
-                  locale: state.locale,
-                  builder: (context, child) {
-                    return child ?? const SizedBox.shrink();
+                return BlocBuilder<SeasonalThemeBloc, SeasonalThemeState>(
+                  builder: (context, seasonalState) {
+                    final navBloc = context.read<NavigationBloc>();
+
+                    // Sincronizar paleta global centralizada AppColors con el estado de la temporada
+                    if (seasonalState.hasActiveCampaign) {
+                      AppColors.setSeasonalOverrides(
+                        primary: seasonalState.primaryColor,
+                        secondary: seasonalState.secondaryColor,
+                        accent: seasonalState.accentColor,
+                      );
+                    } else {
+                      AppColors.resetDefaults();
+                    }
+
+                    final lightTheme = AppTheme.buildLightTheme(
+                      primary: seasonalState.primaryColor,
+                      secondary: seasonalState.secondaryColor,
+                      accent: seasonalState.accentColor,
+                    );
+                    final darkTheme = AppTheme.buildDarkTheme(
+                      primary: seasonalState.primaryColor,
+                      secondary: seasonalState.secondaryColor,
+                      accent: seasonalState.accentColor,
+                    );
+
+                    return MaterialApp(
+                      title: 'Clanship Cliente',
+                      navigatorKey: navBloc.navigatorKey,
+                      debugShowCheckedModeBanner: false,
+                      theme: lightTheme,
+                      darkTheme: darkTheme,
+                      themeMode: ThemeMode.light,
+                      localizationsDelegates: AppLocalizations.localizationsDelegates,
+                      supportedLocales: AppLocalizations.supportedLocales,
+                      locale: state.locale,
+                      builder: (context, child) {
+                        return child ?? const SizedBox.shrink();
+                      },
+                      home: const SplashPage(),
+                    );
                   },
-                  home: const SplashPage(),
                 );
               },
             ),

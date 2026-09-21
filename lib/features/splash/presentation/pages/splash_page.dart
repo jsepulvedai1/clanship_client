@@ -13,6 +13,11 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import 'package:clanship_cliente/core/config/env_config.dart';
 import 'package:clanship_cliente/core/network/app_version_checker.dart';
+import 'package:clanship_cliente/core/theme/bloc/seasonal_theme_bloc.dart';
+import 'package:clanship_cliente/core/theme/bloc/seasonal_theme_event.dart';
+import 'package:clanship_cliente/core/theme/bloc/seasonal_theme_state.dart';
+import 'package:clanship_cliente/core/theme/widgets/seasonal_logo_badge.dart';
+import 'package:clanship_cliente/core/theme/widgets/seasonal_particles.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -53,6 +58,17 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
 
   Future<void> _checkVersionAndStart() async {
     _animationController.forward();
+
+    // Disparar carga de tema estacional inmediatamente en paralelo
+    if (mounted) {
+      final seasonalBloc = context.read<SeasonalThemeBloc>();
+      if (!seasonalBloc.state.isLoaded) {
+        seasonalBloc.add(
+          LoadSeasonalTheme(baseUrl: EnvConfig.instance.baseUrl),
+        );
+      }
+    }
+
     String currentVersion = '1.0.0';
     try {
       final info = await PackageInfo.fromPlatform();
@@ -95,54 +111,68 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
           );
         }
       },
-      child: Scaffold(
-        body: Container(
-          width: double.infinity,
-          height: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.primary, AppColors.secondary],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: AnimatedBuilder(
-            animation: _animationController,
-            builder: (context, child) {
-              return Opacity(
-                opacity: _fadeAnimation.value,
-                child: Transform.scale(
-                  scale: _scaleAnimation.value,
-                  child: child,
+      child: BlocBuilder<SeasonalThemeBloc, SeasonalThemeState>(
+        builder: (context, seasonalState) {
+          return Scaffold(
+            body: Container(
+              width: double.infinity,
+              height: double.infinity,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: seasonalState.hasActiveCampaign
+                      ? seasonalState.headerGradient
+                      : [AppColors.primary, AppColors.secondary],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-              );
-            },
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 120,
-                  height: 120,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black26,
-                        blurRadius: 25,
-                        spreadRadius: 5,
-                        offset: Offset(0, 10),
-                      ),
-                    ],
+              ),
+              child: Stack(
+                children: [
+                  const Positioned.fill(
+                    child: SeasonalParticlesOverlay(height: double.infinity),
                   ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(60),
-                    child: Image.asset(
-                      'assets/icon/app_icon.jpg',
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 32),
+                  Center(
+                    child: AnimatedBuilder(
+                      animation: _animationController,
+                      builder: (context, child) {
+                        return Opacity(
+                          opacity: _fadeAnimation.value,
+                          child: Transform.scale(
+                            scale: _scaleAnimation.value,
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SeasonalLogoBadge(
+                            badgeSize: 46,
+                            offset: const Offset(13, -13),
+                            child: Container(
+                              width: 120,
+                              height: 120,
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black26,
+                                    blurRadius: 25,
+                                    spreadRadius: 5,
+                                    offset: Offset(0, 10),
+                                  ),
+                                ],
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(60),
+                                child: Image.asset(
+                                  'assets/icon/app_icon.jpg',
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 32),
                 const Text(
                   'ClanShip',
                   style: TextStyle(
@@ -156,25 +186,68 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
                 Text(
                   'Servicios Confiables a un Click',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.85),
+                    color: Colors.white.withValues(alpha: 0.85),
                     fontSize: 16,
                     letterSpacing: 1.0,
                     fontWeight: FontWeight.w400,
                   ),
                 ),
-                const SizedBox(height: 64),
-                const SizedBox(
-                  width: 32,
-                  height: 32,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 3,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
+                const SizedBox(height: 48),
+                BlocBuilder<SplashBloc, SplashState>(
+                  builder: (context, splashState) {
+                    if (splashState is SplashConnectionError) {
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            splashState.message,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: AppColors.primary,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 12,
+                              ),
+                            ),
+                            onPressed: () {
+                              context.read<SplashBloc>().add(AppStarted());
+                            },
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Reintentar conexión'),
+                          ),
+                        ],
+                      );
+                    }
+                    return const SizedBox(
+                      width: 32,
+                      height: 32,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 3,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
-          ),
-        ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }

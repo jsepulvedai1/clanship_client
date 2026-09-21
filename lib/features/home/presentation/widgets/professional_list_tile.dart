@@ -29,9 +29,9 @@ class ProfessionalListTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: tagColor.withOpacity(0.08),
+        color: tagColor.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: tagColor.withOpacity(0.2)),
+        border: Border.all(color: tagColor.withValues(alpha: 0.2)),
       ),
       child: Text(
         name,
@@ -53,7 +53,7 @@ class ProfessionalListTile extends StatelessWidget {
       child: Container(
         width: 80,
         height: 80,
-        color: primaryColor.withOpacity(0.1),
+        color: primaryColor.withValues(alpha: 0.1),
         child: hasImage
             ? (isNetwork
                 ? Image.network(
@@ -97,7 +97,7 @@ class ProfessionalListTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: theme.shadowColor.withOpacity(0.05),
+            color: theme.shadowColor.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -154,7 +154,7 @@ class ProfessionalListTile extends StatelessWidget {
                               professional.rating.toStringAsFixed(1),
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.onSurface.withOpacity(0.8),
+                                color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
                               ),
                             ),
                           ],

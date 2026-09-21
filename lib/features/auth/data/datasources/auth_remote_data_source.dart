@@ -18,10 +18,13 @@ abstract class AuthRemoteDataSource {
     String? avatarPath,
     double? latitude,
     double? longitude,
+    String? referralCode,
   });
   Future<UserModel> getCurrentUser();
   Future<void> logout();
   Future<void> requestPasswordReset(String email);
+  Future<Map<String, dynamic>> validateReferralCode(String code);
+  Future<Map<String, String>> getReferralProgramContent({String? language});
 }
 
 @LazySingleton(as: AuthRemoteDataSource)
@@ -123,20 +126,22 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     String? avatarPath,
     double? latitude,
     double? longitude,
+    String? referralCode,
   }) async {
     const storage = FlutterSecureStorage();
     await storage.delete(key: 'jwt_token');
     await storage.delete(key: 'refresh_token');
 
     const String registerMutation = r'''
-      mutation RegisterUser($email: String!, $password: String!, $firstName: String!, $lastName: String!, $phoneNumber: String, $userType: String!) {
+      mutation RegisterUser($email: String!, $password: String!, $firstName: String!, $lastName: String!, $phoneNumber: String, $userType: String!, $referralCode: String) {
         registerUser(
           email: $email, 
           password: $password, 
           firstName: $firstName, 
           lastName: $lastName, 
           phoneNumber: $phoneNumber,
-          userType: $userType
+          userType: $userType,
+          referralCode: $referralCode
         ) {
           success
           user {
@@ -149,16 +154,21 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
     final cleanEmail = email.trim().toLowerCase();
 
+    final Map<String, dynamic> variables = {
+      'email': cleanEmail,
+      'password': password,
+      'firstName': firstName,
+      'lastName': lastName,
+      'phoneNumber': phoneNumber,
+      'userType': 'CUSTOMER',
+    };
+    if (referralCode != null && referralCode.trim().isNotEmpty) {
+      variables['referralCode'] = referralCode.trim();
+    }
+
     final MutationOptions options = MutationOptions(
       document: gql(registerMutation),
-      variables: {
-        'email': cleanEmail,
-        'password': password,
-        'firstName': firstName,
-        'lastName': lastName,
-        'phoneNumber': phoneNumber,
-        'userType': 'CUSTOMER',
-      },
+      variables: variables,
       fetchPolicy: FetchPolicy.networkOnly,
     );
 
@@ -335,6 +345,76 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     final message = result.data?['requestPasswordReset']?['message'] as String?;
     if (!success) {
       throw Exception(message ?? 'Failed to request password reset');
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> validateReferralCode(String code) async {
+    const String query = r'''
+      query ValidateReferralCode($code: String!) {
+        validateReferralCode(code: $code) {
+          isValid
+          message
+          referrerName
+        }
+      }
+    ''';
+
+    final QueryOptions options = QueryOptions(
+      document: gql(query),
+      variables: {'code': code.trim().toUpperCase()},
+      fetchPolicy: FetchPolicy.networkOnly,
+    );
+
+    final QueryResult result = await client.query(options);
+
+    if (result.hasException) {
+      return {
+        'isValid': false,
+        'message': 'Error al validar código',
+        'referrerName': null,
+      };
+    }
+
+    final data = result.data?['validateReferralCode'] as Map<String, dynamic>?;
+    return {
+      'isValid': data?['isValid'] as bool? ?? false,
+      'message': data?['message'] as String? ?? '',
+      'referrerName': data?['referrerName'] as String?,
+    };
+  }
+
+  @override
+  Future<Map<String, String>> getReferralProgramContent({String? language}) async {
+    const String query = r'''
+      query GetReferralProgramContent($lang: String) {
+        referralProgramContent(language: $lang) {
+          registrationCodeLabel
+          registrationCodeHint
+        }
+      }
+    ''';
+
+    try {
+      final QueryOptions options = QueryOptions(
+        document: gql(query),
+        variables: {if (language != null) 'lang': language},
+        fetchPolicy: FetchPolicy.networkOnly,
+      );
+
+      final QueryResult result = await client.query(options);
+
+      if (result.hasException || result.data?['referralProgramContent'] == null) {
+        return {};
+      }
+
+      final data = result.data!['referralProgramContent'] as Map<String, dynamic>;
+      return {
+        'label': data['registrationCodeLabel']?.toString() ?? '',
+        'hint': data['registrationCodeHint']?.toString() ?? '',
+      };
+    } catch (_) {
+      return {};
     }
   }
 }

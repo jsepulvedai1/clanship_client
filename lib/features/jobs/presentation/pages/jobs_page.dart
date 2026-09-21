@@ -1,17 +1,24 @@
+import 'package:clanship_cliente/core/di/injection.dart';
 import 'package:clanship_cliente/core/theme/app_colors.dart';
 import 'package:clanship_cliente/features/jobs/domain/entities/job_match.dart';
+import 'package:clanship_cliente/features/jobs/domain/repositories/job_repository.dart';
 import 'package:clanship_cliente/features/jobs/presentation/bloc/jobs_bloc.dart';
 import 'package:clanship_cliente/features/jobs/presentation/bloc/jobs_event.dart';
 import 'package:clanship_cliente/features/jobs/presentation/bloc/jobs_state.dart';
+import 'package:clanship_cliente/features/jobs/presentation/pages/create_public_job_page.dart';
 import 'package:clanship_cliente/features/jobs/presentation/pages/job_detail_page.dart';
 import 'package:clanship_cliente/features/jobs/presentation/pages/my_public_requests_page.dart';
-import 'package:clanship_cliente/features/jobs/presentation/pages/create_public_job_page.dart';
+import 'package:clanship_cliente/features/jobs/presentation/widgets/job_status_info_sheet.dart';
+import 'package:clanship_cliente/features/jobs/presentation/widgets/job_timeline_card.dart';
 import 'package:clanship_cliente/features/jobs/presentation/widgets/rating_dialog.dart';
-import 'package:clanship_cliente/features/jobs/presentation/widgets/specialty_ui_helper.dart';
 import 'package:clanship_cliente/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
+
+enum JobFilterCategory {
+  all, // Todas
+  publicRequests, // Solicitudes Abiertas
+}
 
 class JobsPage extends StatefulWidget {
   const JobsPage({super.key});
@@ -21,8 +28,28 @@ class JobsPage extends StatefulWidget {
 }
 
 class _JobsPageState extends State<JobsPage> {
-  int _selectedTabIndex = 0; // 0: En proceso, 1: Finalizada, 2: Rechazada
+  JobFilterCategory _selectedCategory = JobFilterCategory.all;
+  JobStatus? _specificStatusFilter; // null means all
   final Set<String> _promptedJobRatingIds = {};
+  int _publicRequestsCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPublicRequestsCount();
+  }
+
+  Future<void> _fetchPublicRequestsCount() async {
+    try {
+      final repo = getIt<JobRepository>();
+      final list = await repo.getMyPublicJobRequests();
+      if (mounted) {
+        setState(() {
+          _publicRequestsCount = list.length;
+        });
+      }
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,92 +63,60 @@ class _JobsPageState extends State<JobsPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 16),
-            // Header Section
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'GESTIÓN Y SEGUIMIENTO',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      letterSpacing: 1.2,
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Mis Solicitudes',
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                  ),
-                ],
-              ),
+
+            // Header Section: "Gestión y Seguimiento", "Mis Solicitudes" + Help Icon
+            _buildHeader(theme),
+            const SizedBox(height: 18),
+
+            // 2 Primary Tabs (TODAS y ABIERTAS) + Status Filter Chips
+            BlocBuilder<JobsBloc, JobsState>(
+              builder: (context, state) {
+                final allJobs = state is JobsLoaded ? state.jobs : <JobMatch>[];
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildPrimaryFilterPills(theme, allJobs),
+                    if (_selectedCategory == JobFilterCategory.all) ...[
+                      const SizedBox(height: 12),
+                      _buildSpecificStatusChips(theme, allJobs),
+                    ],
+                  ],
+                );
+              },
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
-            // 3-Tab Selector
-            _buildTabSelector(l10n, theme),
-            const SizedBox(height: 20),
-
-            // Content List
+            // Content List / View
             Expanded(
               child: BlocConsumer<JobsBloc, JobsState>(
                 listener: (context, state) {
                   if (state is JobsLoaded) {
-                    for (final job in state.jobs) {
-                      if (job.status == JobStatus.completed &&
-                          !job.hasBeenReviewed &&
-                          !_promptedJobRatingIds.contains(job.id)) {
-                        _promptedJobRatingIds.add(job.id);
-                        final jobIdInt = int.tryParse(job.id) ?? 0;
-                        if (jobIdInt != 0) {
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (mounted) {
-                              showDialog(
-                                context: context,
-                                builder: (_) => RatingDialog(
-                                  jobId: jobIdInt,
-                                  professionalName: job.professionalName,
-                                ),
-                              );
-                            }
-                          });
-                        }
-                        break;
-                      }
-                    }
+                    _checkPendingRatings(state.jobs);
                   }
                 },
                 builder: (context, state) {
-                  if (_selectedTabIndex == 1) {
+                  if (_selectedCategory == JobFilterCategory.publicRequests) {
                     return const MyPublicRequestsWidget();
                   }
+
                   if (state is JobsLoading) {
-                    return const Center(child: CircularProgressIndicator());
+                    return Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                      ),
+                    );
                   } else if (state is JobsLoaded) {
-                    final filteredJobs = state.jobs.where((job) {
-                      if (_selectedTabIndex == 0) {
-                        return job.status == JobStatus.pending ||
-                            job.status == JobStatus.scheduled ||
-                            job.status == JobStatus.accepted;
-                      } else if (_selectedTabIndex == 2) {
-                        return job.status == JobStatus.completed;
-                      } else {
-                        return job.status == JobStatus.rejected;
-                      }
-                    }).toList();
+                    final filteredJobs = _filterAndSortJobs(state.jobs);
 
                     if (filteredJobs.isEmpty) {
                       return _buildEmptyState(context, l10n, theme);
                     }
-                    return _buildTimelineJobsList(context, filteredJobs, l10n);
+
+                    return _buildTimelineList(context, filteredJobs);
                   } else if (state is JobsError) {
-                    return Center(child: Text('Error: ${state.message}'));
+                    return _buildErrorState(context, state.message, theme);
                   }
+
                   return const SizedBox.shrink();
                 },
               ),
@@ -131,98 +126,352 @@ class _JobsPageState extends State<JobsPage> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: AppColors.primary,
+        elevation: 4,
         onPressed: () async {
           final res = await Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const CreatePublicJobPage()),
           );
           if (res == true && mounted) {
-            setState(() => _selectedTabIndex = 1);
+            _fetchPublicRequestsCount();
+            setState(() => _selectedCategory = JobFilterCategory.publicRequests);
           }
         },
-        icon: const Icon(Icons.add_rounded, color: Colors.white),
+        icon: const Icon(Icons.add_rounded, color: Colors.white, size: 22),
         label: const Text(
-          'Publicar Solicitud',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          'NUEVA SOLICITUD',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+            fontSize: 13,
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildTabSelector(AppLocalizations l10n, ThemeData theme) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
+  Widget _buildHeader(ThemeData theme) {
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _buildTabPill(
-            title: 'En proceso',
-            isSelected: _selectedTabIndex == 0,
-            activeColor: AppColors.primary,
-            onTap: () => setState(() => _selectedTabIndex = 0),
-            theme: theme,
+          Expanded(
+            child: Text(
+              'Mis Solicitudes',
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+                fontSize: 26,
+              ),
+            ),
           ),
-          const SizedBox(width: 10),
-          _buildTabPill(
-            title: '📢 Solicitudes Abiertas',
-            isSelected: _selectedTabIndex == 1,
-            activeColor: Colors.deepOrange.shade600,
-            onTap: () => setState(() => _selectedTabIndex = 1),
-            theme: theme,
-          ),
-          const SizedBox(width: 10),
-          _buildTabPill(
-            title: 'Finalizadas',
-            isSelected: _selectedTabIndex == 2,
-            activeColor: Colors.green.shade600,
-            onTap: () => setState(() => _selectedTabIndex = 2),
-            theme: theme,
-          ),
-          const SizedBox(width: 10),
-          _buildTabPill(
-            title: 'Rechazadas',
-            isSelected: _selectedTabIndex == 3,
-            activeColor: const Color(0xFFFF4B6E),
-            onTap: () => setState(() => _selectedTabIndex = 3),
-            theme: theme,
+          // Help / Info Button
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => JobStatusInfoSheet.show(context),
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: theme.dividerColor.withValues(alpha: 0.3),
+                    width: 1.2,
+                  ),
+                ),
+                child: Icon(
+                  Icons.help_outline_rounded,
+                  size: 20,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                ),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTabPill({
+  Widget _buildPrimaryFilterPills(ThemeData theme, List<JobMatch> allJobs) {
+    final allCount = allJobs.length;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildPillButton(
+              title: allCount > 0 ? 'TODAS ($allCount)' : 'TODAS',
+              icon: Icons.list_alt_rounded,
+              isSelected: _selectedCategory == JobFilterCategory.all,
+              activeBgColor: AppColors.primary,
+              activeTextColor: Colors.white,
+              onTap: () {
+                setState(() {
+                  _selectedCategory = JobFilterCategory.all;
+                  _specificStatusFilter = null;
+                });
+              },
+              theme: theme,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildPillButton(
+              title: _publicRequestsCount > 0
+                  ? 'ABIERTAS ($_publicRequestsCount)'
+                  : 'ABIERTAS',
+              icon: Icons.campaign_rounded,
+              isSelected: _selectedCategory == JobFilterCategory.publicRequests,
+              activeBgColor: const Color(0xFFE86A38),
+              activeTextColor: Colors.white,
+              onTap: () {
+                setState(() {
+                  _selectedCategory = JobFilterCategory.publicRequests;
+                  _specificStatusFilter = null;
+                });
+              },
+              theme: theme,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPillButton({
     required String title,
+    IconData? icon,
     required bool isSelected,
-    required Color activeColor,
+    required Color activeBgColor,
+    required Color activeTextColor,
     required VoidCallback onTap,
     required ThemeData theme,
   }) {
+    final isDark = theme.brightness == Brightness.dark;
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           color: isSelected
-              ? activeColor.withOpacity(0.12)
-              : theme.colorScheme.surface,
+              ? activeBgColor
+              : isDark
+                  ? theme.colorScheme.surface
+                  : Colors.white,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: isSelected ? activeColor : theme.dividerColor,
-            width: isSelected ? 1.8 : 1.0,
-          ),
-        ),
-        child: Text(
-          title,
-          style: TextStyle(
             color: isSelected
-                ? activeColor
-                : theme.colorScheme.onSurface.withOpacity(0.7),
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-            fontSize: 14,
+                ? activeBgColor
+                : isDark
+                    ? Colors.white12
+                    : theme.dividerColor.withValues(alpha: 0.4),
+            width: isSelected ? 1.5 : 1.0,
           ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: activeBgColor.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(
+                icon,
+                size: 17,
+                color: isSelected
+                    ? activeTextColor
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+              const SizedBox(width: 6),
+            ],
+            Flexible(
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: isSelected
+                    ? activeTextColor
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.8),
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                  fontSize: 12.5,
+                  letterSpacing: 0.4,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSpecificStatusChips(ThemeData theme, List<JobMatch> allJobs) {
+    final pendingCount =
+        allJobs.where((j) => j.status == JobStatus.pending).length;
+    final scheduledCount =
+        allJobs.where((j) => j.status == JobStatus.scheduled).length;
+    final acceptedCount =
+        allJobs.where((j) => j.status == JobStatus.accepted).length;
+    final completedCount =
+        allJobs.where((j) => j.status == JobStatus.completed).length;
+    final rejectedCount =
+        allJobs.where((j) => j.status == JobStatus.rejected).length;
+
+    final availableStatuses = [
+      null,
+      JobStatus.pending,
+      JobStatus.scheduled,
+      JobStatus.accepted,
+      JobStatus.completed,
+      JobStatus.rejected,
+    ];
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Row(
+        children: availableStatuses.map((status) {
+          final isSelected = _specificStatusFilter == status;
+          final count = status == null
+              ? allJobs.length
+              : (status == JobStatus.pending
+                  ? pendingCount
+                  : status == JobStatus.scheduled
+                      ? scheduledCount
+                      : status == JobStatus.accepted
+                          ? acceptedCount
+                          : status == JobStatus.completed
+                              ? completedCount
+                              : rejectedCount);
+
+          final label = _getStatusChipLabel(status, count);
+          final chipColor = _getStatusChipColor(status);
+
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              label: Text(label),
+              selected: isSelected,
+              onSelected: (_) {
+                setState(() => _specificStatusFilter = status);
+              },
+              labelStyle: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected
+                    ? Colors.white
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.75),
+              ),
+              selectedColor: chipColor,
+              backgroundColor: theme.colorScheme.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color: isSelected
+                      ? chipColor
+                      : theme.dividerColor.withValues(alpha: 0.2),
+                ),
+              ),
+              showCheckmark: false,
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  String _getStatusChipLabel(JobStatus? status, int count) {
+    final countStr = count > 0 ? ' ($count)' : '';
+    if (status == null) return 'Todos$countStr';
+    switch (status) {
+      case JobStatus.pending:
+        return 'Cotización$countStr';
+      case JobStatus.scheduled:
+        return 'En camino$countStr';
+      case JobStatus.accepted:
+        return 'En proceso$countStr';
+      case JobStatus.completed:
+        return 'Finalizados$countStr';
+      case JobStatus.rejected:
+        return 'Rechazados$countStr';
+    }
+  }
+
+  Color _getStatusChipColor(JobStatus? status) {
+    if (status == null) return AppColors.primary;
+    switch (status) {
+      case JobStatus.pending:
+        return AppColors.primary;
+      case JobStatus.scheduled:
+        return const Color(0xFFE86A38);
+      case JobStatus.accepted:
+        return const Color(0xFF0D2B45);
+      case JobStatus.completed:
+        return const Color(0xFF16A34A);
+      case JobStatus.rejected:
+        return const Color(0xFFEF4444);
+    }
+  }
+
+  List<JobMatch> _filterAndSortJobs(List<JobMatch> jobs) {
+    var filtered = jobs;
+
+    // Filter by specific status if selected
+    if (_specificStatusFilter != null) {
+      filtered = filtered.where((j) => j.status == _specificStatusFilter).toList();
+    } else {
+      filtered = List<JobMatch>.from(filtered);
+    }
+
+    // Sort strictly from newest to oldest
+    filtered.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+    return filtered;
+  }
+
+  Widget _buildTimelineList(BuildContext context, List<JobMatch> jobs) {
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: () async {
+        _fetchPublicRequestsCount();
+        context.read<JobsBloc>().add(LoadJobs());
+        await Future.delayed(const Duration(milliseconds: 800));
+      },
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        itemCount: jobs.length,
+        itemBuilder: (context, index) {
+          final job = jobs[index];
+          return JobTimelineCard(
+            job: job,
+            isFirst: index == 0,
+            isLast: index == jobs.length - 1,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => JobDetailPage(job: job),
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }
@@ -233,38 +482,47 @@ class _JobsPageState extends State<JobsPage> {
     ThemeData theme,
   ) {
     return RefreshIndicator(
+      color: AppColors.primary,
       onRefresh: () async {
+        _fetchPublicRequestsCount();
         context.read<JobsBloc>().add(LoadJobs());
-        await Future.delayed(const Duration(seconds: 1));
+        await Future.delayed(const Duration(milliseconds: 800));
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         child: SizedBox(
-          height: MediaQuery.of(context).size.height * 0.5,
+          height: MediaQuery.of(context).size.height * 0.45,
           child: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.work_outline_rounded,
-                  size: 64,
-                  color: theme.colorScheme.onSurface.withOpacity(0.4),
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.work_outline_rounded,
+                    size: 48,
+                    color: AppColors.primary.withValues(alpha: 0.6),
+                  ),
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  l10n.jobsEmptyTitle,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.onSurface.withOpacity(0.6),
+                  'No hay solicitudes aquí',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  l10n.jobsEmptySubtitle,
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurface.withOpacity(0.5),
-                    fontSize: 14,
+                  _specificStatusFilter != null
+                      ? 'No tienes solicitudes con el estado seleccionado.'
+                      : 'Tus nuevas solicitudes aparecerán en esta lista.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
                   ),
                 ),
               ],
@@ -275,293 +533,65 @@ class _JobsPageState extends State<JobsPage> {
     );
   }
 
-  Widget _buildTimelineJobsList(
-    BuildContext context,
-    List<JobMatch> jobs,
-    AppLocalizations l10n,
-  ) {
-    Color accentColor = AppColors.primary;
-    if (_selectedTabIndex == 1) {
-      accentColor = Colors.green.shade600;
-    } else if (_selectedTabIndex == 2) {
-      accentColor = const Color(0xFFFF4B6E);
-    }
-
-    return RefreshIndicator(
-      onRefresh: () async {
-        context.read<JobsBloc>().add(LoadJobs());
-        await Future.delayed(const Duration(seconds: 1));
-      },
-      child: ListView.builder(
-        key: ValueKey('timeline_jobs_list_$_selectedTabIndex'),
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        itemCount: jobs.length,
-        itemBuilder: (context, index) {
-          final job = jobs[index];
-          return _buildTimelineItem(
-            context,
-            job,
-            index,
-            jobs.length,
-            accentColor,
-            l10n,
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildTimelineItem(
-    BuildContext context,
-    JobMatch job,
-    int index,
-    int totalCount,
-    Color accentColor,
-    AppLocalizations l10n,
-  ) {
-    final isFirst = index == 0;
-    final isLast = index == totalCount - 1;
-
-    return Stack(
-      children: [
-        // Vertical Line
-        Positioned(
-          left: 11,
-          top: isFirst ? 24 : 0,
-          bottom: isLast ? 24 : 0,
-          child: Container(width: 2, color: accentColor.withOpacity(0.2)),
-        ),
-        // Content
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Left Timeline Connector & Dot
-            SizedBox(
-              width: 24,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 24),
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: accentColor,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: accentColor.withOpacity(0.4),
-                          blurRadius: 6,
-                          spreadRadius: 1,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            // Card Content
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: _buildJobCard(context, job, accentColor, l10n),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildJobCard(
-    BuildContext context,
-    JobMatch job,
-    Color accentColor,
-    AppLocalizations l10n,
-  ) {
-    final theme = Theme.of(context);
-    final specialtyColor = SpecialtyUIHelper.getColor(
-      job.professionalSpecialty,
-    );
-
-    final dateFormatted = DateFormat('dd MMM').format(job.timestamp);
-
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => JobDetailPage(job: job)),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: theme.dividerColor, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: theme.shadowColor.withOpacity(0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
+  Widget _buildErrorState(BuildContext context, String message, ThemeData theme) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Row(
-              children: [
-                // Avatar
-                Badge(
-                  isLabelVisible: job.hasUnreadMessages,
-                  backgroundColor: const Color(0xFFEF4444),
-                  child: _buildAvatar(job, specialtyColor, theme),
-                ),
-                const SizedBox(width: 12),
-                // Header Info (Name, Date, Specialty)
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              job.professionalName,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.onSurface,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          Text(
-                            dateFormatted,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurface.withOpacity(
-                                0.5,
-                              ),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        job.professionalSpecialty.toUpperCase(),
-                        style: TextStyle(
-                          color: specialtyColor,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
-                          letterSpacing: 0.5,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            const Icon(Icons.error_outline_rounded, size: 48, color: Color(0xFFEF4444)),
             const SizedBox(height: 12),
-            // Work Description
             Text(
-              job.workDescription != null && job.workDescription!.isNotEmpty
-                  ? job.workDescription!
-                  : 'Sin descripción adicional',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.8),
-                height: 1.4,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+              'Ocurrió un error',
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 10),
-            // Rating Stars
-            _buildRatingStars(job.rating, theme),
-
-            // Rejection reason container (Only on Rechazada tab)
-            if (_selectedTabIndex == 3) ...[
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF4B6E).withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: const Color(0xFFFF4B6E).withOpacity(0.25),
-                  ),
-                ),
-                child: Text(
-                  job.cancellationReason != null &&
-                          job.cancellationReason!.isNotEmpty
-                      ? job.cancellationReason!
-                      : 'Solicitud no disponible',
-                  style: const TextStyle(
-                    color: Color(0xFFFF4B6E),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+            const SizedBox(height: 6),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
-            ],
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () => context.read<JobsBloc>().add(LoadJobs()),
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Reintentar'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildAvatar(JobMatch job, Color specialtyColor, ThemeData theme) {
-    if (job.professionalImageUrl.isNotEmpty &&
-        !job.professionalImageUrl.contains('unsplash.com')) {
-      return CircleAvatar(
-        radius: 22,
-        backgroundImage: NetworkImage(job.professionalImageUrl),
-      );
+  void _checkPendingRatings(List<JobMatch> jobs) {
+    for (final job in jobs) {
+      if (job.status == JobStatus.completed &&
+          !job.hasBeenReviewed &&
+          !_promptedJobRatingIds.contains(job.id)) {
+        _promptedJobRatingIds.add(job.id);
+        final jobIdInt = int.tryParse(job.id) ?? 0;
+        if (jobIdInt != 0) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              showDialog(
+                context: context,
+                builder: (_) => RatingDialog(
+                  jobId: jobIdInt,
+                  professionalName: job.professionalName,
+                ),
+              );
+            }
+          });
+        }
+        break;
+      }
     }
-
-    final nameParts = job.professionalName.trim().split(' ');
-    String initials = '';
-    if (nameParts.isNotEmpty && nameParts[0].isNotEmpty) {
-      initials += nameParts[0][0];
-    }
-    if (nameParts.length > 1 && nameParts[1].isNotEmpty) {
-      initials += nameParts[1][0];
-    }
-    if (initials.isEmpty) initials = 'M';
-
-    return CircleAvatar(
-      radius: 22,
-      backgroundColor: specialtyColor,
-      child: Text(
-        initials.toUpperCase(),
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-          fontSize: 15,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRatingStars(double rating, ThemeData theme) {
-    return Row(
-      children: List.generate(5, (index) {
-        return Icon(
-          Icons.star_rounded,
-          size: 18,
-          color: index < rating.floor()
-              ? const Color(0xFFFFD700)
-              : theme.dividerColor,
-        );
-      }),
-    );
   }
 }

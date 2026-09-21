@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:clanship_cliente/core/network/local_notification_service.dart';
-import 'package:clanship_cliente/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:clanship_cliente/core/navigation/bloc/navigation_bloc.dart';
@@ -18,6 +17,9 @@ import 'package:clanship_cliente/features/favorites/presentation/bloc/favorites_
 import 'package:clanship_cliente/core/di/injection.dart';
 import 'package:clanship_cliente/core/network/jobs_websocket_service.dart';
 import 'package:clanship_cliente/l10n/app_localizations.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:clanship_cliente/core/theme/bloc/seasonal_theme_bloc.dart';
+import 'package:clanship_cliente/core/theme/bloc/seasonal_theme_state.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -160,7 +162,7 @@ class _ClanshipBottomBar extends StatelessWidget {
         color: theme.colorScheme.surface,
         boxShadow: [
           BoxShadow(
-            color: theme.shadowColor.withOpacity(0.06),
+            color: theme.shadowColor.withValues(alpha: 0.06),
             blurRadius: 20,
             offset: const Offset(0, -4),
           ),
@@ -233,8 +235,8 @@ class _ClanshipBottomBar extends StatelessWidget {
                 isSelected ? activeIcon : icon,
                 size: 24,
                 color: isSelected
-                    ? AppColors.primary
-                    : theme.colorScheme.onSurface.withOpacity(0.4),
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.4),
               ),
             ),
             const SizedBox(height: 4),
@@ -244,8 +246,8 @@ class _ClanshipBottomBar extends StatelessWidget {
                 fontSize: 11,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                 color: isSelected
-                    ? AppColors.primary
-                    : theme.colorScheme.onSurface.withOpacity(0.4),
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.4),
               ),
             ),
           ],
@@ -256,34 +258,65 @@ class _ClanshipBottomBar extends StatelessWidget {
 
   Widget _buildCenterButton(ThemeData theme) {
     final isSelected = currentIndex == 2;
-    return GestureDetector(
-      onTap: () => onTap(2),
-      child: Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: isSelected
-                ? [AppColors.primary, const Color(0xFF0066CC)]
-                : [AppColors.primary.withOpacity(0.85), AppColors.primary],
-          ),
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withOpacity(0.35),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+    return BlocBuilder<SeasonalThemeBloc, SeasonalThemeState>(
+      builder: (context, seasonalState) {
+        final centerColor = seasonalState.hasActiveCampaign
+            ? seasonalState.navCenterColor
+            : theme.colorScheme.primary;
+        final iconUrl = seasonalState.navCenterIconUrl;
+
+        return GestureDetector(
+          onTap: () => onTap(2),
+          child: Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: isSelected
+                    ? [centerColor, const Color(0xFF0066CC)]
+                    : [centerColor.withValues(alpha: 0.9), centerColor],
+              ),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: centerColor.withValues(alpha: 0.35),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Icon(
-          Icons.explore_rounded,
-          color: theme.colorScheme.onPrimary,
-          size: 28,
-        ),
-      ),
+            child: Center(
+              child: (iconUrl != null && iconUrl.isNotEmpty)
+                  ? CachedNetworkImage(
+                      imageUrl: iconUrl,
+                      width: 32,
+                      height: 32,
+                      fit: BoxFit.contain,
+                      placeholder: (_, __) => const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      ),
+                      errorWidget: (_, __, ___) => Icon(
+                        Icons.explore_rounded,
+                        color: theme.colorScheme.onPrimary,
+                        size: 28,
+                      ),
+                    )
+                  : Icon(
+                      Icons.explore_rounded,
+                      color: theme.colorScheme.onPrimary,
+                      size: 28,
+                    ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

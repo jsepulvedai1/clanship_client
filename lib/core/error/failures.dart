@@ -64,6 +64,10 @@ class ServerFailure extends Failure {
   }
 }
 
+class AuthFailure extends Failure {
+  const AuthFailure([super.message = 'Tu sesión ha expirado o es inválida.']);
+}
+
 class CacheFailure extends Failure {
   const CacheFailure([super.message]);
 }

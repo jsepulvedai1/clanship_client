@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:convert';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:clanship_cliente/core/settings/bloc/settings_bloc.dart';
 import 'package:clanship_cliente/core/settings/bloc/settings_event.dart';
@@ -21,6 +20,8 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:clanship_cliente/core/di/injection.dart';
 import 'package:clanship_cliente/features/auth/data/models/user_model.dart';
 import 'package:clanship_cliente/features/auth/data/mappers/user_mapper.dart';
+import 'package:clanship_cliente/features/auth/presentation/widgets/terms_and_eula_dialog.dart';
+import 'package:clanship_cliente/core/services/ugc_safety_service.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -152,7 +153,9 @@ class _SettingsPageState extends State<SettingsPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Lo sentimos, no se pudo subir la foto. Por favor, intenta de nuevo.'),
+            content: Text(
+              'Lo sentimos, no se pudo subir la foto. Por favor, intenta de nuevo.',
+            ),
             backgroundColor: AppColors.error,
           ),
         );
@@ -244,8 +247,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                   : 'English',
                               style: TextStyle(
                                 fontSize: 14,
-                                color: theme.colorScheme.onSurface.withOpacity(
-                                  0.7,
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.7,
                                 ),
                                 fontWeight: FontWeight.w500,
                               ),
@@ -254,8 +257,8 @@ class _SettingsPageState extends State<SettingsPage> {
                             Icon(
                               Icons.arrow_forward_ios_rounded,
                               size: 14,
-                              color: theme.colorScheme.onSurface.withOpacity(
-                                0.24,
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.24,
                               ),
                             ),
                           ],
@@ -284,7 +287,6 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                     ],
                   ),
-
                   _SettingsSection(
                     title: 'Otros y Seguridad',
                     items: [
@@ -306,13 +308,20 @@ class _SettingsPageState extends State<SettingsPage> {
                         onTap: () => _showReportContentDialog(context),
                       ),
                       _SettingsItem(
+                        icon: Icons.block_rounded,
+                        title: 'Usuarios bloqueados',
+                        onTap: () => _showBlockedUsersDialog(context),
+                      ),
+                      _SettingsItem(
                         icon: Icons.info_outline_rounded,
                         title: 'Versión de la app',
                         trailing: Text(
                           'v$_appVersion ($_buildNumber)',
                           style: TextStyle(
                             fontSize: 14,
-                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.6,
+                            ),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -335,16 +344,12 @@ class _SettingsPageState extends State<SettingsPage> {
 
                   const SizedBox(height: 32),
                   TextButton(
-                    onPressed: () async {
-                      final Uri url = Uri.parse('https://clanship.cl/terminos-y-condiciones');
-                      if (await canLaunchUrl(url)) {
-                        await launchUrl(url, mode: LaunchMode.externalApplication);
-                      }
-                    },
+                    onPressed: () => TermsAndEulaDialog.show(context),
                     child: Text(
-                      l10n.settingsTerms,
-                      style: const TextStyle(
+                      'Términos de Servicio (EULA) y Tolerancia Cero',
+                      style: TextStyle(
                         color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
                         decoration: TextDecoration.underline,
                       ),
                     ),
@@ -354,7 +359,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     'Clanship v$_appVersion (Build $_buildNumber)',
                     style: TextStyle(
                       fontSize: 12,
-                      color: theme.colorScheme.onSurface.withOpacity(0.4),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                     ),
                   ),
                   const SizedBox(height: 32),
@@ -407,7 +412,12 @@ class _SettingsPageState extends State<SettingsPage> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: Colors.white,
-                  border: Border.all(color: avatarImage != null ? AppColors.primary : const Color(0xFFE2E8F0), width: avatarImage != null ? 3 : 2),
+                  border: Border.all(
+                    color: avatarImage != null
+                        ? AppColors.primary
+                        : const Color(0xFFE2E8F0),
+                    width: avatarImage != null ? 3 : 2,
+                  ),
                   image: avatarImage != null
                       ? DecorationImage(image: avatarImage, fit: BoxFit.cover)
                       : null,
@@ -421,16 +431,16 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                       )
                     : _isAvatarLoading
-                        ? Container(
-                            decoration: const BoxDecoration(
-                              color: Colors.black45,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Center(
-                              child: CircularProgressIndicator(color: Colors.white),
-                            ),
-                          )
-                        : null,
+                    ? Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.black45,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Center(
+                          child: CircularProgressIndicator(color: Colors.white),
+                        ),
+                      )
+                    : null,
               ),
               // Camera badge
               Positioned(
@@ -438,7 +448,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 bottom: 2,
                 child: Container(
                   padding: const EdgeInsets.all(6),
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: AppColors.primary,
                     shape: BoxShape.circle,
                   ),
@@ -467,7 +477,7 @@ class _SettingsPageState extends State<SettingsPage> {
             email,
             style: TextStyle(
               fontSize: 14,
-              color: theme.colorScheme.onSurface.withOpacity(0.54),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.54),
             ),
           ),
         ],
@@ -575,9 +585,16 @@ class _SettingsPageState extends State<SettingsPage> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 28),
+            Icon(
+              Icons.warning_amber_rounded,
+              color: Colors.redAccent,
+              size: 28,
+            ),
             SizedBox(width: 8),
-            Text('Eliminar Cuenta', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(
+              'Eliminar Cuenta',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         content: const Text(
@@ -594,7 +611,9 @@ class _SettingsPageState extends State<SettingsPage> {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.redAccent,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             onPressed: () {
               Navigator.pop(ctx);
@@ -610,6 +629,158 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showBlockedUsersDialog(BuildContext context) {
+    final ugcService = getIt<UgcSafetyService>();
+    final theme = Theme.of(context);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: theme.colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final blockedMap = ugcService.getBlockedUsersDetails();
+            final blockedEntries = blockedMap.entries.toList();
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.65,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: theme.dividerColor,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Row(
+                    children: [
+                      Icon(
+                        Icons.block_rounded,
+                        color: Colors.redAccent,
+                        size: 24,
+                      ),
+                      SizedBox(width: 10),
+                      Text(
+                        'Usuarios Bloqueados',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Estos usuarios no pueden enviarte mensajes, propuestas ni aparecerán en tus resultados de búsqueda.',
+                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(height: 1),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: blockedEntries.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.check_circle_outline_rounded,
+                                  size: 48,
+                                  color: Colors.grey[400],
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'No tienes usuarios bloqueados',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.separated(
+                            itemCount: blockedEntries.length,
+                            separatorBuilder: (_, __) =>
+                                const Divider(height: 16),
+                            itemBuilder: (context, idx) {
+                              final entry = blockedEntries[idx];
+                              final uId = entry.key;
+                              final uData = entry.value;
+                              final name = uData['name'] ?? 'Usuario';
+                              final reason = uData['reason'] ?? '';
+
+                              return ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: CircleAvatar(
+                                  backgroundColor: Colors.redAccent.withValues(
+                                    alpha: 0.1,
+                                  ),
+                                  child: const Icon(
+                                    Icons.person_off_rounded,
+                                    color: Colors.redAccent,
+                                  ),
+                                ),
+                                title: Text(
+                                  name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                subtitle: reason.isNotEmpty
+                                    ? Text(
+                                        reason,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 12),
+                                      )
+                                    : null,
+                                trailing: TextButton(
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppColors.primary,
+                                  ),
+                                  onPressed: () async {
+                                    final messenger = ScaffoldMessenger.of(
+                                      context,
+                                    );
+                                    await ugcService.unblockUser(uId);
+                                    setModalState(() {});
+                                    messenger.showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Has desbloqueado a $name.',
+                                        ),
+                                        backgroundColor: AppColors.success,
+                                      ),
+                                    );
+                                  },
+                                  child: const Text('Desbloquear'),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -650,18 +821,12 @@ class _SettingsPageState extends State<SettingsPage> {
                   const SizedBox(height: 16),
                   const Text(
                     'Reportar Contenido o Usuario',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Selecciona el motivo del reporte para que nuestro equipo lo revise:',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
+                    'Selecciona el motivo del reporte para que nuestro equipo lo revise dentro de 24 horas:',
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 12),
                   ...[
@@ -670,18 +835,20 @@ class _SettingsPageState extends State<SettingsPage> {
                     'Foto o imagen no permitida',
                     'Violación de derechos de autor',
                     'Otro motivo',
-                  ].map((reason) => RadioListTile<String>(
-                        title: Text(reason, style: const TextStyle(fontSize: 14)),
-                        value: reason,
-                        groupValue: selectedReason,
-                        activeColor: AppColors.primary,
-                        contentPadding: EdgeInsets.zero,
-                        onChanged: (val) {
-                          if (val != null) {
-                            setModalState(() => selectedReason = val);
-                          }
-                        },
-                      )),
+                  ].map(
+                    (reason) => RadioListTile<String>(
+                      title: Text(reason, style: const TextStyle(fontSize: 14)),
+                      value: reason,
+                      groupValue: selectedReason,
+                      activeColor: AppColors.primary,
+                      contentPadding: EdgeInsets.zero,
+                      onChanged: (val) {
+                        if (val != null) {
+                          setModalState(() => selectedReason = val);
+                        }
+                      },
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   TextField(
                     controller: detailController,
@@ -691,7 +858,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -705,12 +875,20 @@ class _SettingsPageState extends State<SettingsPage> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      onPressed: () {
+                      onPressed: () async {
                         Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        final messenger = ScaffoldMessenger.of(context);
+                        await getIt<UgcSafetyService>().reportContent(
+                          targetId: 'GENERAL',
+                          targetName: 'General/Settings',
+                          reason: selectedReason,
+                          details: detailController.text.trim(),
+                          targetType: 'GENERAL_REPORT',
+                        );
+                        messenger.showSnackBar(
                           const SnackBar(
                             content: Text(
-                              'Reporte enviado con éxito. Nuestro equipo revisará la información dentro de 24 horas.',
+                              'Reporte enviado con éxito. Nuestro equipo revisará la información dentro de 24 horas y removerá el contenido si infringe las políticas.',
                             ),
                             backgroundColor: AppColors.success,
                           ),
@@ -718,7 +896,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       },
                       child: const Text(
                         'Enviar Reporte',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -750,7 +931,7 @@ class _SettingsPageState extends State<SettingsPage> {
             width: isSelected ? 2 : 1,
           ),
           color: isSelected
-              ? AppColors.primary.withOpacity(0.05)
+              ? AppColors.primary.withValues(alpha: 0.05)
               : Colors.transparent,
         ),
         child: Row(
@@ -767,7 +948,7 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
             if (isSelected)
-              const Icon(Icons.check_circle_rounded, color: AppColors.primary),
+              Icon(Icons.check_circle_rounded, color: AppColors.primary),
           ],
         ),
       ),
@@ -795,7 +976,7 @@ class _SettingsSection extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
-              color: theme.colorScheme.onSurface.withOpacity(0.38),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.38),
               letterSpacing: 1.2,
             ),
           ),
@@ -808,7 +989,7 @@ class _SettingsSection extends StatelessWidget {
             boxShadow: [
               if (theme.brightness == Brightness.light)
                 BoxShadow(
-                  color: theme.shadowColor.withOpacity(0.05),
+                  color: theme.shadowColor.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -859,7 +1040,9 @@ class _SettingsItem extends StatelessWidget {
               Icon(
                 Icons.arrow_forward_ios_rounded,
                 size: 14,
-                color: (color ?? theme.colorScheme.onSurface).withOpacity(0.24),
+                color: (color ?? theme.colorScheme.onSurface).withValues(
+                  alpha: 0.24,
+                ),
               ),
         ),
       ],

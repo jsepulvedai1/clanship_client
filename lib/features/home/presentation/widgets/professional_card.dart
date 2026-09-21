@@ -1,4 +1,5 @@
 import 'package:clanship_cliente/core/theme/app_colors.dart';
+import 'package:clanship_cliente/core/utils/text_formatter.dart';
 import 'package:clanship_cliente/features/home/domain/entities/professional.dart';
 import 'package:clanship_cliente/features/home/presentation/pages/professional_detail_page.dart';
 import 'package:flutter/material.dart';
@@ -28,7 +29,7 @@ class ProfessionalCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: theme.shadowColor.withOpacity(0.04),
+            color: theme.shadowColor.withValues(alpha: 0.04),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -112,7 +113,7 @@ class ProfessionalCard extends StatelessWidget {
                               child: Container(
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.6),
+                                  color: Colors.black.withValues(alpha: 0.6),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
@@ -132,7 +133,7 @@ class ProfessionalCard extends StatelessWidget {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.6),
+                            color: Colors.black.withValues(alpha: 0.6),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Row(
@@ -171,7 +172,7 @@ class ProfessionalCard extends StatelessWidget {
               // Distance / Location Tag (matches reference color)
               Row(
                 children: [
-                   const Icon(
+                   Icon(
                     Icons.location_on_rounded,
                     color: AppColors.primary,
                     size: 16,
@@ -190,9 +191,9 @@ class ProfessionalCard extends StatelessWidget {
               // Description (Bio) matching the Lorem Ipsum in reference
               Expanded(
                 child: Text(
-                  professional.description,
+                  formatBioText(professional.description),
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+                    color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
                     height: 1.4,
                     fontSize: 11,
                   ),

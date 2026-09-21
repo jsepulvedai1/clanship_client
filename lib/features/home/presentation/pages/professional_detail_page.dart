@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:clanship_cliente/core/theme/app_colors.dart';
 import 'package:clanship_cliente/core/utils/error_parser.dart';
+import 'package:clanship_cliente/core/utils/text_formatter.dart';
 import 'package:clanship_cliente/features/home/domain/entities/professional.dart';
 import 'package:clanship_cliente/features/home/presentation/pages/professional_documents_page.dart';
 import 'package:clanship_cliente/l10n/app_localizations.dart';
@@ -20,6 +21,9 @@ import 'package:clanship_cliente/features/jobs/domain/entities/job_match.dart';
 import 'package:clanship_cliente/features/favorites/presentation/bloc/favorites_bloc.dart';
 import 'package:clanship_cliente/features/favorites/presentation/bloc/favorites_event.dart';
 import 'package:clanship_cliente/features/favorites/presentation/bloc/favorites_state.dart';
+import 'package:clanship_cliente/core/services/ugc_safety_service.dart';
+import 'package:clanship_cliente/core/navigation/bloc/navigation_bloc.dart';
+import 'package:clanship_cliente/core/navigation/bloc/navigation_event.dart';
 
 class ProfessionalDetailPage extends StatefulWidget {
   final Professional professional;
@@ -55,13 +59,13 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.12),
+              color: AppColors.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.primary, width: 1.5),
             ),
             child: Text(
               '+$remaining más',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 color: AppColors.primary,
                 fontWeight: FontWeight.bold,
@@ -79,7 +83,7 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.grey.withOpacity(0.12),
+              color: Colors.grey.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.grey.shade400),
             ),
@@ -227,7 +231,7 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
                                                     ),
                                                     child: Container(
                                                       color: Colors.black
-                                                          .withOpacity(0.15),
+                                                          .withValues(alpha: 0.15),
                                                     ),
                                                   ),
                                                 ),
@@ -244,7 +248,7 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
                                               color: Theme.of(
                                                 context,
                                               ).colorScheme.surface,
-                                              child: const Center(
+                                              child: Center(
                                                 child:
                                                     CircularProgressIndicator(
                                                       color: AppColors.primary,
@@ -290,8 +294,8 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
                                     ),
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
-                                      color: Colors.white.withOpacity(
-                                        _currentImageIndex == entry.key
+                                      color: Colors.white.withValues(
+                                        alpha: _currentImageIndex == entry.key
                                             ? 0.9
                                             : 0.4,
                                       ),
@@ -335,7 +339,7 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
                               widget.professional.rating.toInt().toString(),
                               '8',
                             ),
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.primary,
                               fontWeight: FontWeight.bold,
                               fontSize: 14,
@@ -355,7 +359,7 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.location_on_rounded,
                                 color: AppColors.primary,
                                 size: 24,
@@ -379,12 +383,12 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
 
                       // Description
                       Text(
-                        widget.professional.description,
-                        textAlign: TextAlign.justify,
+                        formatBioText(widget.professional.description),
+                        textAlign: TextAlign.start,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Theme.of(
                             context,
-                          ).colorScheme.onSurface.withOpacity(0.8),
+                          ).colorScheme.onSurface.withValues(alpha: 0.8),
                           height: 1.5,
                           fontSize: 15,
                         ),
@@ -398,7 +402,7 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Theme.of(
                             context,
-                          ).colorScheme.onSurface.withOpacity(0.6),
+                          ).colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -449,7 +453,7 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(
+                                  Icon(
                                     Icons.visibility_outlined,
                                     color: AppColors.primary,
                                     size: 24,
@@ -457,7 +461,7 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
                                   const SizedBox(width: 8),
                                   Text(
                                     l10n.profDetailDocuments,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       color: AppColors.primary,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 16,
@@ -483,7 +487,7 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
             top: MediaQuery.of(context).padding.top + 10,
             left: 20,
             child: CircleAvatar(
-              backgroundColor: Colors.black.withOpacity(0.3),
+              backgroundColor: Colors.black.withValues(alpha: 0.3),
               radius: 20,
               child: IconButton(
                 icon: const Icon(
@@ -503,9 +507,24 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Block button
+                CircleAvatar(
+                  backgroundColor: Colors.black.withValues(alpha: 0.3),
+                  radius: 20,
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.block_rounded,
+                      color: Colors.redAccent,
+                      size: 20,
+                    ),
+                    tooltip: 'Bloquear profesional',
+                    onPressed: () => _showBlockDialog(context),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 // Report button
                 CircleAvatar(
-                  backgroundColor: Colors.black.withOpacity(0.3),
+                  backgroundColor: Colors.black.withValues(alpha: 0.3),
                   radius: 20,
                   child: IconButton(
                     icon: const Icon(
@@ -513,6 +532,7 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
                       color: Colors.white,
                       size: 20,
                     ),
+                    tooltip: 'Reportar perfil o fotos',
                     onPressed: () => _showReportDialog(context),
                   ),
                 ),
@@ -528,7 +548,7 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
                     }
 
                     return CircleAvatar(
-                      backgroundColor: Colors.black.withOpacity(0.3),
+                      backgroundColor: Colors.black.withValues(alpha: 0.3),
                       radius: 20,
                       child: IconButton(
                         icon: Icon(
@@ -558,7 +578,7 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
           color: Theme.of(context).colorScheme.surface,
           boxShadow: [
             BoxShadow(
-              color: Theme.of(context).shadowColor.withOpacity(0.08),
+              color: Theme.of(context).shadowColor.withValues(alpha: 0.08),
               blurRadius: 16,
               offset: const Offset(0, -4),
             ),
@@ -661,7 +681,7 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: hasUrl ? color.withOpacity(0.1) : Colors.transparent,
+            color: hasUrl ? color.withValues(alpha: 0.1) : Colors.transparent,
           ),
           child: FaIcon(icon, color: hasUrl ? color : Colors.grey, size: 28),
         ),
@@ -685,9 +705,9 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: tagColor.withOpacity(0.08),
+        color: tagColor.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: tagColor.withOpacity(0.3)),
+        border: Border.all(color: tagColor.withValues(alpha: 0.3)),
       ),
       child: Text(
         name,
@@ -730,6 +750,92 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
     }
   }
 
+  void _showBlockDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.block_rounded, color: Colors.redAccent, size: 28),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                '¿Bloquear a ${widget.professional.name}?',
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: const SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Al bloquear a este profesional:',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              SizedBox(height: 8),
+              Text(
+                '• Se ocultará su perfil, fotos y ofertas de tus búsquedas de inmediato.',
+                style: TextStyle(fontSize: 13, height: 1.3),
+              ),
+              SizedBox(height: 4),
+              Text(
+                '• No podrá contactarte ni enviarte presupuestos.',
+                style: TextStyle(fontSize: 13, height: 1.3),
+              ),
+              SizedBox(height: 4),
+              Text(
+                '• Se enviará una notificación a nuestro equipo de soporte para revisar este usuario y actuar dentro de 24 horas según la política de Cero Tolerancia.',
+                style: TextStyle(fontSize: 13, height: 1.3),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () async {
+              Navigator.pop(dialogCtx);
+              final navBloc = context.read<NavigationBloc>();
+              final navigator = Navigator.of(context);
+              final messenger = ScaffoldMessenger.of(context);
+
+              await getIt<UgcSafetyService>().blockUser(
+                userId: widget.professional.id,
+                userName: widget.professional.name,
+                reason: 'Bloqueado desde la vista de detalle de perfil',
+              );
+
+              navBloc.add(const TabChanged(0));
+              navigator.popUntil((route) => route.isFirst);
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Has bloqueado a ${widget.professional.name}. Este perfil ha sido ocultado de tus resultados y nuestro equipo actuará dentro de 24 horas.',
+                  ),
+                  backgroundColor: Colors.redAccent,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+            child: const Text('Bloquear y Salir', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showReportDialog(BuildContext context) {
     final TextEditingController detailController = TextEditingController();
     String selectedReason = 'Contenido inapropiado u ofensivo';
@@ -767,7 +873,7 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.flag_outlined,
                         color: AppColors.primary,
                         size: 24,
@@ -786,7 +892,7 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Selecciona el motivo por el cual deseas reportar este perfil o sus imágenes:',
+                    'Selecciona el motivo por el cual deseas reportar este perfil o sus imágenes (revisión en 24h):',
                     style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 12),
@@ -836,12 +942,20 @@ class _ProfessionalDetailPageState extends State<ProfessionalDetailPage> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      onPressed: () {
+                      onPressed: () async {
                         Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        final messenger = ScaffoldMessenger.of(context);
+                        await getIt<UgcSafetyService>().reportContent(
+                          targetId: widget.professional.id,
+                          targetName: widget.professional.name,
+                          reason: selectedReason,
+                          details: detailController.text.trim(),
+                          targetType: 'PROFILE_REPORT',
+                        );
+                        messenger.showSnackBar(
                           const SnackBar(
                             content: Text(
-                              'Reporte recibido. Revisaremos las imágenes y el perfil en un plazo máximo de 24 horas.',
+                              'Reporte recibido. Revisaremos las imágenes y el perfil en un plazo máximo de 24 horas y removeremos cualquier contenido objetable.',
                             ),
                             backgroundColor: AppColors.success,
                           ),

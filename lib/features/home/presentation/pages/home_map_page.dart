@@ -8,6 +8,7 @@ import 'package:clanship_cliente/core/network/location_service.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:clanship_cliente/core/services/ugc_safety_service.dart';
 import 'package:clanship_cliente/l10n/app_localizations.dart';
 
 class HomeMapPage extends StatefulWidget {
@@ -26,6 +27,7 @@ class _HomeMapPageState extends State<HomeMapPage> {
   final TextEditingController _searchController = TextEditingController();
   final LocationService _locationService = getIt<LocationService>();
   Position? _currentPosition;
+  VoidCallback? _blockedUsersListener;
 
   final LatLng _initialPosition = const LatLng(
     -33.4489,
@@ -38,6 +40,12 @@ class _HomeMapPageState extends State<HomeMapPage> {
     _createMarkers();
     _searchController.addListener(_onSearchChanged);
     _getUserLocation();
+    _blockedUsersListener = () {
+      if (mounted) {
+        _createMarkers(query: _searchController.text);
+      }
+    };
+    getIt<UgcSafetyService>().blockedUserIdsNotifier.addListener(_blockedUsersListener!);
   }
 
   Future<void> _getUserLocation() async {
@@ -62,6 +70,9 @@ class _HomeMapPageState extends State<HomeMapPage> {
   @override
   void dispose() {
     _searchController.dispose();
+    if (_blockedUsersListener != null) {
+      getIt<UgcSafetyService>().blockedUserIdsNotifier.removeListener(_blockedUsersListener!);
+    }
     super.dispose();
   }
 
@@ -73,8 +84,10 @@ class _HomeMapPageState extends State<HomeMapPage> {
   /// Uses modern Google-style pins (Circular icon + Side-aligned label).
   Future<void> _createMarkers({String query = ''}) async {
     final Set<Marker> newMarkers = {};
+    final blockedIds = getIt<UgcSafetyService>().getBlockedUserIds();
 
     final filteredList = widget.professionals.where((p) {
+      if (blockedIds.contains(p.id)) return false;
       if (query.isEmpty) return true;
       final q = query.toLowerCase();
       return p.name.toLowerCase().contains(q) ||
@@ -195,7 +208,7 @@ class _HomeMapPageState extends State<HomeMapPage> {
         text: specialty,
         style: TextStyle(
           fontSize: specialtyFontSize,
-          color: Colors.black.withOpacity(0.7),
+          color: Colors.black.withValues(alpha: 0.7),
           fontWeight: FontWeight.w500,
           fontFamily: 'Plus Jakarta Sans',
         ),
@@ -232,7 +245,7 @@ class _HomeMapPageState extends State<HomeMapPage> {
 
     // 1. Draw Pin Shadow
     final ui.Paint shadowPaint = ui.Paint()
-      ..color = Colors.black.withOpacity(0.25)
+      ..color = Colors.black.withValues(alpha: 0.25)
       ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 4.0);
     canvas.drawCircle(
       const Offset(pinRadius + 2, pinRadius + 3),

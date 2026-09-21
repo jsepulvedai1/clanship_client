@@ -24,6 +24,7 @@ class RegisterUseCase implements UseCase<User, RegisterParams> {
       avatarPath: params.avatarPath,
       latitude: params.latitude,
       longitude: params.longitude,
+      referralCode: params.referralCode,
     );
   }
 }
@@ -38,6 +39,7 @@ class RegisterParams extends Equatable {
   final String? avatarPath;
   final double? latitude;
   final double? longitude;
+  final String? referralCode;
 
   const RegisterParams({
     required this.email,
@@ -49,8 +51,20 @@ class RegisterParams extends Equatable {
     this.avatarPath,
     this.latitude,
     this.longitude,
+    this.referralCode,
   });
 
   @override
-  List<Object?> get props => [email, password, firstName, lastName, phoneNumber, address, avatarPath, latitude, longitude];
+  List<Object?> get props => [
+        email,
+        password,
+        firstName,
+        lastName,
+        phoneNumber,
+        address,
+        avatarPath,
+        latitude,
+        longitude,
+        referralCode,
+      ];
 }

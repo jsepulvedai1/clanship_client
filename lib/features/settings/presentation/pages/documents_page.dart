@@ -13,7 +13,7 @@ class DocumentsPage extends StatelessWidget {
         title: Text(l10n.settingsMyDocs),
         centerTitle: true,
       ),
-      body: const Center(
+      body: Center(
         child: Icon(Icons.folder_open_rounded, size: 100, color: AppColors.primary),
       ),
     );

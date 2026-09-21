@@ -30,3 +30,12 @@ class SearchProfessionalsRequested extends HomeEvent {
   @override
   List<Object?> get props => [query];
 }
+
+class RemoveBlockedProfessional extends HomeEvent {
+  final String professionalId;
+
+  const RemoveBlockedProfessional(this.professionalId);
+
+  @override
+  List<Object?> get props => [professionalId];
+}

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:clanship_cliente/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:clanship_cliente/features/auth/presentation/bloc/auth_event.dart';
 import 'package:clanship_cliente/features/auth/presentation/bloc/auth_state.dart';
@@ -15,8 +16,9 @@ import 'package:clanship_cliente/core/utils/image_cropper_helper.dart';
 import 'package:clanship_cliente/core/di/injection.dart';
 import 'package:clanship_cliente/core/utils/lower_case_text_formatter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:clanship_cliente/features/auth/presentation/widgets/terms_and_eula_dialog.dart';
 import 'package:clanship_cliente/l10n/app_localizations.dart';
+import 'package:clanship_cliente/features/auth/domain/repositories/auth_repository.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -50,6 +52,46 @@ class _RegisterPageState extends State<RegisterPage> {
   final _phoneController = TextEditingController();
   bool _acceptedTerms = false;
 
+  // Referral code
+  final _referralCodeController = TextEditingController();
+  Timer? _referralDebounceTimer;
+  bool _isValidatingReferral = false;
+  bool? _isReferralValid;
+  String? _referralValidationMessage;
+  String? _customReferralLabel;
+  String? _customReferralHint;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchReferralContent();
+    });
+  }
+
+  Future<void> _fetchReferralContent() async {
+    try {
+      final lang = Localizations.localeOf(context).languageCode;
+      final authRepo = getIt<AuthRepository>();
+      final result = await authRepo.getReferralProgramContent(language: lang);
+      result.fold(
+        (_) {},
+        (data) {
+          if (mounted && data.isNotEmpty) {
+            setState(() {
+              if (data['label'] != null && data['label']!.trim().isNotEmpty) {
+                _customReferralLabel = data['label'];
+              }
+              if (data['hint'] != null && data['hint']!.trim().isNotEmpty) {
+                _customReferralHint = data['hint'];
+              }
+            });
+          }
+        },
+      );
+    } catch (_) {}
+  }
+
   @override
   void dispose() {
     _pageController.dispose();
@@ -62,6 +104,8 @@ class _RegisterPageState extends State<RegisterPage> {
     _birthdateController.dispose();
     _addressController.dispose();
     _phoneController.dispose();
+    _referralCodeController.dispose();
+    _referralDebounceTimer?.cancel();
     super.dispose();
   }
 
@@ -780,13 +824,20 @@ class _RegisterPageState extends State<RegisterPage> {
           ),
           const SizedBox(height: 16),
           _buildPhoneField(),
+          const SizedBox(height: 16),
+          _buildReferralCodeField(l10n),
           const SizedBox(height: 32),
-          GestureDetector(
-            onTap: () {
-              _showTermsDialog();
-            },
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _acceptedTerms ? const Color(0xFF0D2B45) : const Color(0xFFE2E8F0),
+                width: _acceptedTerms ? 1.5 : 1,
+              ),
+            ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Checkbox(
                   value: _acceptedTerms,
@@ -799,16 +850,42 @@ class _RegisterPageState extends State<RegisterPage> {
                   checkColor: Colors.white,
                   side: const BorderSide(color: Color(0xFF2E3135), width: 1.5),
                 ),
-                Flexible(
-                  child: Text(
-                    l10n.authReadTerms,
-                    style: const TextStyle(
-                      color: Color(0xFF0D2B45),
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      decoration: TextDecoration.underline,
+                Expanded(
+                  child: GestureDetector(
+                    onTap: _showTermsDialog,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        RichText(
+                          text: TextSpan(
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF2E3135),
+                              fontFamily: 'Plus Jakarta Sans',
+                            ),
+                            children: [
+                              const TextSpan(text: 'Acepto los '),
+                              TextSpan(
+                                text: 'Términos de Servicio y EULA',
+                                style: const TextStyle(
+                                  color: Color(0xFF0D2B45),
+                                  fontWeight: FontWeight.bold,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Política de Tolerancia Cero frente a abusos y contenido objetable (revisión en 24h).',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
                     ),
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -842,6 +919,9 @@ class _RegisterPageState extends State<RegisterPage> {
                               avatarPath: _avatarPath,
                               latitude: _latitude,
                               longitude: _longitude,
+                              referralCode: _referralCodeController.text.trim().isNotEmpty
+                                  ? _referralCodeController.text.trim().toUpperCase()
+                                  : null,
                             ),
                           );
                         }
@@ -1028,57 +1108,145 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  void _showTermsDialog() async {
-    final l10n = AppLocalizations.of(context)!;
-    final Uri url = Uri.parse('https://clanship.cl/terminos-y-condiciones');
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
+  void _onReferralCodeChanged(String value) {
+    _referralDebounceTimer?.cancel();
+    final code = value.trim();
+    if (code.isEmpty) {
+      setState(() {
+        _isValidatingReferral = false;
+        _isReferralValid = null;
+        _referralValidationMessage = null;
+      });
       return;
     }
-    if (!mounted) return;
 
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+    setState(() {
+      _isValidatingReferral = true;
+      _isReferralValid = null;
+      _referralValidationMessage = null;
+    });
+
+    _referralDebounceTimer = Timer(const Duration(milliseconds: 600), () async {
+      if (!mounted) return;
+      final res = await getIt<AuthRepository>().validateReferralCode(code);
+      if (!mounted) return;
+      res.fold(
+        (failure) {
+          setState(() {
+            _isValidatingReferral = false;
+            _isReferralValid = false;
+            _referralValidationMessage = 'Código no válido';
+          });
+        },
+        (data) {
+          final isValid = data['isValid'] as bool? ?? false;
+          final referrerName = data['referrerName'] as String?;
+          setState(() {
+            _isValidatingReferral = false;
+            _isReferralValid = isValid;
+            if (isValid) {
+              _referralValidationMessage = (referrerName != null && referrerName.isNotEmpty)
+                  ? 'Código válido de $referrerName'
+                  : 'Código válido';
+            } else {
+              _referralValidationMessage = data['message'] as String? ?? 'Código no encontrado o inactivo';
+            }
+          });
+        },
+      );
+    });
+  }
+
+  Widget _buildReferralCodeField(AppLocalizations l10n) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            spreadRadius: 1,
           ),
-          title: Text(
-            l10n.authTermsDialogTitle,
-            style: const TextStyle(
-              color: Color(0xFF0D2B45),
-              fontWeight: FontWeight.bold,
-            ),
+        ],
+      ),
+      child: TextField(
+        controller: _referralCodeController,
+        textCapitalization: TextCapitalization.characters,
+        onChanged: _onReferralCodeChanged,
+        style: const TextStyle(
+          color: Color(0xFF2E3135),
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 1.2,
+        ),
+        cursorColor: const Color(0xFF0D2B45),
+        decoration: InputDecoration(
+          labelText: _customReferralLabel ?? l10n.authReferralCodeLabel,
+          hintText: _customReferralHint ?? l10n.authReferralCodeHint,
+          labelStyle: TextStyle(
+            color: const Color(0xFF2E3135).withValues(alpha: 0.6),
+            fontSize: 14,
           ),
-          content: const SingleChildScrollView(
-            child: Text(
-              'Bienvenido a ClanShip. Al registrarte y utilizar nuestra plataforma de vinculación laboral y servicios técnicos a domicilio, aceptas cumplir los siguientes términos y condiciones:\n\n'
-              '1. Uso del Servicio: ClanShip es un intermediario que conecta profesionales con clientes. No nos hacemos responsables de las disputas contractuales o de la calidad del servicio realizado por los maestros independientes.\n\n'
-              '2. Registro y Privacidad: Garantizas que toda la información entregada es verídica y que cuentas con la mayoría de edad para contratar servicios.\n\n'
-              '3. Cancelaciones y Tarifas: Las tarifas son pactadas directamente entre cliente y profesional, o bien calculadas por el sistema según disponibilidad de viaje.\n\n'
-              'Al presionar "Aceptar", declaras conocer y aprobar estos términos de uso.',
-              style: TextStyle(color: Color(0xFF2E3135)),
-            ),
+          prefixIcon: const Icon(
+            Icons.card_giftcard_outlined,
+            color: Color(0xFF0D2B45),
+            size: 20,
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                l10n.commonCancel,
-                style: const TextStyle(
-                  color: Colors.grey,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            //     ),
-            //   ),
-            //   child: const Text('Aceptar'),
-            // ),
-          ],
-        );
+          suffixIcon: _isValidatingReferral
+              ? const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Color(0xFF0D2B45),
+                    ),
+                  ),
+                )
+              : _isReferralValid == true
+                  ? const Icon(Icons.check_circle_rounded, color: Colors.green)
+                  : _isReferralValid == false
+                      ? const Icon(Icons.error_outline_rounded, color: Colors.redAccent)
+                      : null,
+          helperText: _referralValidationMessage,
+          helperStyle: TextStyle(
+            color: _isReferralValid == true ? Colors.green : Colors.redAccent,
+            fontWeight: FontWeight.w600,
+            fontSize: 12,
+          ),
+          filled: true,
+          fillColor: Colors.transparent,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFF0D2B45), width: 1.5),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showTermsDialog() {
+    TermsAndEulaDialog.show(
+      context,
+      showAcceptButton: true,
+      onAccept: () {
+        setState(() {
+          _acceptedTerms = true;
+        });
       },
     );
   }

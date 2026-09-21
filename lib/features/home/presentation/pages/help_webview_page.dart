@@ -178,7 +178,7 @@ class _HelpWebViewPageState extends State<HelpWebViewPage> {
             icon: const Icon(Icons.close, color: Colors.white),
             onPressed: () => Navigator.of(context).pop(),
           ),
-          title: const Row(
+          title: Row(
             children: [
               Icon(Icons.help_outline, color: AppColors.accent, size: 22),
               SizedBox(width: 8),
@@ -247,7 +247,7 @@ class _HelpWebViewPageState extends State<HelpWebViewPage> {
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Sin conexión a Internet',
               style: TextStyle(
                 fontSize: 18,
@@ -274,7 +274,7 @@ class _HelpWebViewPageState extends State<HelpWebViewPage> {
                   label: const Text('Guía Offline'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.secondary,
-                    side: const BorderSide(color: AppColors.secondary),
+                    side: BorderSide(color: AppColors.secondary),
                   ),
                 ),
                 const SizedBox(width: 12),

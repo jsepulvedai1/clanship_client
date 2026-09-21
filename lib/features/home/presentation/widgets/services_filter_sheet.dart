@@ -287,7 +287,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
   Color _getSpecialtyColor(String name, String? colorHex) {
     if (colorHex != null && colorHex.trim().isNotEmpty) {
       final base = _parseHexColor(colorHex);
-      return base.withOpacity(0.12);
+      return base.withValues(alpha: 0.12);
     }
     final n = name.toLowerCase();
     if (n.contains('elec')) return const Color(0xFFE2FBE9);
@@ -318,13 +318,14 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
     return const Color(0xFF616161);
   }
 
-  Color _parseHexColor(String? colorHex, {Color defaultColor = AppColors.primary}) {
-    if (colorHex == null || colorHex.trim().isEmpty) return defaultColor;
+  Color _parseHexColor(String? colorHex, {Color? defaultColor}) {
+    final fallback = defaultColor ?? AppColors.primary;
+    if (colorHex == null || colorHex.trim().isEmpty) return fallback;
     try {
       final hex = colorHex.trim().replaceAll('#', '');
       return Color(int.parse('FF$hex', radix: 16));
     } catch (_) {
-      return defaultColor;
+      return fallback;
     }
   }
 
@@ -558,7 +559,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
               },
               child: Text(
                 l10n.filterSheetClearAll,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.primary,
                   fontWeight: FontWeight.bold,
                 ),
@@ -590,7 +591,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
           ),
           Text(
             ' $child',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
               color: AppColors.primary,
@@ -624,7 +625,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
               color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
               fontSize: 15,
             ),
-            prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
+            prefixIcon: Icon(Icons.search_rounded, color: AppColors.primary),
             suffixIcon: _searchQuery.isNotEmpty
                 ? IconButton(
                     icon: Icon(
@@ -648,7 +649,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.lightbulb_outline_rounded,
             color: AppColors.primary,
             size: 18,
@@ -760,7 +761,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                   if (selectedCount > 0) ...[
                     Container(
                       padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: AppColors.primary,
                         shape: BoxShape.circle,
                       ),
@@ -825,7 +826,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: theme.colorScheme.onSurface.withOpacity(0.1),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
                 ),
               ),
               child: Row(
@@ -846,7 +847,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
+                      color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Center(
@@ -875,7 +876,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                           subtags.isEmpty ? 'Servicio General' : '${subtags.length} servicios',
                           style: TextStyle(
                             fontSize: 13,
-                            color: theme.colorScheme.onSurface.withOpacity(0.5),
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                           ),
                         ),
                       ],
@@ -905,7 +906,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                     if (selectedCount > 0) ...[
                       Container(
                         padding: const EdgeInsets.all(8),
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           color: AppColors.primary,
                           shape: BoxShape.circle,
                         ),
@@ -923,7 +924,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                     Icon(
                       Icons.arrow_forward_ios_rounded,
                       size: 14,
-                      color: theme.colorScheme.onSurface.withOpacity(0.3),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
                     ),
                   ],
                 ],
@@ -967,12 +968,12 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
               height: 60,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
-                color: isSelected ? accentColor.withOpacity(0.06) : null,
+                color: isSelected ? accentColor.withValues(alpha: 0.06) : null,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: isSelected
-                      ? accentColor.withOpacity(0.6)
-                      : theme.colorScheme.onSurface.withOpacity(0.1),
+                      ? accentColor.withValues(alpha: 0.6)
+                      : theme.colorScheme.onSurface.withValues(alpha: 0.1),
                   width: isSelected ? 1.5 : 1.0,
                 ),
               ),
@@ -1162,7 +1163,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
           // Selected count label
           Text(
             countText,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
               color: AppColors.primary,

@@ -8,7 +8,9 @@ import 'package:clanship_cliente/features/auth/presentation/bloc/auth_bloc.dart'
 import 'package:clanship_cliente/features/auth/presentation/bloc/auth_state.dart';
 import 'package:clanship_cliente/features/auth/presentation/widgets/address_picker_page.dart';
 import 'package:clanship_cliente/features/jobs/domain/repositories/job_repository.dart';
+import 'package:clanship_cliente/core/utils/currency_formatter.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:image_picker/image_picker.dart';
@@ -134,7 +136,7 @@ class _CreatePublicJobPageState extends State<CreatePublicJobPage> {
           child: Wrap(
             children: [
               ListTile(
-                leading: const Icon(Icons.camera_alt_rounded, color: AppColors.primary),
+                leading: Icon(Icons.camera_alt_rounded, color: AppColors.primary),
                 title: const Text('Tomar Foto'),
                 onTap: () {
                   Navigator.pop(sheetContext);
@@ -142,7 +144,7 @@ class _CreatePublicJobPageState extends State<CreatePublicJobPage> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.photo_library_rounded, color: AppColors.primary),
+                leading: Icon(Icons.photo_library_rounded, color: AppColors.primary),
                 title: const Text('Elegir de Galería'),
                 onTap: () {
                   Navigator.pop(sheetContext);
@@ -253,12 +255,12 @@ class _CreatePublicJobPageState extends State<CreatePublicJobPage> {
                 const SizedBox(height: 14),
                 ListTile(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  tileColor: _isCustomSpecialty ? AppColors.primary.withOpacity(0.12) : Colors.grey.shade100,
+                  tileColor: _isCustomSpecialty ? AppColors.primary.withValues(alpha: 0.12) : Colors.grey.shade100,
                   leading: Icon(
                     _isCustomSpecialty ? Icons.check_circle : Icons.edit_note_rounded,
                     color: _isCustomSpecialty ? AppColors.primary : Colors.grey.shade700,
                   ),
-                  title: const Text(
+                  title: Text(
                     '✏️ Otra (Escribir personalizada...)',
                     style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
                   ),
@@ -336,7 +338,8 @@ class _CreatePublicJobPageState extends State<CreatePublicJobPage> {
 
     try {
       final repo = getIt<JobRepository>();
-      final double? budgetVal = double.tryParse(_budgetController.text.trim());
+      final cleanBudget = _budgetController.text.replaceAll(RegExp(r'[^0-9]'), '');
+      final double? budgetVal = cleanBudget.isNotEmpty ? double.tryParse(cleanBudget) : null;
 
       List<String>? photosBase64;
       if (_selectedPhotos.isNotEmpty) {
@@ -416,12 +419,12 @@ class _CreatePublicJobPageState extends State<CreatePublicJobPage> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
+                        color: AppColors.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.campaign_rounded, color: AppColors.primary, size: 28),
+                          Icon(Icons.campaign_rounded, color: AppColors.primary, size: 28),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
@@ -471,7 +474,7 @@ class _CreatePublicJobPageState extends State<CreatePublicJobPage> {
                         controller: _customSpecialtyController,
                         decoration: InputDecoration(
                           hintText: 'Escribe el oficio / especialidad (Ej. Técnico en Aire Acondicionado)',
-                          prefixIcon: const Icon(Icons.edit_note_rounded, color: AppColors.primary),
+                          prefixIcon: Icon(Icons.edit_note_rounded, color: AppColors.primary),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         validator: (val) {
@@ -516,9 +519,9 @@ class _CreatePublicJobPageState extends State<CreatePublicJobPage> {
                           controller: _addressController,
                           decoration: InputDecoration(
                             hintText: l10n.jobAddressGoogleMapsHint,
-                            prefixIcon: const Icon(Icons.location_on_outlined, color: AppColors.primary),
+                            prefixIcon: Icon(Icons.location_on_outlined, color: AppColors.primary),
                             suffixIcon: IconButton(
-                              icon: const Icon(Icons.search_rounded, color: AppColors.primary),
+                              icon: Icon(Icons.search_rounded, color: AppColors.primary),
                               onPressed: _openAddressPicker,
                             ),
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -547,12 +550,12 @@ class _CreatePublicJobPageState extends State<CreatePublicJobPage> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade400),
+                           border: Border.all(color: Colors.grey.shade400),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.calendar_month_rounded, color: AppColors.primary),
+                            Icon(Icons.calendar_month_rounded, color: AppColors.primary),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
@@ -630,15 +633,15 @@ class _CreatePublicJobPageState extends State<CreatePublicJobPage> {
                                 width: 90,
                                 height: 90,
                                 decoration: BoxDecoration(
-                                  color: AppColors.primary.withOpacity(0.08),
-                                  border: Border.all(color: AppColors.primary.withOpacity(0.3), style: BorderStyle.solid),
+                                  color: AppColors.primary.withValues(alpha: 0.08),
+                                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), style: BorderStyle.solid),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
-                                  children: const [
+                                  children: [
                                     Icon(Icons.add_a_photo_rounded, color: AppColors.primary, size: 28),
-                                    SizedBox(height: 4),
+                                    const SizedBox(height: 4),
                                     Text('Adjuntar', style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.bold)),
                                   ],
                                 ),
@@ -653,9 +656,13 @@ class _CreatePublicJobPageState extends State<CreatePublicJobPage> {
                     TextFormField(
                       controller: _budgetController,
                       keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        CurrencyInputFormatter(),
+                      ],
                       decoration: InputDecoration(
                         prefixText: '\$ ',
-                        hintText: 'Ej. 25000',
+                        hintText: 'Ej. 25.000',
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                     ),

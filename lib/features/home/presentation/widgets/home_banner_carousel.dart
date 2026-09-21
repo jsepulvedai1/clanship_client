@@ -32,7 +32,7 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
       subtitle: 'Explora miles de vacantes en tecnología',
       imageUrl:
           'https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?w=800',
-      gradient: [AppColors.primary, AppColors.primary.withOpacity(0.7)],
+      gradient: [AppColors.primary, AppColors.primary.withValues(alpha: 0.7)],
     ),
     BannerItem(
       title: 'Expertos que impulsan tu carrera',
@@ -41,7 +41,7 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
           'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800',
       gradient: [
         AppColors.secondary,
-        AppColors.secondary.withOpacity(0.7),
+        AppColors.secondary.withValues(alpha: 0.7),
       ],
     ),
     BannerItem(
@@ -49,7 +49,7 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
       subtitle: 'Únete a la revolución del talento digital',
       imageUrl:
           'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800',
-      gradient: [AppColors.accent, AppColors.accent.withOpacity(0.7)],
+      gradient: [AppColors.accent, AppColors.accent.withValues(alpha: 0.7)],
     ),
   ];
 
@@ -81,7 +81,7 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: banner.gradient.first.withOpacity(0.3),
+                        color: banner.gradient.first.withValues(alpha: 0.3),
                         blurRadius: 15,
                         offset: const Offset(0, 8),
                       ),
@@ -113,7 +113,7 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 colors: [
-                                  Colors.black.withOpacity(0.7),
+                                  Colors.black.withValues(alpha: 0.7),
                                   Colors.transparent,
                                 ],
                                 begin: Alignment.bottomCenter,
@@ -142,7 +142,7 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
                               Text(
                                 banner.subtitle,
                                 style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: Colors.white.withOpacity(0.8),
+                                  color: Colors.white.withValues(alpha: 0.8),
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -173,7 +173,7 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
                 borderRadius: BorderRadius.circular(4),
                 color: isSelected
                     ? theme.colorScheme.primary
-                    : theme.colorScheme.primary.withOpacity(0.2),
+                    : theme.colorScheme.primary.withValues(alpha: 0.2),
               ),
             );
           }).toList(),

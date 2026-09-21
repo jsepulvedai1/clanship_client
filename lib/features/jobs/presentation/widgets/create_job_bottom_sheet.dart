@@ -1,7 +1,9 @@
 import 'package:clanship_cliente/core/di/injection.dart';
 import 'package:clanship_cliente/core/theme/app_colors.dart';
 import 'package:clanship_cliente/features/jobs/domain/repositories/job_repository.dart';
+import 'package:clanship_cliente/core/utils/currency_formatter.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 class CreateJobBottomSheet extends StatefulWidget {
@@ -74,12 +76,13 @@ class _CreateJobBottomSheetState extends State<CreateJobBottomSheet> {
       final String formattedTime = '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}:00';
 
       final repository = getIt<JobRepository>();
+      final cleanPrice = _priceController.text.replaceAll(RegExp(r'[^0-9]'), '');
       final jobId = await repository.createJob(
         widget.professionalId,
         formattedDate,
         formattedTime,
         _descriptionController.text,
-        _priceController.text, // agreedPrice as string
+        cleanPrice, // agreedPrice as string without dots
         _addressController.text,
       );
 
@@ -167,11 +170,15 @@ class _CreateJobBottomSheetState extends State<CreateJobBottomSheet> {
               TextFormField(
                 controller: _priceController,
                 decoration: const InputDecoration(
-                  labelText: 'Precio acordado (Ej: 15000.00)',
+                  labelText: 'Precio acordado (Ej: 20.000)',
                   border: OutlineInputBorder(),
                   prefixText: '\$ ',
                 ),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  CurrencyInputFormatter(),
+                ],
                 validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
               ),
               const SizedBox(height: 16),

@@ -736,4 +736,105 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get jobsConfirmAction => 'Confirm';
+
+  @override
+  String get authTermsAndEula => 'Terms & EULA';
+
+  @override
+  String get eulaTitle => 'Terms and Conditions (EULA)';
+
+  @override
+  String get eulaSubtitle => 'End User License Agreement & Moderation';
+
+  @override
+  String get eulaZeroToleranceTitle => 'ZERO TOLERANCE POLICY';
+
+  @override
+  String get eulaZeroToleranceBody =>
+      'Clanship enforces a strict ZERO TOLERANCE policy against objectionable, offensive, discriminatory, abusive, sexual, or spam content, as well as users engaging in abusive conduct.';
+
+  @override
+  String get eulaSection1Title => '1. End User License Agreement (EULA)';
+
+  @override
+  String get eulaSection1Body =>
+      'By downloading, installing, registering, or using the Clanship application, you agree to be bound by these Terms of Service and License Agreement (EULA). If you do not agree to these terms, you must not use the application.';
+
+  @override
+  String get eulaSection2Title =>
+      '2. Community Guidelines & Prohibited Content';
+
+  @override
+  String get eulaSection2Intro =>
+      'As a user, you agree not to upload, publish, send, or share:';
+
+  @override
+  String get eulaSection2Bullet1 =>
+      'Sexually explicit, pornographic, or violent content.';
+
+  @override
+  String get eulaSection2Bullet2 =>
+      'Hate speech, harassment, defamation, threats, or discrimination of any kind.';
+
+  @override
+  String get eulaSection2Bullet3 =>
+      'False or fraudulent information, scams, or identity impersonation.';
+
+  @override
+  String get eulaSection2Bullet4 =>
+      'Content that infringes intellectual property or third-party rights.';
+
+  @override
+  String get eulaSection3Title => '3. Reporting & Blocking Tools';
+
+  @override
+  String get eulaSection3Intro =>
+      'To protect our community, Clanship provides accessible tools across the entire platform:';
+
+  @override
+  String get eulaSection3Bullet1 =>
+      'Block abusive users: You can block any professional or user immediately from the chat or profile. Upon blocking, their content and messages will disappear from your view instantly.';
+
+  @override
+  String get eulaSection3Bullet2 =>
+      'Report content or users: You can report any message, photo, or profile using the report button.';
+
+  @override
+  String get eulaSection3Bullet3 =>
+      '24-Hour Moderation Commitment: Our team reviews every report within 24 hours. All objectionable content will be removed and offending users will be permanently ejected.';
+
+  @override
+  String get eulaSection4Title => '4. Service Nature & Liability';
+
+  @override
+  String get eulaSection4Body =>
+      'Clanship operates as a matchmaking technology platform connecting clients with independent service professionals. Each service is agreed directly between the parties.';
+
+  @override
+  String get eulaSection5Title => '5. Privacy & Security';
+
+  @override
+  String get eulaSection5Body =>
+      'Your personal data and location are processed in accordance with our Privacy Policy solely to deliver requested services and ensure security.';
+
+  @override
+  String get eulaWebLink => 'View full terms on the official website';
+
+  @override
+  String get eulaAcceptButton => 'I Accept the Terms & EULA Policy';
+
+  @override
+  String get eulaCloseButton => 'Understood & Close';
+
+  @override
+  String get authReferralCodeLabel => 'Associate or referral code (Optional)';
+
+  @override
+  String get authReferralCodeHint => 'E.g. CLAN-ABC12';
+
+  @override
+  String get authReferralValid => 'Valid code';
+
+  @override
+  String get authReferralInvalid => 'Code not found or inactive';
 }

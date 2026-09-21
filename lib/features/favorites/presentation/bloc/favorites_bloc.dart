@@ -1,18 +1,42 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:clanship_cliente/features/home/domain/entities/professional.dart';
 import 'package:clanship_cliente/features/home/domain/repositories/home_repository.dart';
 import 'package:clanship_cliente/features/favorites/presentation/bloc/favorites_event.dart';
 import 'package:clanship_cliente/features/favorites/presentation/bloc/favorites_state.dart';
+import 'package:clanship_cliente/core/services/ugc_safety_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
 @injectable
 class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
   final HomeRepository homeRepository;
+  final UgcSafetyService ugcSafetyService;
+  VoidCallback? _safetyListener;
 
-  FavoritesBloc(this.homeRepository) : super(FavoritesInitial()) {
+  FavoritesBloc(this.homeRepository, this.ugcSafetyService) : super(FavoritesInitial()) {
     on<LoadFavorites>(_onLoadFavorites);
     on<ToggleFavoriteEvent>(_onToggleFavorite);
+
+    _safetyListener = () {
+      final blockedIds = ugcSafetyService.getBlockedUserIds();
+      if (state is FavoritesLoaded) {
+        final current = (state as FavoritesLoaded).favorites;
+        final filtered = current.where((p) => !blockedIds.contains(p.id)).toList();
+        if (filtered.length != current.length) {
+          emit(FavoritesLoaded(filtered));
+        }
+      }
+    };
+    ugcSafetyService.blockedUserIdsNotifier.addListener(_safetyListener!);
+  }
+
+  @override
+  Future<void> close() {
+    if (_safetyListener != null) {
+      ugcSafetyService.blockedUserIdsNotifier.removeListener(_safetyListener!);
+    }
+    return super.close();
   }
 
   Future<void> _onLoadFavorites(
@@ -23,7 +47,11 @@ class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
     final result = await homeRepository.getFavoriteProfessionals();
     result.fold(
       (failure) => emit(FavoritesFailure(failure.message)),
-      (favorites) => emit(FavoritesLoaded(favorites)),
+      (favorites) {
+        final blockedIds = ugcSafetyService.getBlockedUserIds();
+        final filtered = favorites.where((p) => !blockedIds.contains(p.id)).toList();
+        emit(FavoritesLoaded(filtered));
+      },
     );
   }
 
@@ -39,9 +67,11 @@ class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
       (isFavorite) {
         if (state is FavoritesLoaded) {
           final currentFavorites = (state as FavoritesLoaded).favorites;
+          final blockedIds = ugcSafetyService.getBlockedUserIds();
           List<Professional> updatedFavorites;
           if (isFavorite) {
-            if (!currentFavorites.any((p) => p.id == event.professional.id)) {
+            if (!currentFavorites.any((p) => p.id == event.professional.id) &&
+                !blockedIds.contains(event.professional.id)) {
               updatedFavorites = List.from(currentFavorites)
                 ..add(event.professional.copyWith(isFavorite: true));
             } else {
@@ -53,7 +83,6 @@ class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
           }
           emit(FavoritesLoaded(updatedFavorites));
         } else {
-          // If state is not loaded (initial or failure), reload favorites to sync.
           add(LoadFavorites());
         }
       },

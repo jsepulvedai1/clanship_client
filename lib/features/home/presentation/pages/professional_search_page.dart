@@ -13,6 +13,7 @@ import 'package:clanship_cliente/features/auth/presentation/bloc/auth_bloc.dart'
 import 'package:clanship_cliente/features/auth/presentation/bloc/auth_state.dart';
 import 'package:clanship_cliente/features/home/presentation/widgets/services_filter_sheet.dart';
 import 'package:clanship_cliente/core/services/specialties_cache_service.dart';
+import 'package:clanship_cliente/core/services/ugc_safety_service.dart';
 
 import 'package:clanship_cliente/l10n/app_localizations.dart';
 
@@ -135,6 +136,8 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
     return paths;
   }
 
+  VoidCallback? _blockedUsersListener;
+
   @override
   void initState() {
     super.initState();
@@ -157,6 +160,11 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
     _activeLatitude = widget.latitude ?? fallbackLat;
     _activeLongitude = widget.longitude ?? fallbackLng;
 
+    _blockedUsersListener = () {
+      if (mounted) setState(() {});
+    };
+    getIt<UgcSafetyService>().blockedUserIdsNotifier.addListener(_blockedUsersListener!);
+
     // If filters are pre-selected or we have a location, trigger search immediately
     if (_activeLatitude != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -173,11 +181,15 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
   void dispose() {
     _searchController.dispose();
     _debounce?.cancel();
+    if (_blockedUsersListener != null) {
+      getIt<UgcSafetyService>().blockedUserIdsNotifier.removeListener(_blockedUsersListener!);
+    }
     super.dispose();
   }
 
   List<Professional> get _filteredProfessionals {
-    var list = List<Professional>.from(_searchResults);
+    final blockedIds = getIt<UgcSafetyService>().getBlockedUserIds();
+    var list = _searchResults.where((p) => !blockedIds.contains(p.id)).toList();
     if (_isUrgencyMode) {
       list = list.where((p) => p.acceptsUrgency).toList();
     }
@@ -378,7 +390,7 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
                         onTap: () => AddressSelectionDialog.show(context),
                         child: Row(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.location_on_rounded,
                               color: AppColors.primary,
                               size: 20,
@@ -421,8 +433,8 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
                             ),
                             Icon(
                               Icons.keyboard_arrow_down_rounded,
-                              color: theme.colorScheme.onSurface.withOpacity(
-                                0.4,
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.4,
                               ),
                             ),
                           ],
@@ -447,7 +459,7 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
                                 : null,
                             boxShadow: [
                               BoxShadow(
-                                color: theme.shadowColor.withOpacity(0.05),
+                                color: theme.shadowColor.withValues(alpha: 0.05),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
@@ -474,7 +486,7 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
                                             _selectedSubtagIds.isNotEmpty)
                                         ? AppColors.primary
                                         : theme.colorScheme.onSurface
-                                              .withOpacity(0.4),
+                                              .withValues(alpha: 0.4),
                                     fontStyle: FontStyle.italic,
                                     fontSize: 16,
                                     fontWeight:
@@ -496,8 +508,8 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
                                       (_selectedTagIds.isNotEmpty ||
                                           _selectedSubtagIds.isNotEmpty)
                                       ? AppColors.primary
-                                      : theme.colorScheme.onSurface.withOpacity(
-                                          0.08,
+                                      : theme.colorScheme.onSurface.withValues(
+                                          alpha: 0.08,
                                         ),
                                   shape: BoxShape.circle,
                                 ),
@@ -525,8 +537,8 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
                             color: theme.colorScheme.surface,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: theme.colorScheme.onSurface.withOpacity(
-                                0.1,
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.1,
                               ),
                             ),
                           ),
@@ -551,7 +563,7 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
                                       });
                                       _performSearch(_searchController.text);
                                     },
-                                    child: const Text(
+                                    child: Text(
                                       'Limpiar todo',
                                       style: TextStyle(
                                         color: AppColors.primary,
@@ -575,13 +587,13 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
                                       vertical: 6,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: AppColors.primary.withOpacity(
-                                        0.08,
+                                      color: AppColors.primary.withValues(
+                                        alpha: 0.08,
                                       ),
                                       borderRadius: BorderRadius.circular(20),
                                       border: Border.all(
-                                        color: AppColors.primary.withOpacity(
-                                          0.2,
+                                        color: AppColors.primary.withValues(
+                                          alpha: 0.2,
                                         ),
                                       ),
                                     ),
@@ -591,7 +603,7 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
                                         Flexible(
                                           child: Text(
                                             path['text'] as String,
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               color: AppColors.primary,
                                               fontSize: 12,
                                               fontWeight: FontWeight.w600,
@@ -614,7 +626,7 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
                                               _searchController.text,
                                             );
                                           },
-                                          child: const Icon(
+                                          child: Icon(
                                             Icons.close_rounded,
                                             size: 14,
                                             color: AppColors.primary,

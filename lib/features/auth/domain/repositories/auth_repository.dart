@@ -16,6 +16,9 @@ abstract class AuthRepository {
     String? avatarPath,
     double? latitude,
     double? longitude,
+    String? referralCode,
   });
   Future<Either<Failure, void>> requestPasswordReset(String email);
+  Future<Either<Failure, Map<String, dynamic>>> validateReferralCode(String code);
+  Future<Either<Failure, Map<String, String>>> getReferralProgramContent({String? language});
 }

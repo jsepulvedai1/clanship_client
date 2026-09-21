@@ -6,6 +6,8 @@ import 'package:clanship_cliente/features/chat/presentation/bloc/chat_bloc.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:clanship_cliente/core/di/injection.dart';
+import 'package:clanship_cliente/core/services/ugc_safety_service.dart';
 
 class ChatBubble extends StatelessWidget {
   final ChatMessage message;
@@ -28,6 +30,24 @@ class ChatBubble extends StatelessWidget {
     final timeFormat = DateFormat('HH:mm');
     final isProposal = !isMe && message.text.startsWith('Propuesta de visita:');
 
+    Widget bubbleWidget;
+    if (isProposal) {
+      bubbleWidget = _buildProposalCard(context, theme);
+    } else if (message.type == ChatMessageType.image) {
+      bubbleWidget = _buildImageBubble(context, theme);
+    } else if (message.type == ChatMessageType.audio) {
+      bubbleWidget = _buildAudioBubble(context, theme);
+    } else {
+      bubbleWidget = _buildTextBubble(context, theme);
+    }
+
+    if (!isMe) {
+      bubbleWidget = GestureDetector(
+        onLongPress: () => _showMessageOptions(context),
+        child: bubbleWidget,
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
       child: Row(
@@ -44,20 +64,13 @@ class ChatBubble extends StatelessWidget {
                   ? CrossAxisAlignment.end
                   : CrossAxisAlignment.start,
               children: [
-                if (isProposal)
-                  _buildProposalCard(context, theme)
-                else if (message.type == ChatMessageType.image)
-                  _buildImageBubble(context, theme)
-                else if (message.type == ChatMessageType.audio)
-                  _buildAudioBubble(context, theme)
-                else
-                  _buildTextBubble(context, theme),
+                bubbleWidget,
                 const SizedBox(height: 4),
                 Text(
                   timeFormat.format(message.timestamp),
                   style: TextStyle(
                     fontSize: 10,
-                    color: theme.textTheme.bodySmall?.color?.withOpacity(0.5),
+                    color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.5),
                   ),
                 ),
               ],
@@ -66,6 +79,121 @@ class ChatBubble extends StatelessWidget {
           const SizedBox(width: 8),
           if (isMe) _buildAvatar(),
         ],
+      ),
+    );
+  }
+
+  void _showMessageOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: Icon(Icons.flag_outlined, color: AppColors.primary),
+              title: const Text('Reportar mensaje o contenido'),
+              subtitle: const Text('Revisión en 24h conforme a política de Cero Tolerancia'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showReportMessageDialog(context);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showReportMessageDialog(BuildContext context) {
+    String selectedReason = 'Lenguaje ofensivo o inapropiado';
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) => Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.flag_outlined, color: AppColors.primary),
+                  SizedBox(width: 8),
+                  Text(
+                    'Reportar Mensaje',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Selecciona el motivo del reporte (revisión en 24h):',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              const SizedBox(height: 12),
+              ...[
+                'Lenguaje ofensivo o inapropiado',
+                'Acoso o amenazas',
+                'Spam o fraude',
+                'Contenido sexual o explícito',
+                'Otro motivo',
+              ].map((r) => RadioListTile<String>(
+                    title: Text(r, style: const TextStyle(fontSize: 14)),
+                    value: r,
+                    groupValue: selectedReason,
+                    activeColor: AppColors.primary,
+                    contentPadding: EdgeInsets.zero,
+                    onChanged: (val) {
+                      if (val != null) setModalState(() => selectedReason = val);
+                    },
+                  )),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    await getIt<UgcSafetyService>().reportContent(
+                      targetId: message.id,
+                      targetName: 'ChatMessage: ${message.text}',
+                      reason: selectedReason,
+                      targetType: 'MESSAGE_REPORT',
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Mensaje reportado. Nuestro equipo revisará y removerá el contenido dentro de 24 horas.',
+                        ),
+                        backgroundColor: AppColors.success,
+                      ),
+                    );
+                  },
+                  child: const Text('Enviar Reporte',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -95,7 +223,7 @@ class ChatBubble extends StatelessWidget {
         boxShadow: [
           if (isMe)
             BoxShadow(
-              color: AppColors.primary.withOpacity(0.3),
+              color: AppColors.primary.withValues(alpha: 0.3),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -212,7 +340,7 @@ class ChatBubble extends StatelessWidget {
       width: MediaQuery.of(context).size.width * 0.75,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.orange.withOpacity(0.06),
+        color: Colors.orange.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.orange.shade300, width: 1.5),
       ),
@@ -241,7 +369,7 @@ class ChatBubble extends StatelessWidget {
           Text(
             'Fecha y Hora:',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withOpacity(0.6),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
             ),
           ),
           Text(
@@ -256,7 +384,7 @@ class ChatBubble extends StatelessWidget {
             Text(
               'Monto de la visita:',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
             Text(
@@ -365,14 +493,14 @@ class ChatBubble extends StatelessWidget {
               children: [
                 Icon(
                   Icons.history_rounded,
-                  color: theme.colorScheme.onSurface.withOpacity(0.4),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                   size: 18,
                 ),
                 const SizedBox(width: 6),
                 Text(
                   'Propuesta Anterior / Reemplazada',
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.5),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                   ),
@@ -548,8 +676,8 @@ class _AudioBubbleContentState extends State<AudioBubbleContent> {
   @override
   Widget build(BuildContext context) {
     final themeColor = widget.isMe ? Colors.white : (widget.isDark ? Colors.white : Colors.black87);
-    final sliderActiveColor = widget.isMe ? Colors.white.withOpacity(0.9) : AppColors.primary;
-    final sliderInactiveColor = widget.isMe ? Colors.white.withOpacity(0.3) : Colors.grey[400];
+    final sliderActiveColor = widget.isMe ? Colors.white.withValues(alpha: 0.9) : AppColors.primary;
+    final sliderInactiveColor = widget.isMe ? Colors.white.withValues(alpha: 0.3) : Colors.grey[400];
 
     return Container(
       width: 240,
@@ -567,7 +695,7 @@ class _AudioBubbleContentState extends State<AudioBubbleContent> {
         boxShadow: [
           if (widget.isMe)
             BoxShadow(
-              color: AppColors.primary.withOpacity(0.3),
+              color: AppColors.primary.withValues(alpha: 0.3),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -620,11 +748,11 @@ class _AudioBubbleContentState extends State<AudioBubbleContent> {
                     children: [
                       Text(
                         _formatDuration(_position),
-                        style: TextStyle(color: themeColor.withOpacity(0.7), fontSize: 11),
+                        style: TextStyle(color: themeColor.withValues(alpha: 0.7), fontSize: 11),
                       ),
                       Text(
                         _formatDuration(_duration),
-                        style: TextStyle(color: themeColor.withOpacity(0.7), fontSize: 11),
+                        style: TextStyle(color: themeColor.withValues(alpha: 0.7), fontSize: 11),
                       ),
                     ],
                   ),

@@ -15,6 +15,7 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:clanship_cliente/features/home/presentation/bloc/home_bloc.dart';
 import 'package:clanship_cliente/features/home/presentation/bloc/home_event.dart';
+import 'package:clanship_cliente/features/home/presentation/widgets/address_search_notice_dialog.dart';
 import 'package:clanship_cliente/l10n/app_localizations.dart';
 
 class AddAddressScreen extends StatefulWidget {
@@ -99,6 +100,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
             address
             latitude
             longitude
+            avatarUrl
           }
         }
       }
@@ -166,7 +168,17 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
               longitude: _selectedLocation!.longitude,
             ),
           );
-          Navigator.pop(context, _selectedLocation);
+
+          final navigator = Navigator.of(context);
+          final selectedLoc = _selectedLocation;
+          final savedAddr = _controller.text;
+          navigator.pop(selectedLoc);
+          if (navigator.context.mounted) {
+            AddressSearchNoticeDialog.show(
+              navigator.context,
+              address: savedAddr,
+            );
+          }
         }
       } else {
         throw Exception('Error al guardar la dirección');

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -26,7 +25,9 @@ class FirebaseNotificationHelper {
         sound: true,
       );
 
-      debugPrint('User granted client notification permission: ${settings.authorizationStatus}');
+      debugPrint(
+        'User granted client notification permission: ${settings.authorizationStatus}',
+      );
 
       // Habilitar alertas/popups/sonidos cuando la app está abierta en primer plano (foreground)
       await messaging.setForegroundNotificationPresentationOptions(
@@ -37,7 +38,9 @@ class FirebaseNotificationHelper {
 
       // Handle foreground messages
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        debugPrint('Foreground client push notification received: ${message.notification?.title} - ${message.notification?.body}');
+        debugPrint(
+          'Foreground client push notification received: ${message.notification?.title} - ${message.notification?.body}',
+        );
         _handleIncomingMessage(message);
       });
 
@@ -50,27 +53,39 @@ class FirebaseNotificationHelper {
       // Check if the app was opened by a notification tap from terminated state
       messaging.getInitialMessage().then((RemoteMessage? message) {
         if (message != null) {
-          debugPrint('App opened from terminated state via notification: ${message.messageId}');
+          debugPrint(
+            'App opened from terminated state via notification: ${message.messageId}',
+          );
           _handleIncomingMessage(message);
         }
       });
 
       // Handle background/terminated state messages
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      FirebaseMessaging.onBackgroundMessage(
+        _firebaseMessagingBackgroundHandler,
+      );
 
       // Listen to token refresh and update backend
       FirebaseMessaging.instance.onTokenRefresh.listen((token) {
-        debugPrint('Client FCM Token refreshed: $token');
-        _sendTokenToBackend(token);
+        if (token.isNotEmpty) {
+          debugPrint('Client FCM Token refreshed: [REDACTED]');
+          _sendTokenToBackend(token);
+        }
       });
     } catch (e) {
-      debugPrint('Error initializing Firebase Push Notifications in client: $e');
+      debugPrint(
+        'Error initializing Firebase Push Notifications in client: $e',
+      );
     }
   }
 
   static void _handleIncomingMessage(RemoteMessage message) {
-    final title = message.notification?.title ?? message.data['title'] ?? 'Notificación';
-    final body = message.notification?.body ?? message.data['body'] ?? 'Tienes un nuevo mensaje';
+    final title =
+        message.notification?.title ?? message.data['title'] ?? 'Notificación';
+    final body =
+        message.notification?.body ??
+        message.data['body'] ??
+        'Tienes un nuevo mensaje';
     LocalNotificationService.saveNotification(title, body);
 
     try {
@@ -78,13 +93,19 @@ class FirebaseNotificationHelper {
     } catch (_) {}
   }
 
-  static Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  static Future<void> _firebaseMessagingBackgroundHandler(
+    RemoteMessage message,
+  ) async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
     debugPrint('Background client message received: ${message.messageId}');
-    final title = message.notification?.title ?? message.data['title'] ?? 'Notificación';
-    final body = message.notification?.body ?? message.data['body'] ?? 'Tienes un nuevo mensaje';
+    final title =
+        message.notification?.title ?? message.data['title'] ?? 'Notificación';
+    final body =
+        message.notification?.body ??
+        message.data['body'] ??
+        'Tienes un nuevo mensaje';
     await LocalNotificationService.saveNotification(title, body);
   }
 
@@ -100,14 +121,18 @@ class FirebaseNotificationHelper {
         }
 
         if (apnsToken != null) {
-          debugPrint('APNS token obtained: $apnsToken. Proceeding to fetch FCM token.');
+          debugPrint(
+            'APNS token obtained: [REDACTED]. Proceeding to fetch FCM token.',
+          );
         } else {
-          debugPrint('APNS token check timed out, proceeding to fetch FCM token anyway.');
+          debugPrint(
+            'APNS token check timed out, proceeding to fetch FCM token anyway.',
+          );
         }
       }
       final token = await FirebaseMessaging.instance.getToken();
       if (token != null && token.isNotEmpty) {
-        debugPrint('Client FCM Token obtained: $token');
+        debugPrint('Client FCM Token obtained: [REDACTED]');
         await _sendTokenToBackend(token);
       }
     } catch (e) {
@@ -140,7 +165,9 @@ class FirebaseNotificationHelper {
 
       final result = await client.mutate(options);
       if (result.hasException) {
-        debugPrint('Failed to delete client FCM token: ${result.exception.toString()}');
+        debugPrint(
+          'Failed to delete client FCM token: ${result.exception.toString()}',
+        );
       } else {
         debugPrint('Client FCM Token deleted successfully from backend.');
       }
@@ -168,7 +195,9 @@ class FirebaseNotificationHelper {
 
       final result = await client.mutate(options);
       if (result.hasException) {
-        debugPrint('Failed to upload client FCM token: ${result.exception.toString()}');
+        debugPrint(
+          'Failed to upload client FCM token: ${result.exception.toString()}',
+        );
       } else {
         debugPrint('Client FCM Token uploaded successfully.');
       }
@@ -177,4 +206,3 @@ class FirebaseNotificationHelper {
     }
   }
 }
-

@@ -5,6 +5,7 @@ import 'package:clanship_cliente/features/auth/presentation/bloc/auth_state.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:clanship_cliente/core/theme/app_colors.dart';
 import 'package:clanship_cliente/features/home/presentation/widgets/add_address_screen.dart';
+import 'package:clanship_cliente/features/home/presentation/widgets/address_search_notice_dialog.dart';
 import 'package:clanship_cliente/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -89,6 +90,7 @@ class _AddressSelectionDialogState extends State<AddressSelectionDialog> {
             address
             latitude
             longitude
+            avatarUrl
           }
         }
       }
@@ -130,7 +132,14 @@ class _AddressSelectionDialogState extends State<AddressSelectionDialog> {
               ),
             );
 
-            Navigator.pop(context);
+            final navigator = Navigator.of(context);
+            navigator.pop();
+            if (navigator.context.mounted) {
+              AddressSearchNoticeDialog.show(
+                navigator.context,
+                address: addr['address'] ?? '',
+              );
+            }
           }
         }
       }
@@ -194,7 +203,7 @@ class _AddressSelectionDialogState extends State<AddressSelectionDialog> {
                     itemBuilder: (context, index) {
                       final addr = _savedAddresses[index];
                       return ListTile(
-                        leading: const Icon(
+                        leading: Icon(
                           Icons.location_on,
                           color: AppColors.primary,
                         ),
@@ -277,7 +286,7 @@ class _AddressSelectionDialogState extends State<AddressSelectionDialog> {
               onPressed: () => Navigator.pop(context),
               child: Text(
                 l10n.commonClose,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: AppColors.primary,

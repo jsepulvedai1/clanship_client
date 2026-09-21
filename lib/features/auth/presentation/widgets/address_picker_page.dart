@@ -241,9 +241,9 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
             zoomControlsEnabled: false,
           ),
 
-          const Center(
+          Center(
             child: Padding(
-              padding: EdgeInsets.only(bottom: 35),
+              padding: const EdgeInsets.only(bottom: 35),
               child: Icon(
                 Icons.location_on,
                 size: 45,
@@ -330,13 +330,13 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
                         itemBuilder: (context, index) {
                           final p = _predictions[index];
                           return ListTile(
-                            leading: const Icon(
+                            leading: Icon(
                               Icons.location_on_outlined,
                               color: AppColors.primary,
                             ),
                             title: Text(
                               p['description'],
-                              style: const TextStyle(fontSize: 14),
+                              style: TextStyle(fontSize: 14),
                             ),
                             onTap: () => _selectPrediction(p),
                           );
@@ -356,7 +356,7 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
               backgroundColor: Colors.white,
               onPressed: _initializeLocation,
               tooltip: l10n.mapCurrentGpsTooltip,
-              child: const Icon(
+              child: Icon(
                 Icons.my_location,
                 color: AppColors.secondary,
               ),
@@ -368,36 +368,36 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
             right: 20,
             bottom: 30,
             child: Container(
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.15),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
-              padding: const EdgeInsets.all(20),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.pin_drop, color: AppColors.primary),
+                      Icon(Icons.pin_drop, color: AppColors.primary),
                       const SizedBox(width: 8),
                       Expanded(
                         child: _isLoadingAddress
-                            ? const LinearProgressIndicator(
+                            ? LinearProgressIndicator(
                                 color: AppColors.primary,
                               )
                             : Text(
                                 _currentAddress.isNotEmpty
                                     ? _currentAddress
                                     : l10n.mapSelectLocationHint,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,
                                   color: AppColors.secondary,

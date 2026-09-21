@@ -8,7 +8,7 @@ class SupportPage extends StatelessWidget {
 
   // Support contact info
   static const String supportEmail = 'soporte@clanship.cl';
-  static const String supportWhatsApp = '56966547998'; // WhatsApp phone format without '+' or special chars
+  static const String supportWhatsApp = '56939261697'; // WhatsApp phone format without '+' or special chars
 
   Future<void> _launchEmail(BuildContext context) async {
     final Uri emailUri = Uri(
@@ -96,7 +96,7 @@ class SupportPage extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(24),
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   colors: [
                     AppColors.primary,
                     AppColors.secondary,
@@ -106,7 +106,7 @@ class SupportPage extends StatelessWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(0.3),
+                    color: AppColors.primary.withValues(alpha: 0.3),
                     blurRadius: 15,
                     offset: const Offset(0, 8),
                   ),
@@ -131,7 +131,7 @@ class SupportPage extends StatelessWidget {
                         Text(
                           'Contáctanos y te ayudaremos a solucionarlo a la brevedad.',
                           style: TextStyle(
-                            color: theme.colorScheme.onPrimary.withOpacity(0.9),
+                            color: theme.colorScheme.onPrimary.withValues(alpha: 0.9),
                             fontSize: 14,
                             height: 1.4,
                           ),
@@ -145,7 +145,7 @@ class SupportPage extends StatelessWidget {
                     child: Icon(
                       Icons.headset_mic_rounded,
                       size: 80,
-                      color: theme.colorScheme.onPrimary.withOpacity(0.85),
+                      color: theme.colorScheme.onPrimary.withValues(alpha: 0.85),
                     ),
                   ),
                 ],
@@ -205,7 +205,7 @@ class SupportPage extends StatelessWidget {
         boxShadow: [
           if (theme.brightness == Brightness.light)
             BoxShadow(
-              color: theme.shadowColor.withOpacity(0.04),
+              color: theme.shadowColor.withValues(alpha: 0.04),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),

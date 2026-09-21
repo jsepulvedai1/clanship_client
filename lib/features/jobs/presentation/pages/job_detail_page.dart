@@ -11,7 +11,7 @@ import 'package:clanship_cliente/features/jobs/presentation/widgets/specialty_ui
 import 'package:clanship_cliente/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
+import 'package:clanship_cliente/core/utils/currency_formatter.dart';
 
 class JobDetailPage extends StatelessWidget {
   final JobMatch job;
@@ -92,7 +92,7 @@ class JobDetailPage extends StatelessWidget {
                       child: Text(
                         job.workDescription!.trim(),
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.9),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.9),
                           height: 1.5,
                         ),
                       ),
@@ -158,9 +158,9 @@ class JobDetailPage extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: badgeColor.withOpacity(0.12),
+          color: badgeColor.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: badgeColor.withOpacity(0.3), width: 1),
+          border: Border.all(color: badgeColor.withValues(alpha: 0.3), width: 1),
         ),
         child: Text(
           statusText,
@@ -184,13 +184,13 @@ class JobDetailPage extends StatelessWidget {
         Icon(
           icon,
           size: 18,
-          color: theme.colorScheme.onSurface.withOpacity(0.6),
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
         ),
         const SizedBox(width: 8),
         Text(
           title.toUpperCase(),
           style: theme.textTheme.labelMedium?.copyWith(
-            color: theme.colorScheme.onSurface.withOpacity(0.6),
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
             fontWeight: FontWeight.bold,
             letterSpacing: 1.1,
           ),
@@ -207,12 +207,12 @@ class JobDetailPage extends StatelessWidget {
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: theme.dividerColor.withOpacity(0.4),
+          color: theme.dividerColor.withValues(alpha: 0.4),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: theme.shadowColor.withOpacity(0.03),
+            color: theme.shadowColor.withValues(alpha: 0.03),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -234,12 +234,12 @@ class JobDetailPage extends StatelessWidget {
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: theme.dividerColor.withOpacity(0.4),
+          color: theme.dividerColor.withValues(alpha: 0.4),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: theme.shadowColor.withOpacity(0.04),
+            color: theme.shadowColor.withValues(alpha: 0.04),
             blurRadius: 16,
             offset: const Offset(0, 5),
           ),
@@ -281,7 +281,7 @@ class JobDetailPage extends StatelessWidget {
                             vertical: 3,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.amber.withOpacity(0.15),
+                            color: Colors.amber.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
@@ -348,10 +348,10 @@ class JobDetailPage extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.09),
+        color: color.withValues(alpha: 0.09),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: color.withOpacity(0.25),
+          color: color.withValues(alpha: 0.25),
           width: 1,
         ),
       ),
@@ -377,13 +377,13 @@ class JobDetailPage extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.1),
+        color: AppColors.primary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
+          Icon(
             Icons.access_time_rounded,
             size: 13,
             color: AppColors.primary,
@@ -413,7 +413,7 @@ class JobDetailPage extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(
-            color: AppColors.primary.withOpacity(0.25),
+            color: AppColors.primary.withValues(alpha: 0.25),
             width: 2,
           ),
         ),
@@ -446,16 +446,16 @@ class JobDetailPage extends StatelessWidget {
       height: 62,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: AppColors.primary.withOpacity(0.12),
+        color: AppColors.primary.withValues(alpha: 0.12),
         border: Border.all(
-          color: AppColors.primary.withOpacity(0.3),
+          color: AppColors.primary.withValues(alpha: 0.3),
           width: 2,
         ),
       ),
       child: Center(
         child: Text(
           initials.toUpperCase(),
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.primary,
             fontWeight: FontWeight.bold,
             fontSize: 18,
@@ -467,11 +467,6 @@ class JobDetailPage extends StatelessWidget {
 
   Widget _buildPriceCard(ThemeData theme, AppLocalizations l10n) {
     final value = job.totalValue ?? 0.0;
-    final formatter = NumberFormat.currency(
-      locale: 'es_CL',
-      symbol: '\$',
-      decimalDigits: 0,
-    );
 
     return _buildContentCard(
       theme: theme,
@@ -482,11 +477,11 @@ class JobDetailPage extends StatelessWidget {
             l10n.jobsTotal,
             style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w600,
-              color: theme.colorScheme.onSurface.withOpacity(0.75),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
             ),
           ),
           Text(
-            '${formatter.format(value)} CLP',
+            '${formatCurrency(value)} CLP',
             style: theme.textTheme.titleLarge?.copyWith(
               color: AppColors.primary,
               fontWeight: FontWeight.w900,
@@ -512,7 +507,7 @@ class JobDetailPage extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.orange.withOpacity(0.08),
+        color: Colors.orange.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.orange.shade300, width: 1.5),
       ),
@@ -540,7 +535,7 @@ class JobDetailPage extends StatelessWidget {
           Text(
             l10n.jobsVisitProposalDesc,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withOpacity(0.8),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
             ),
           ),
           const SizedBox(height: 10),
@@ -588,9 +583,9 @@ class JobDetailPage extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.urgency.withOpacity(0.08),
+        color: AppColors.urgency.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.urgency.withOpacity(0.35), width: 1.5),
+        border: Border.all(color: AppColors.urgency.withValues(alpha: 0.35), width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -627,7 +622,7 @@ class JobDetailPage extends StatelessWidget {
             Text(
               job.cancellationReason!.trim(),
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.85),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
               ),
             ),
           ],
@@ -779,13 +774,13 @@ class JobDetailPage extends StatelessWidget {
         color: theme.colorScheme.surface,
         border: Border(
           top: BorderSide(
-            color: theme.dividerColor.withOpacity(0.3),
+            color: theme.dividerColor.withValues(alpha: 0.3),
             width: 1,
           ),
         ),
         boxShadow: [
           BoxShadow(
-            color: theme.shadowColor.withOpacity(0.05),
+            color: theme.shadowColor.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -4),
           ),
@@ -908,7 +903,7 @@ class JobDetailPage extends StatelessWidget {
                   onPressed: () => _showCancelDialog(context, l10n),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.urgency,
-                    side: BorderSide(color: AppColors.urgency.withOpacity(0.7)),
+                    side: BorderSide(color: AppColors.urgency.withValues(alpha: 0.7)),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -942,9 +937,9 @@ class JobDetailPage extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: Colors.amber.withOpacity(0.08),
+          color: Colors.amber.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.amber.withOpacity(0.3), width: 1.5),
+          border: Border.all(color: Colors.amber.withValues(alpha: 0.3), width: 1.5),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -981,7 +976,7 @@ class JobDetailPage extends StatelessWidget {
                 '"${job.reviewComment!.trim()}"',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontStyle: FontStyle.italic,
-                  color: theme.colorScheme.onSurface.withOpacity(0.85),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
                 ),
               ),
             ],

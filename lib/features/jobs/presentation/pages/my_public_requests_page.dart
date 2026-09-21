@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:clanship_cliente/core/navigation/bloc/navigation_bloc.dart';
 import 'package:clanship_cliente/core/navigation/bloc/navigation_event.dart';
+import 'package:clanship_cliente/core/utils/currency_formatter.dart';
 
 class MyPublicRequestsPage extends StatelessWidget {
   const MyPublicRequestsPage({super.key});
@@ -246,7 +247,7 @@ class _MyPublicRequestsWidgetState extends State<MyPublicRequestsWidget> {
                       ),
                       if (req['budget'] != null) ...[
                         Text(
-                          'Presupuesto: \$${req['budget']}',
+                          'Presupuesto: ${formatCurrency(req['budget'])}',
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Colors.green,
@@ -259,15 +260,26 @@ class _MyPublicRequestsWidgetState extends State<MyPublicRequestsWidget> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Cotizaciones Recibidas (${proposals.length}/5)',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                      Expanded(
+                        child: Text(
+                          'Cotizaciones Recibidas (${proposals.length}/5)',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       if (status == 'OPEN')
                         TextButton(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
                           onPressed: () => _cancelRequest(
                             int.tryParse(req['id'].toString()) ?? 0,
                           ),
@@ -355,7 +367,7 @@ class _MyPublicRequestsWidgetState extends State<MyPublicRequestsWidget> {
                                     ),
                                   ),
                                   Text(
-                                    '\$$price',
+                                    formatCurrency(price),
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 16,

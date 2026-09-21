@@ -1,14 +1,10 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 import 'package:clanship_cliente/core/di/injection.dart';
 import 'package:clanship_cliente/core/network/jobs_websocket_service.dart';
-import 'package:clanship_cliente/core/config/env_config.dart';
 import 'package:clanship_cliente/core/network/graphql_service.dart';
 import 'package:clanship_cliente/features/jobs/domain/entities/job_match.dart';
 import 'package:clanship_cliente/features/jobs/domain/repositories/job_repository.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:injectable/injectable.dart';

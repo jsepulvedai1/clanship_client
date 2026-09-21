@@ -742,4 +742,109 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get jobsConfirmAction => 'Confirmar';
+
+  @override
+  String get authTermsAndEula => 'Términos y EULA';
+
+  @override
+  String get eulaTitle => 'Términos y Condiciones (EULA)';
+
+  @override
+  String get eulaSubtitle =>
+      'Acuerdo de Licencia de Usuario Final y Moderación';
+
+  @override
+  String get eulaZeroToleranceTitle => 'POLÍTICA DE CERO TOLERANCIA';
+
+  @override
+  String get eulaZeroToleranceBody =>
+      'Clanship mantiene una política estricta de CERO TOLERANCIA frente a contenido objetable, ofensivo, discriminatorio, abusivo, sexual o spam, así como hacia usuarios que cometan conductas abusivas.';
+
+  @override
+  String get eulaSection1Title =>
+      '1. Acuerdo de Licencia de Usuario Final (EULA)';
+
+  @override
+  String get eulaSection1Body =>
+      'Al descargar, instalar, registrarte o usar la aplicación Clanship, aceptas quedar vinculado por los presentes Términos de Servicio y Acuerdo de Licencia (EULA). Si no estás de acuerdo con estos términos, no debes utilizar la aplicación.';
+
+  @override
+  String get eulaSection2Title =>
+      '2. Normas de la Comunidad y Contenido Prohibido';
+
+  @override
+  String get eulaSection2Intro =>
+      'Como usuario, te comprometes a no cargar, publicar, enviar ni compartir:';
+
+  @override
+  String get eulaSection2Bullet1 =>
+      'Contenido sexualmente explícito, pornográfico o violento.';
+
+  @override
+  String get eulaSection2Bullet2 =>
+      'Lenguaje de odio, acoso, difamación, amenazas o discriminación por cualquier motivo.';
+
+  @override
+  String get eulaSection2Bullet3 =>
+      'Información falsa, fraudulenta, estafas o suplantación de identidad.';
+
+  @override
+  String get eulaSection2Bullet4 =>
+      'Contenido que infrinja la propiedad intelectual o derechos de terceros.';
+
+  @override
+  String get eulaSection3Title => '3. Herramientas de Reporte y Bloqueo';
+
+  @override
+  String get eulaSection3Intro =>
+      'Para proteger a nuestra comunidad, Clanship proporciona herramientas accesibles en toda la plataforma:';
+
+  @override
+  String get eulaSection3Bullet1 =>
+      'Bloquear usuarios abusivos: Puedes bloquear a cualquier profesional o usuario inmediatamente desde el chat o su perfil. Al bloquearlo, su contenido y mensajes desaparecerán instantáneamente de tu vista.';
+
+  @override
+  String get eulaSection3Bullet2 =>
+      'Reportar contenido o usuarios: Puedes denunciar cualquier mensaje, foto o perfil con el botón de reporte.';
+
+  @override
+  String get eulaSection3Bullet3 =>
+      'Compromiso de moderación en 24 horas: Nuestro equipo revisa cada reporte dentro de 24 horas. Todo contenido objetable será eliminado y los usuarios infractores serán expulsados y sancionados permanentemente.';
+
+  @override
+  String get eulaSection4Title =>
+      '4. Naturaleza del Servicio y Responsabilidad';
+
+  @override
+  String get eulaSection4Body =>
+      'Clanship opera como una plataforma tecnológica de vinculación que conecta clientes con profesionales técnicos independientes. Cada servicio se acuerda directamente entre las partes.';
+
+  @override
+  String get eulaSection5Title => '5. Privacidad y Seguridad';
+
+  @override
+  String get eulaSection5Body =>
+      'Tus datos personales y ubicación se procesan conforme a nuestra Política de Privacidad únicamente para la prestación de los servicios solicitados y fines de seguridad.';
+
+  @override
+  String get eulaWebLink => 'Ver términos completos en el sitio web oficial';
+
+  @override
+  String get eulaAcceptButton => 'Acepto los Términos y Política EULA';
+
+  @override
+  String get eulaCloseButton => 'Entendido y Cerrar';
+
+  @override
+  String get authReferralCodeLabel =>
+      'Código de asociado o invitación (Opcional)';
+
+  @override
+  String get authReferralCodeHint => 'Ej: CLAN-ABC12';
+
+  @override
+  String get authReferralValid => 'Código válido';
+
+  @override
+  String get authReferralInvalid => 'Código no encontrado o inactivo';
 }

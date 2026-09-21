@@ -22,3 +22,12 @@ class SplashAuthenticated extends SplashState {
 }
 
 class SplashUnauthenticated extends SplashState {}
+
+class SplashConnectionError extends SplashState {
+  final String message;
+
+  const SplashConnectionError(this.message);
+
+  @override
+  List<Object> get props => [message];
+}

@@ -1467,6 +1467,180 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Confirm'**
   String get jobsConfirmAction;
+
+  /// No description provided for @authTermsAndEula.
+  ///
+  /// In en, this message translates to:
+  /// **'Terms & EULA'**
+  String get authTermsAndEula;
+
+  /// No description provided for @eulaTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Terms and Conditions (EULA)'**
+  String get eulaTitle;
+
+  /// No description provided for @eulaSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'End User License Agreement & Moderation'**
+  String get eulaSubtitle;
+
+  /// No description provided for @eulaZeroToleranceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'ZERO TOLERANCE POLICY'**
+  String get eulaZeroToleranceTitle;
+
+  /// No description provided for @eulaZeroToleranceBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Clanship enforces a strict ZERO TOLERANCE policy against objectionable, offensive, discriminatory, abusive, sexual, or spam content, as well as users engaging in abusive conduct.'**
+  String get eulaZeroToleranceBody;
+
+  /// No description provided for @eulaSection1Title.
+  ///
+  /// In en, this message translates to:
+  /// **'1. End User License Agreement (EULA)'**
+  String get eulaSection1Title;
+
+  /// No description provided for @eulaSection1Body.
+  ///
+  /// In en, this message translates to:
+  /// **'By downloading, installing, registering, or using the Clanship application, you agree to be bound by these Terms of Service and License Agreement (EULA). If you do not agree to these terms, you must not use the application.'**
+  String get eulaSection1Body;
+
+  /// No description provided for @eulaSection2Title.
+  ///
+  /// In en, this message translates to:
+  /// **'2. Community Guidelines & Prohibited Content'**
+  String get eulaSection2Title;
+
+  /// No description provided for @eulaSection2Intro.
+  ///
+  /// In en, this message translates to:
+  /// **'As a user, you agree not to upload, publish, send, or share:'**
+  String get eulaSection2Intro;
+
+  /// No description provided for @eulaSection2Bullet1.
+  ///
+  /// In en, this message translates to:
+  /// **'Sexually explicit, pornographic, or violent content.'**
+  String get eulaSection2Bullet1;
+
+  /// No description provided for @eulaSection2Bullet2.
+  ///
+  /// In en, this message translates to:
+  /// **'Hate speech, harassment, defamation, threats, or discrimination of any kind.'**
+  String get eulaSection2Bullet2;
+
+  /// No description provided for @eulaSection2Bullet3.
+  ///
+  /// In en, this message translates to:
+  /// **'False or fraudulent information, scams, or identity impersonation.'**
+  String get eulaSection2Bullet3;
+
+  /// No description provided for @eulaSection2Bullet4.
+  ///
+  /// In en, this message translates to:
+  /// **'Content that infringes intellectual property or third-party rights.'**
+  String get eulaSection2Bullet4;
+
+  /// No description provided for @eulaSection3Title.
+  ///
+  /// In en, this message translates to:
+  /// **'3. Reporting & Blocking Tools'**
+  String get eulaSection3Title;
+
+  /// No description provided for @eulaSection3Intro.
+  ///
+  /// In en, this message translates to:
+  /// **'To protect our community, Clanship provides accessible tools across the entire platform:'**
+  String get eulaSection3Intro;
+
+  /// No description provided for @eulaSection3Bullet1.
+  ///
+  /// In en, this message translates to:
+  /// **'Block abusive users: You can block any professional or user immediately from the chat or profile. Upon blocking, their content and messages will disappear from your view instantly.'**
+  String get eulaSection3Bullet1;
+
+  /// No description provided for @eulaSection3Bullet2.
+  ///
+  /// In en, this message translates to:
+  /// **'Report content or users: You can report any message, photo, or profile using the report button.'**
+  String get eulaSection3Bullet2;
+
+  /// No description provided for @eulaSection3Bullet3.
+  ///
+  /// In en, this message translates to:
+  /// **'24-Hour Moderation Commitment: Our team reviews every report within 24 hours. All objectionable content will be removed and offending users will be permanently ejected.'**
+  String get eulaSection3Bullet3;
+
+  /// No description provided for @eulaSection4Title.
+  ///
+  /// In en, this message translates to:
+  /// **'4. Service Nature & Liability'**
+  String get eulaSection4Title;
+
+  /// No description provided for @eulaSection4Body.
+  ///
+  /// In en, this message translates to:
+  /// **'Clanship operates as a matchmaking technology platform connecting clients with independent service professionals. Each service is agreed directly between the parties.'**
+  String get eulaSection4Body;
+
+  /// No description provided for @eulaSection5Title.
+  ///
+  /// In en, this message translates to:
+  /// **'5. Privacy & Security'**
+  String get eulaSection5Title;
+
+  /// No description provided for @eulaSection5Body.
+  ///
+  /// In en, this message translates to:
+  /// **'Your personal data and location are processed in accordance with our Privacy Policy solely to deliver requested services and ensure security.'**
+  String get eulaSection5Body;
+
+  /// No description provided for @eulaWebLink.
+  ///
+  /// In en, this message translates to:
+  /// **'View full terms on the official website'**
+  String get eulaWebLink;
+
+  /// No description provided for @eulaAcceptButton.
+  ///
+  /// In en, this message translates to:
+  /// **'I Accept the Terms & EULA Policy'**
+  String get eulaAcceptButton;
+
+  /// No description provided for @eulaCloseButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Understood & Close'**
+  String get eulaCloseButton;
+
+  /// No description provided for @authReferralCodeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Associate or referral code (Optional)'**
+  String get authReferralCodeLabel;
+
+  /// No description provided for @authReferralCodeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'E.g. CLAN-ABC12'**
+  String get authReferralCodeHint;
+
+  /// No description provided for @authReferralValid.
+  ///
+  /// In en, this message translates to:
+  /// **'Valid code'**
+  String get authReferralValid;
+
+  /// No description provided for @authReferralInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Code not found or inactive'**
+  String get authReferralInvalid;
 }
 
 class _AppLocalizationsDelegate

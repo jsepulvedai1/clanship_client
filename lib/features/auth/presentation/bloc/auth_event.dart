@@ -59,6 +59,7 @@ class RegisterRequested extends AuthEvent {
   final String? avatarPath;
   final double? latitude;
   final double? longitude;
+  final String? referralCode;
 
   const RegisterRequested({
     required this.email,
@@ -71,6 +72,7 @@ class RegisterRequested extends AuthEvent {
     this.avatarPath,
     this.latitude,
     this.longitude,
+    this.referralCode,
   });
 
   @override
@@ -85,6 +87,7 @@ class RegisterRequested extends AuthEvent {
         avatarPath ?? '',
         latitude ?? 0.0,
         longitude ?? 0.0,
+        referralCode ?? '',
       ];
 }
 

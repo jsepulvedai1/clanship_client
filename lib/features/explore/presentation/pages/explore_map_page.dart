@@ -8,6 +8,8 @@ import 'package:clanship_cliente/features/home/presentation/bloc/home_bloc.dart'
 import 'package:clanship_cliente/features/home/presentation/bloc/home_event.dart';
 import 'package:clanship_cliente/features/home/presentation/bloc/home_state.dart';
 import 'package:clanship_cliente/features/home/presentation/pages/professional_detail_page.dart';
+import 'package:clanship_cliente/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:clanship_cliente/features/auth/presentation/bloc/auth_state.dart';
 import 'package:clanship_cliente/core/di/injection.dart';
 import 'package:clanship_cliente/core/network/location_service.dart';
 import 'package:flutter/material.dart';
@@ -16,6 +18,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:clanship_cliente/features/home/presentation/widgets/services_filter_sheet.dart';
 import 'package:clanship_cliente/core/services/specialties_cache_service.dart';
+import 'package:clanship_cliente/core/services/ugc_safety_service.dart';
 import 'package:clanship_cliente/l10n/app_localizations.dart';
 
 class _MapCluster {
@@ -60,6 +63,7 @@ class _ExploreMapPageState extends State<ExploreMapPage>
   final LocationService _locationService = getIt<LocationService>();
   Position? _currentPosition;
   Professional? _selectedProfessional;
+  bool _showAllCardTags = false;
   bool _isUrgencyMode = false;
   final Set<int> _selectedTagIds = {};
   final Set<int> _selectedSubtagIds = {};
@@ -86,6 +90,8 @@ class _ExploreMapPageState extends State<ExploreMapPage>
   // Santiago Centro por defecto si falla el GPS
   final LatLng _initialPosition = const LatLng(-33.4489, -70.6693);
 
+  VoidCallback? _blockedUsersListener;
+
   @override
   bool get wantKeepAlive => true;
 
@@ -96,6 +102,15 @@ class _ExploreMapPageState extends State<ExploreMapPage>
     _searchController.addListener(_onSearchChanged);
     _initLocation();
     _fetchSpecialties();
+    _blockedUsersListener = () {
+      if (mounted) {
+        final state = context.read<HomeBloc>().state;
+        if (state is HomeLoaded) {
+          _buildMarkers(state.professionals, query: _searchController.text);
+        }
+      }
+    };
+    getIt<UgcSafetyService>().blockedUserIdsNotifier.addListener(_blockedUsersListener!);
   }
 
   Future<void> _fetchSpecialties() async {
@@ -170,6 +185,7 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                   final matchesSubtag = _selectedSubtagNames.any((subtagName) => p.tags.any((t) => t.toLowerCase() == subtagName.toLowerCase() || t.toLowerCase().startsWith('${subtagName.toLowerCase()}|')));
                   if (!matchesTag && !matchesSubtag) {
                     _selectedProfessional = null;
+                    _showAllCardTags = false;
                   }
                 }
               }
@@ -187,6 +203,30 @@ class _ExploreMapPageState extends State<ExploreMapPage>
   }
 
   Future<void> _initLocation() async {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is AuthAuthenticated) {
+      final user = authState.user;
+      if (user.latitude != null && user.longitude != null) {
+        final targetLatLng = LatLng(user.latitude!, user.longitude!);
+        if (mounted) {
+          context.read<HomeBloc>().add(
+            FetchNearbyProfessionals(
+              latitude: user.latitude!,
+              longitude: user.longitude!,
+            ),
+          );
+          _mapController?.moveCamera(
+            CameraUpdate.newLatLngZoom(targetLatLng, 14.5),
+          );
+          final state = context.read<HomeBloc>().state;
+          if (state is HomeLoaded) {
+            _buildMarkers(state.professionals);
+          }
+        }
+        return;
+      }
+    }
+
     try {
       final lastPosition = await Geolocator.getLastKnownPosition();
       if (lastPosition != null && mounted) {
@@ -254,6 +294,9 @@ class _ExploreMapPageState extends State<ExploreMapPage>
   @override
   void dispose() {
     _searchController.dispose();
+    if (_blockedUsersListener != null) {
+      getIt<UgcSafetyService>().blockedUserIdsNotifier.removeListener(_blockedUsersListener!);
+    }
     super.dispose();
   }
 
@@ -443,7 +486,9 @@ class _ExploreMapPageState extends State<ExploreMapPage>
     List<Professional> professionals, {
     String query = '',
   }) {
-    final List<Professional> listToUse = professionals;
+    final blockedIds = getIt<UgcSafetyService>().getBlockedUserIds();
+    final List<Professional> listToUse =
+        professionals.where((p) => !blockedIds.contains(p.id)).toList();
 
     final filteredList = listToUse.where((p) {
       if (_isUrgencyMode && !p.acceptsUrgency) return false;
@@ -530,6 +575,7 @@ class _ExploreMapPageState extends State<ExploreMapPage>
   void _onMarkerTapped(Professional professional) {
     setState(() {
       _selectedProfessional = professional;
+      _showAllCardTags = false;
     });
   }
 
@@ -540,6 +586,183 @@ class _ExploreMapPageState extends State<ExploreMapPage>
         builder: (context) =>
             ProfessionalDetailPage(professional: professional),
       ),
+    );
+  }
+
+  Widget _buildCardTagChip(String rawTag, Color defaultColor) {
+    final parts = rawTag.split('|');
+    final name = parts[0].trim();
+    final colorHex = parts.length > 1 ? parts[1].trim() : null;
+
+    Color tagColor = defaultColor;
+    if (colorHex != null && colorHex.isNotEmpty) {
+      try {
+        final hex = colorHex.replaceAll('#', '');
+        if (hex.length == 6) {
+          tagColor = Color(int.parse('FF$hex', radix: 16));
+        } else if (hex.length == 8) {
+          tagColor = Color(int.parse(hex, radix: 16));
+        }
+      } catch (_) {}
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: 3,
+      ),
+      decoration: BoxDecoration(
+        color: tagColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: tagColor.withValues(alpha: 0.25),
+          width: 1,
+        ),
+      ),
+      child: Text(
+        name,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: tagColor,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExpandTagsButton(int remainingCount) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        setState(() {
+          _showAllCardTags = true;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 8,
+          vertical: 3,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: AppColors.primary.withValues(alpha: 0.35),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '+$remainingCount más',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(width: 2),
+            Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 13,
+              color: AppColors.primary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCollapseTagsButton() {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        setState(() {
+          _showAllCardTags = false;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 8,
+          vertical: 3,
+        ),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Ver menos',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+            const SizedBox(width: 2),
+            Icon(
+              Icons.keyboard_arrow_up_rounded,
+              size: 13,
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCardTagsSection(Professional professional) {
+    final rawTags = professional.tags;
+    if (rawTags.isEmpty) return const SizedBox.shrink();
+
+    // Deduplicate tags while preserving order
+    final tags = rawTags.toSet().toList();
+    final defaultColor = _getProfessionalColor(professional);
+    final bool hasMore = tags.length > 6;
+    final int visibleCount = hasMore ? 5 : tags.length;
+
+    final List<Widget> chips = [];
+    if (!hasMore || !_showAllCardTags) {
+      final visible = tags.take(visibleCount).toList();
+      for (final t in visible) {
+        chips.add(_buildCardTagChip(t, defaultColor));
+      }
+      if (hasMore) {
+        chips.add(_buildExpandTagsButton(tags.length - visibleCount));
+      }
+    } else {
+      for (final t in tags) {
+        chips.add(_buildCardTagChip(t, defaultColor));
+      }
+      chips.add(_buildCollapseTagsButton());
+    }
+
+    final wrapWidget = Wrap(
+      spacing: 6,
+      runSpacing: 4,
+      children: chips,
+    );
+
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOut,
+      alignment: Alignment.topCenter,
+      child: _showAllCardTags && hasMore
+          ? ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 115),
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: wrapWidget,
+              ),
+            )
+          : wrapWidget,
     );
   }
 
@@ -754,7 +977,10 @@ class _ExploreMapPageState extends State<ExploreMapPage>
               onCameraMove: _onCameraMove,
               onCameraIdle: _onCameraIdle,
               onTap: (_) {
-                setState(() => _selectedProfessional = null);
+                setState(() {
+                  _selectedProfessional = null;
+                  _showAllCardTags = false;
+                });
               },
 
 
@@ -912,6 +1138,7 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                         _isUrgencyMode = value;
                         if (_isUrgencyMode && _selectedProfessional != null && !_selectedProfessional!.acceptsUrgency) {
                           _selectedProfessional = null;
+                          _showAllCardTags = false;
                         }
                         final state = context.read<HomeBloc>().state;
                         if (state is HomeLoaded) {
@@ -943,14 +1170,14 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                       children: [
                         Text(
                           l10n.exploreClearFilters(_selectedTagIds.length + _selectedSubtagIds.length),
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.primary,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         const SizedBox(width: 4),
-                        const Icon(
+                        Icon(
                           Icons.close_rounded,
                           color: AppColors.primary,
                           size: 14,
@@ -991,7 +1218,7 @@ class _ExploreMapPageState extends State<ExploreMapPage>
           //           borderRadius: BorderRadius.circular(24),
           //           boxShadow: [
           //             BoxShadow(
-          //               color: AppColors.primary.withOpacity(0.3),
+          //               color: AppColors.primary.withValues(alpha: 0.3),
           //               blurRadius: 16,
           //               offset: const Offset(0, 4),
           //             ),
@@ -1044,8 +1271,12 @@ class _ExploreMapPageState extends State<ExploreMapPage>
           // ),
 
           // ───── Zoom & Recenter Buttons ─────
-          Positioned(
-            bottom: _selectedProfessional != null ? 230 : 48,
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOutCubic,
+            bottom: _selectedProfessional != null
+                ? (_showAllCardTags ? 275 : 225)
+                : 48,
             right: 16,
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1111,6 +1342,7 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                     ],
                   ),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
                         width: 56,
@@ -1221,34 +1453,7 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                             ),
                             if (_selectedProfessional!.tags.isNotEmpty) ...[
                               const SizedBox(height: 6),
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 4,
-                                children: _selectedProfessional!.tags.map((tag) {
-                                  return Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 3,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: _getProfessionalColor(_selectedProfessional!).withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(
-                                        color: _getProfessionalColor(_selectedProfessional!).withValues(alpha: 0.2),
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      tag,
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: _getProfessionalColor(_selectedProfessional!),
-                                      ),
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
+                              _buildCardTagsSection(_selectedProfessional!),
                             ],
                             const SizedBox(height: 6),
                             Row(
@@ -1330,7 +1535,7 @@ class _ExploreMapPageState extends State<ExploreMapPage>
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const SizedBox(
+                          SizedBox(
                             width: 16,
                             height: 16,
                             child: CircularProgressIndicator(

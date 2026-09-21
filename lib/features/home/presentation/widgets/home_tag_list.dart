@@ -1,4 +1,3 @@
-import 'package:clanship_cliente/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 class HomeTagList extends StatelessWidget {
@@ -18,10 +17,9 @@ class HomeTagList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context)!;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [

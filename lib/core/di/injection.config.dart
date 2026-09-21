@@ -17,6 +17,7 @@ import 'package:clanship_cliente/core/network/jobs_websocket_service.dart'
     as _i117;
 import 'package:clanship_cliente/core/network/location_service.dart' as _i369;
 import 'package:clanship_cliente/core/services/specialties_cache_service.dart' as _i999;
+import 'package:clanship_cliente/core/services/ugc_safety_service.dart' as _i888;
 import 'package:clanship_cliente/core/persistence/database_helper.dart'
     as _i547;
 import 'package:clanship_cliente/core/settings/bloc/settings_bloc.dart'
@@ -89,6 +90,9 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i895.Connectivity>(() => externalLibsModule.connectivity);
     gh.lazySingleton<_i369.LocationService>(() => _i369.LocationService());
     gh.lazySingleton<_i999.SpecialtiesCacheService>(() => _i999.SpecialtiesCacheService());
+    gh.lazySingleton<_i888.UgcSafetyService>(
+      () => _i888.UgcSafetyService(gh<_i460.SharedPreferences>()),
+    );
     gh.lazySingleton<_i12.GraphQLService>(() => _i12.GraphQLService());
     gh.lazySingleton<_i117.JobsWebSocketService>(
       () => _i117.JobsWebSocketService(),
@@ -126,13 +130,22 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i246.AuthRepositoryImpl(gh<_i774.AuthRemoteDataSource>()),
     );
     gh.lazySingleton<_i600.HomeRepository>(
-      () => _i667.HomeRepositoryImpl(gh<_i22.HomeRemoteDataSource>()),
+      () => _i667.HomeRepositoryImpl(
+        gh<_i22.HomeRemoteDataSource>(),
+        gh<_i888.UgcSafetyService>(),
+      ),
     );
     gh.factory<_i536.HomeBloc>(
-      () => _i536.HomeBloc(gh<_i600.HomeRepository>()),
+      () => _i536.HomeBloc(
+        gh<_i600.HomeRepository>(),
+        gh<_i888.UgcSafetyService>(),
+      ),
     );
     gh.factory<_i297.FavoritesBloc>(
-      () => _i297.FavoritesBloc(gh<_i600.HomeRepository>()),
+      () => _i297.FavoritesBloc(
+        gh<_i600.HomeRepository>(),
+        gh<_i888.UgcSafetyService>(),
+      ),
     );
     gh.lazySingleton<_i87.RequestPasswordResetUseCase>(
       () => _i87.RequestPasswordResetUseCase(gh<_i1055.AuthRepository>()),

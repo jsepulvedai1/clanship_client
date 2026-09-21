@@ -24,6 +24,7 @@ import 'package:clanship_cliente/core/network/jobs_websocket_service.dart';
 import 'package:clanship_cliente/core/navigation/bloc/navigation_bloc.dart';
 import 'package:clanship_cliente/core/navigation/bloc/navigation_event.dart';
 import 'package:clanship_cliente/features/jobs/presentation/widgets/rating_dialog.dart';
+import 'package:clanship_cliente/core/services/ugc_safety_service.dart';
 
 class ChatPage extends StatefulWidget {
   final Professional professional;
@@ -140,7 +141,7 @@ class _ChatPageState extends State<ChatPage> {
           child: Wrap(
             children: [
               ListTile(
-                leading: const Icon(
+                leading: Icon(
                   Icons.camera_alt_rounded,
                   color: AppColors.primary,
                 ),
@@ -151,7 +152,7 @@ class _ChatPageState extends State<ChatPage> {
                 },
               ),
               ListTile(
-                leading: const Icon(
+                leading: Icon(
                   Icons.photo_library_rounded,
                   color: AppColors.primary,
                 ),
@@ -425,12 +426,44 @@ class _ChatPageState extends State<ChatPage> {
         ],
       ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.flag_outlined),
-          tooltip: 'Reportar usuario o chat',
-          onPressed: () => _showReportUserDialog(widget.professional.name),
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert_rounded),
+          tooltip: 'Opciones de moderación y seguridad',
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          onSelected: (value) {
+            if (value == 'report') {
+              _showReportUserDialog(widget.professional.name);
+            } else if (value == 'block') {
+              _showBlockUserDialog(context);
+            }
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: 'report',
+              child: Row(
+                children: [
+                  Icon(Icons.flag_outlined, color: AppColors.primary, size: 20),
+                  const SizedBox(width: 12),
+                  const Text('Reportar usuario o chat'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'block',
+              child: Row(
+                children: [
+                  Icon(Icons.block_rounded, color: Colors.redAccent, size: 20),
+                  SizedBox(width: 12),
+                  Text(
+                    'Bloquear a este profesional',
+                    style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 4),
       ],
     );
   }
@@ -547,7 +580,7 @@ class _ChatPageState extends State<ChatPage> {
                     : AppColors.slate100,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.add_rounded,
                 color: AppColors.primary,
                 size: 24,
@@ -867,6 +900,92 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  void _showBlockUserDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.block_rounded, color: Colors.redAccent, size: 28),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                '¿Bloquear a ${widget.professional.name}?',
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: const SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Al bloquear a este usuario:',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              SizedBox(height: 8),
+              Text(
+                '• Se cerrará este chat y se ocultará todo su contenido y propuestas de inmediato.',
+                style: TextStyle(fontSize: 13, height: 1.3),
+              ),
+              SizedBox(height: 4),
+              Text(
+                '• Este profesional no podrá contactarte ni aparecerá en tus resultados de búsqueda.',
+                style: TextStyle(fontSize: 13, height: 1.3),
+              ),
+              SizedBox(height: 4),
+              Text(
+                '• Se enviará una notificación a nuestro equipo de moderación para revisar su conducta y expulsar al usuario infractor en un plazo máximo de 24 horas.',
+                style: TextStyle(fontSize: 13, height: 1.3),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () async {
+              Navigator.pop(dialogCtx);
+              final navBloc = context.read<NavigationBloc>();
+              final navigator = Navigator.of(context);
+              final messenger = ScaffoldMessenger.of(context);
+
+              await getIt<UgcSafetyService>().blockUser(
+                userId: widget.professional.id,
+                userName: widget.professional.name,
+                reason: 'Bloqueado desde la conversación de chat por conducta abusiva o contenido objetable',
+              );
+
+              navBloc.add(const TabChanged(0));
+              navigator.popUntil((route) => route.isFirst);
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Has bloqueado a ${widget.professional.name}. Su contenido ha sido removido y nuestro equipo actuará en menos de 24 horas.',
+                  ),
+                  backgroundColor: Colors.redAccent,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+            child: const Text('Bloquear y Salir', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showReportUserDialog(String targetName) {
     final TextEditingController detailController = TextEditingController();
     String selectedReason = 'Lenguaje inapropiado o acoso';
@@ -904,7 +1023,7 @@ class _ChatPageState extends State<ChatPage> {
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      const Icon(Icons.flag_outlined, color: AppColors.primary, size: 24),
+                      Icon(Icons.flag_outlined, color: AppColors.primary, size: 24),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -919,7 +1038,7 @@ class _ChatPageState extends State<ChatPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Selecciona el motivo por el cual deseas reportar a este usuario en el chat:',
+                    'Selecciona el motivo por el cual deseas reportar a este usuario en el chat (revisión obligatoria en 24h):',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[600],
@@ -967,16 +1086,25 @@ class _ChatPageState extends State<ChatPage> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      onPressed: () {
+                      onPressed: () async {
                         Navigator.pop(ctx);
-                        ScaffoldMessenger.of(this.context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Reporte de chat recibido con éxito. El equipo de soporte revisará la conversación dentro de 24 horas.',
-                            ),
-                            backgroundColor: AppColors.success,
-                          ),
+                        await getIt<UgcSafetyService>().reportContent(
+                          targetId: widget.professional.id,
+                          targetName: widget.professional.name,
+                          reason: selectedReason,
+                          details: detailController.text.trim(),
+                          targetType: 'CHAT_REPORT',
                         );
+                        if (mounted) {
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Reporte de chat recibido. El equipo de soporte revisará la conversación dentro de 24 horas y removerá cualquier contenido objetable.',
+                              ),
+                              backgroundColor: AppColors.success,
+                            ),
+                          );
+                        }
                       },
                       child: const Text(
                         'Enviar Reporte',

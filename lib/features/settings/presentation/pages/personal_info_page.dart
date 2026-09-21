@@ -86,8 +86,8 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
             hintText: hintText,
             filled: true,
             fillColor: isDark
-                ? Colors.white.withOpacity(0.05)
-                : Colors.black.withOpacity(0.04),
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.black.withValues(alpha: 0.04),
             suffixIcon: const Tooltip(
               message: 'Este campo no puede ser modificado',
               child: Icon(Icons.lock_outline_rounded, size: 18, color: Colors.grey),
@@ -144,7 +144,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
               'Consulta tus datos personales registrados. Todos los campos están bloqueados por seguridad.',
               style: TextStyle(
                 fontSize: 14,
-                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
             const SizedBox(height: 24),
@@ -158,7 +158,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                 boxShadow: [
                   if (!isDark)
                     BoxShadow(
-                      color: theme.shadowColor.withOpacity(0.04),
+                      color: theme.shadowColor.withValues(alpha: 0.04),
                       blurRadius: 15,
                       offset: const Offset(0, 4),
                     ),
@@ -211,13 +211,13 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.08),
+                color: AppColors.primary.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: AppColors.primary.withOpacity(0.2),
+                  color: AppColors.primary.withValues(alpha: 0.2),
                 ),
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(Icons.lock_rounded, color: AppColors.primary, size: 24),
                   SizedBox(width: 14),

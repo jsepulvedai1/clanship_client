@@ -47,7 +47,7 @@ class _RatingDialogState extends State<RatingDialog> {
                 width: 60,
                 height: 60,
                 decoration: BoxDecoration(
-                  color: Colors.amber.withOpacity(0.12),
+                  color: Colors.amber.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -70,7 +70,7 @@ class _RatingDialogState extends State<RatingDialog> {
                 '¿Cómo fue tu experiencia con el servicio realizado?',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                 ),
               ),
               const SizedBox(height: 20),
@@ -109,7 +109,7 @@ class _RatingDialogState extends State<RatingDialog> {
                 decoration: InputDecoration(
                   hintText: 'Escribe un comentario opcional sobre el trabajo...',
                   hintStyle: TextStyle(
-                    color: theme.colorScheme.onSurface.withOpacity(0.4),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                     fontSize: 14,
                   ),
                   filled: true,
@@ -124,7 +124,7 @@ class _RatingDialogState extends State<RatingDialog> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                    borderSide: BorderSide(color: AppColors.primary, width: 2),
                   ),
                 ),
               ),

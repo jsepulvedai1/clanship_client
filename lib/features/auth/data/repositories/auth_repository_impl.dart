@@ -33,6 +33,7 @@ class AuthRepositoryImpl implements AuthRepository {
     String? avatarPath,
     double? latitude,
     double? longitude,
+    String? referralCode,
   }) async {
     try {
       final userModel = await remoteDataSource.register(
@@ -45,6 +46,7 @@ class AuthRepositoryImpl implements AuthRepository {
         avatarPath: avatarPath,
         latitude: latitude,
         longitude: longitude,
+        referralCode: referralCode,
       );
       return Right(UserMapper.toEntity(userModel));
     } catch (e) {
@@ -68,6 +70,14 @@ class AuthRepositoryImpl implements AuthRepository {
       final userModel = await remoteDataSource.getCurrentUser();
       return Right(UserMapper.toEntity(userModel));
     } catch (e) {
+      final lower = e.toString().toLowerCase();
+      if (lower.contains('no saved token') ||
+          lower.contains('signature') ||
+          lower.contains('session_invalidated') ||
+          lower.contains('token is invalid') ||
+          lower.contains('token_expired')) {
+        return Left(AuthFailure(e.toString()));
+      }
       return Left(ServerFailure(e.toString()));
     }
   }
@@ -77,6 +87,26 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       await remoteDataSource.requestPasswordReset(email);
       return const Right(null);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Map<String, dynamic>>> validateReferralCode(String code) async {
+    try {
+      final res = await remoteDataSource.validateReferralCode(code);
+      return Right(res);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Map<String, String>>> getReferralProgramContent({String? language}) async {
+    try {
+      final res = await remoteDataSource.getReferralProgramContent(language: language);
+      return Right(res);
     } catch (e) {
       return Left(ServerFailure(e.toString()));
     }

@@ -61,13 +61,19 @@ class GraphQLService {
         if (isTokenExpired) {
           final refreshToken = await _storage.read(key: 'refresh_token');
           if (refreshToken != null && refreshToken.isNotEmpty) {
-            final refreshedToken = await _refreshToken(refreshToken);
-            if (refreshedToken != null) {
-              await _storage.write(key: 'jwt_token', value: refreshedToken);
+            final refreshResult = await _refreshToken(refreshToken);
+            if (refreshResult.status == RefreshStatus.success && refreshResult.token != null) {
+              await _storage.write(key: 'jwt_token', value: refreshResult.token!);
               shouldRetry = true;
+            } else if (refreshResult.status == RefreshStatus.invalid) {
+              await _storage.delete(key: 'jwt_token');
+              await _storage.delete(key: 'refresh_token');
+              SessionService.instance.notifySessionInvalidated(
+                'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.',
+              );
             }
-          }
-          if (!shouldRetry) {
+            // Si es networkError (502 / conexión rechazada / timeout), NO borramos tokens ni cerramos sesión
+          } else {
             await _storage.delete(key: 'jwt_token');
             await _storage.delete(key: 'refresh_token');
             SessionService.instance.notifySessionInvalidated(
@@ -109,7 +115,7 @@ class GraphQLService {
     );
   }
 
-  Future<String?> _refreshToken(String refreshToken) async {
+  Future<RefreshTokenResult> _refreshToken(String refreshToken) async {
     const String refreshMutation = r'''
       mutation RefreshToken($refreshToken: String!) {
         refreshToken(refreshToken: $refreshToken) {
@@ -133,11 +139,28 @@ class GraphQLService {
         if (newRefreshToken != null) {
           await _storage.write(key: 'refresh_token', value: newRefreshToken);
         }
-        return newToken;
+        if (newToken != null) {
+          return RefreshTokenResult(status: RefreshStatus.success, token: newToken);
+        }
+        return const RefreshTokenResult(status: RefreshStatus.invalid);
+      } else {
+        if (result.exception?.linkException != null) {
+          // Error de red / 502 Bad Gateway / servidor reiniciándose
+          return const RefreshTokenResult(status: RefreshStatus.networkError);
+        }
+        return const RefreshTokenResult(status: RefreshStatus.invalid);
       }
     } catch (e) {
-      // Ignore, will return null
+      // Excepción de socket o conexión
+      return const RefreshTokenResult(status: RefreshStatus.networkError);
     }
-    return null;
   }
+}
+
+enum RefreshStatus { success, networkError, invalid }
+
+class RefreshTokenResult {
+  final RefreshStatus status;
+  final String? token;
+  const RefreshTokenResult({required this.status, this.token});
 }

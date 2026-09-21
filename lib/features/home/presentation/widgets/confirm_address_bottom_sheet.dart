@@ -44,7 +44,7 @@ class ConfirmAddressBottomSheet extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
+            color: Colors.black.withValues(alpha: 0.15),
             blurRadius: 20,
             offset: const Offset(0, -4),
           ),
@@ -60,7 +60,7 @@ class ConfirmAddressBottomSheet extends StatelessWidget {
               width: 48,
               height: 4,
               decoration: BoxDecoration(
-                color: theme.dividerColor.withOpacity(0.1),
+                color: theme.dividerColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -82,7 +82,7 @@ class ConfirmAddressBottomSheet extends StatelessWidget {
           Text(
             l10n.matchingConfirmSubtitle,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withOpacity(0.6),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               height: 1.4,
             ),
             textAlign: TextAlign.center,
@@ -105,13 +105,13 @@ class ConfirmAddressBottomSheet extends StatelessWidget {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: hasAddress 
-                          ? AppColors.primary.withOpacity(0.06) 
-                          : theme.colorScheme.error.withOpacity(0.06),
+                          ? AppColors.primary.withValues(alpha: 0.06) 
+                          : theme.colorScheme.error.withValues(alpha: 0.06),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: hasAddress 
-                            ? AppColors.primary.withOpacity(0.2) 
-                            : theme.colorScheme.error.withOpacity(0.2),
+                            ? AppColors.primary.withValues(alpha: 0.2) 
+                            : theme.colorScheme.error.withValues(alpha: 0.2),
                       ),
                     ),
                     child: Row(
@@ -176,9 +176,9 @@ class ConfirmAddressBottomSheet extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: Colors.amber.shade50.withOpacity(theme.brightness == Brightness.dark ? 0.15 : 0.9),
+                      color: Colors.amber.shade50.withValues(alpha: theme.brightness == Brightness.dark ? 0.15 : 0.9),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.amber.shade300.withOpacity(0.5)),
+                      border: Border.all(color: Colors.amber.shade300.withValues(alpha: 0.5)),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -220,8 +220,8 @@ class ConfirmAddressBottomSheet extends StatelessWidget {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
-                        disabledBackgroundColor: theme.disabledColor.withOpacity(0.12),
-                        disabledForegroundColor: theme.disabledColor.withOpacity(0.38),
+                        disabledBackgroundColor: theme.disabledColor.withValues(alpha: 0.12),
+                        disabledForegroundColor: theme.disabledColor.withValues(alpha: 0.38),
                         padding: const EdgeInsets.symmetric(vertical: 18),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),

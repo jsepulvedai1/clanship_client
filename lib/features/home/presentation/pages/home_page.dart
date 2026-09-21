@@ -12,6 +12,7 @@ import 'package:clanship_cliente/core/di/injection.dart';
 import 'package:clanship_cliente/core/network/location_service.dart';
 import 'package:clanship_cliente/core/network/graphql_service.dart';
 import 'package:clanship_cliente/core/services/specialties_cache_service.dart';
+import 'package:clanship_cliente/core/services/ugc_safety_service.dart';
 import 'package:clanship_cliente/features/home/domain/entities/professional.dart';
 import 'package:clanship_cliente/features/home/presentation/pages/professional_search_page.dart';
 import 'package:clanship_cliente/features/home/presentation/widgets/services_filter_sheet.dart';
@@ -33,6 +34,11 @@ import 'package:clanship_cliente/core/utils/image_cropper_helper.dart';
 import 'dart:async';
 import 'package:clanship_cliente/core/network/local_notification_service.dart';
 import 'package:clanship_cliente/features/home/presentation/pages/help_webview_page.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:clanship_cliente/core/theme/bloc/seasonal_theme_bloc.dart';
+import 'package:clanship_cliente/core/theme/widgets/seasonal_logo_badge.dart';
+import 'package:clanship_cliente/core/theme/widgets/seasonal_particles.dart';
+import 'package:clanship_cliente/core/theme/widgets/seasonal_top_garland.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -52,6 +58,8 @@ class _HomePageState extends State<HomePage> {
   bool _isOpeningFilter = false;
   bool _isUrgencyMode = false;
 
+  VoidCallback? _blockedUsersListener;
+
   @override
   void initState() {
     super.initState();
@@ -63,11 +71,18 @@ class _HomePageState extends State<HomePage> {
         .listen((_) {
           _loadLocalNotifications();
         });
+    _blockedUsersListener = () {
+      if (mounted) setState(() {});
+    };
+    getIt<UgcSafetyService>().blockedUserIdsNotifier.addListener(_blockedUsersListener!);
   }
 
   @override
   void dispose() {
     _notificationSubscription?.cancel();
+    if (_blockedUsersListener != null) {
+      getIt<UgcSafetyService>().blockedUserIdsNotifier.removeListener(_blockedUsersListener!);
+    }
     super.dispose();
   }
 
@@ -81,6 +96,29 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _checkLocationPermission() async {
+    // 1. Prioridad: Si el usuario ya tiene dirección configurada en su perfil, usamos esa ubicación
+    final authState = context.read<AuthBloc>().state;
+    if (authState is AuthAuthenticated) {
+      final user = authState.user;
+      if (user.latitude != null && user.longitude != null) {
+        if (mounted) {
+          setState(() {
+            if (user.address != null && user.address!.isNotEmpty) {
+              _currentAddress = user.address!;
+            }
+          });
+          context.read<HomeBloc>().add(
+            FetchNearbyProfessionals(
+              latitude: user.latitude!,
+              longitude: user.longitude!,
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    // 2. Si no tiene dirección guardada, usamos el GPS físico del dispositivo como fallback
     try {
       LocationPermission permission = await _locationService.checkPermission();
       if (permission == LocationPermission.denied) {
@@ -171,17 +209,27 @@ class _HomePageState extends State<HomePage> {
           initialSelectedSubtagIds: const {},
           onApply: (selectedTagIds, selectedSubtagIds) {
             if (!context.mounted) return;
+            final auth = context.read<AuthBloc>().state;
+            double? targetLat = savedLat;
+            double? targetLng = savedLng;
+            String? targetAddr = savedAddress;
+            if (auth is AuthAuthenticated) {
+              targetLat ??= auth.user.latitude;
+              targetLng ??= auth.user.longitude;
+              targetAddr ??= auth.user.address;
+            }
+            targetLat ??= _currentPosition?.latitude;
+            targetLng ??= _currentPosition?.longitude;
+            targetAddr ??= _currentAddress;
+
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => ProfessionalSearchPage(
                   initialProfessionals: _currentProfessionals,
-                  latitude: _currentPosition?.latitude ?? savedLat,
-                  longitude: _currentPosition?.longitude ?? savedLng,
-                  currentAddress:
-                      _currentAddress != 'Calle 123, Villa Puerto, Puerto Montt'
-                      ? _currentAddress
-                      : (savedAddress ?? _currentAddress),
+                  latitude: targetLat,
+                  longitude: targetLng,
+                  currentAddress: targetAddr,
                   initialSelectedTagIds: selectedTagIds,
                   initialSelectedSubtagIds: selectedSubtagIds,
                   initialUrgencyMode: _isUrgencyMode,
@@ -282,7 +330,8 @@ class _HomePageState extends State<HomePage> {
   List<Professional> get _currentProfessionals {
     final state = context.watch<HomeBloc>().state;
     if (state is HomeLoaded) {
-      return state.professionals;
+      final blockedIds = getIt<UgcSafetyService>().getBlockedUserIds();
+      return state.professionals.where((p) => !blockedIds.contains(p.id)).toList();
     }
     return []; // Return empty or show loading if preferred
   }
@@ -296,8 +345,21 @@ class _HomePageState extends State<HomePage> {
     }
     if (_selectedTagIndex == 0) {
       list.sort((a, b) => a.distance.compareTo(b.distance));
-    } else {
+    } else if (_selectedTagIndex == 1) {
       list.sort((a, b) => b.rating.compareTo(a.rating));
+    } else {
+      // Filtrado por etiqueta destacada de festividad
+      final seasonalState = context.read<SeasonalThemeBloc>().state;
+      final featuredTags = seasonalState.campaign?.featuredTags ?? [];
+      final tagOffset = _selectedTagIndex - 2;
+      if (tagOffset >= 0 && tagOffset < featuredTags.length) {
+        final targetTagName = featuredTags[tagOffset].name.toLowerCase();
+        list = list.where((p) {
+          final matchesSpecialty = p.specialty.toLowerCase().contains(targetTagName);
+          final matchesTags = p.tags.any((t) => t.toLowerCase().contains(targetTagName));
+          return matchesSpecialty || matchesTags;
+        }).toList();
+      }
     }
     return list;
   }
@@ -349,10 +411,10 @@ class _HomePageState extends State<HomePage> {
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.05),
+                  color: AppColors.primary.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: AppColors.primary.withOpacity(0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     width: 1,
                   ),
                 ),
@@ -365,7 +427,7 @@ class _HomePageState extends State<HomePage> {
                     vertical: 4,
                   ),
                   leading: CircleAvatar(
-                    backgroundColor: AppColors.primary.withOpacity(0.1),
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                     child: Icon(
                       Icons.notifications_active_rounded,
                       color: AppColors.primary,
@@ -382,14 +444,14 @@ class _HomePageState extends State<HomePage> {
                   subtitle: Text(
                     notif.body,
                     style: TextStyle(
-                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                       fontSize: 12,
                     ),
                   ),
                   trailing: IconButton(
                     icon: Icon(
                       Icons.close_rounded,
-                      color: theme.colorScheme.onSurface.withOpacity(0.4),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                       size: 20,
                     ),
                     onPressed: () async {
@@ -498,10 +560,10 @@ class _HomePageState extends State<HomePage> {
                           return Container(
                             margin: const EdgeInsets.only(bottom: 8),
                             decoration: BoxDecoration(
-                              color: AppColors.primary.withOpacity(0.05),
+                              color: AppColors.primary.withValues(alpha: 0.05),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: AppColors.primary.withOpacity(0.1),
+                                color: AppColors.primary.withValues(alpha: 0.1),
                                 width: 1,
                               ),
                             ),
@@ -517,8 +579,8 @@ class _HomePageState extends State<HomePage> {
                                 vertical: 4,
                               ),
                               leading: CircleAvatar(
-                                backgroundColor: AppColors.primary.withOpacity(
-                                  0.1,
+                                backgroundColor: AppColors.primary.withValues(
+                                  alpha: 0.1,
                                 ),
                                 child: Icon(
                                   Icons.notifications_active_rounded,
@@ -538,7 +600,7 @@ class _HomePageState extends State<HomePage> {
                                 style: TextStyle(
                                   color: Theme.of(
                                     context,
-                                  ).colorScheme.onSurface.withOpacity(0.7),
+                                  ).colorScheme.onSurface.withValues(alpha: 0.7),
                                   fontSize: 12,
                                 ),
                               ),
@@ -547,7 +609,7 @@ class _HomePageState extends State<HomePage> {
                                   Icons.close_rounded,
                                   color: Theme.of(
                                     context,
-                                  ).colorScheme.onSurface.withOpacity(0.4),
+                                  ).colorScheme.onSurface.withValues(alpha: 0.4),
                                   size: 20,
                                 ),
                                 onPressed: () async {
@@ -576,8 +638,10 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final seasonalState = context.watch<SeasonalThemeBloc>().state;
 
-    final tags = [l10n.homeTagNear, l10n.homeTagTopRated];
+    final featuredTagNames = seasonalState.campaign?.featuredTags.map((t) => t.name).toList() ?? [];
+    final tags = [l10n.homeTagNear, l10n.homeTagTopRated, ...featuredTagNames];
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -585,12 +649,29 @@ class _HomePageState extends State<HomePage> {
         toolbarHeight: 85,
         backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
+        flexibleSpace: seasonalState.showGarlandTop
+            ? const SafeArea(
+                bottom: false,
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: SeasonalTopGarland(
+                    height: 28,
+                    slot: GarlandSlot.top,
+                  ),
+                ),
+              )
+            : null,
         title: BlocBuilder<AuthBloc, AuthState>(
           builder: (context, state) {
             String name = 'User';
             if (state is AuthAuthenticated) {
               name = state.user.name;
             }
+
+            final greetingPrefix = seasonalState.campaign?.copy.greetingPrefix;
+            final displayGreeting = (greetingPrefix != null && greetingPrefix.isNotEmpty)
+                ? '$greetingPrefix $name'
+                : l10n.homeGreeting(name);
 
             return Row(
               children: [
@@ -603,7 +684,7 @@ class _HomePageState extends State<HomePage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        l10n.homeGreeting(name),
+                        displayGreeting,
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -616,7 +697,7 @@ class _HomePageState extends State<HomePage> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.location_on_rounded,
                               color: AppColors.primary,
                               size: 14,
@@ -639,7 +720,7 @@ class _HomePageState extends State<HomePage> {
                               ),
                             ),
                             const SizedBox(width: 4),
-                            const Icon(
+                            Icon(
                               Icons.add_circle_outline_rounded,
                               color: AppColors.primary,
                               size: 14,
@@ -665,7 +746,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
+                          color: Colors.black.withValues(alpha: 0.04),
                           blurRadius: 6,
                           offset: const Offset(0, 2),
                         ),
@@ -694,7 +775,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
+                          color: Colors.black.withValues(alpha: 0.04),
                           blurRadius: 6,
                           offset: const Offset(0, 2),
                         ),
@@ -726,43 +807,50 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                // Profile Picture (Interactive)
-                GestureDetector(
-                  onTap: () => _pickImage(context),
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppColors.primary.withOpacity(0.2),
-                        width: 2,
+                // Profile Picture (Interactive with Seasonal Badge)
+                SeasonalLogoBadge(
+                  badgeSize: 29,
+                  offset: const Offset(6, -6),
+                  child: GestureDetector(
+                    onTap: () => _pickImage(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: (seasonalState.hasActiveCampaign
+                                  ? seasonalState.accentColor
+                                  : AppColors.primary)
+                              .withValues(alpha: 0.2),
+                          width: 2,
+                        ),
                       ),
-                    ),
-                    child: CircleAvatar(
-                      radius: 22,
-                      backgroundColor: Colors.white,
-                      backgroundImage:
-                          (state is AuthAuthenticated &&
-                              state.user.avatarPath != null &&
-                              state.user.avatarPath!.isNotEmpty)
-                          ? (state.user.avatarPath!.startsWith('http://') ||
-                                    state.user.avatarPath!.startsWith(
-                                      'https://',
-                                    ))
-                                ? NetworkImage(state.user.avatarPath!)
-                                : FileImage(File(state.user.avatarPath!))
-                                      as ImageProvider
-                          : null,
-                      child:
-                          !(state is AuthAuthenticated &&
-                              state.user.avatarPath != null &&
-                              state.user.avatarPath!.isNotEmpty)
-                          ? const Icon(
-                              Icons.person_outline_rounded,
-                              size: 24,
-                              color: Color(0xFFBCC5D0),
-                            )
-                          : null,
+                      child: CircleAvatar(
+                        radius: 22,
+                        backgroundColor: Colors.white,
+                        backgroundImage:
+                            (state is AuthAuthenticated &&
+                                state.user.avatarPath != null &&
+                                state.user.avatarPath!.isNotEmpty)
+                            ? (state.user.avatarPath!.startsWith('http://') ||
+                                      state.user.avatarPath!.startsWith(
+                                        'https://',
+                                      ))
+                                  ? NetworkImage(state.user.avatarPath!)
+                                  : FileImage(File(state.user.avatarPath!))
+                                        as ImageProvider
+                            : null,
+                        child:
+                            !(state is AuthAuthenticated &&
+                                state.user.avatarPath != null &&
+                                state.user.avatarPath!.isNotEmpty)
+                            ? const Icon(
+                                Icons.person_outline_rounded,
+                                size: 24,
+                                color: Color(0xFFBCC5D0),
+                              )
+                            : null,
+                      ),
                     ),
                   ),
                 ),
@@ -773,12 +861,30 @@ class _HomePageState extends State<HomePage> {
       ),
       body: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) {
-          if (state is AuthAuthenticated && _currentPosition == null) {
-            _loadFallbackLocation();
+          if (state is AuthAuthenticated) {
+            final user = state.user;
+            if (user.address != null && user.address!.isNotEmpty) {
+              setState(() {
+                _currentAddress = user.address!;
+              });
+            }
           }
         },
         child: RefreshIndicator(
           onRefresh: () async {
+            final authState = context.read<AuthBloc>().state;
+            if (authState is AuthAuthenticated &&
+                authState.user.latitude != null &&
+                authState.user.longitude != null) {
+              context.read<HomeBloc>().add(
+                FetchNearbyProfessionals(
+                  latitude: authState.user.latitude!,
+                  longitude: authState.user.longitude!,
+                ),
+              );
+              return;
+            }
+
             try {
               final position = await _locationService.getCurrentPosition();
               if (mounted) {
@@ -845,14 +951,18 @@ class _HomePageState extends State<HomePage> {
                             border: Border.all(
                               color: _isUrgencyMode
                                   ? AppColors.urgency
-                                  : AppColors.primary,
+                                  : (seasonalState.hasActiveCampaign
+                                      ? seasonalState.searchBarBorderColor
+                                      : AppColors.primary),
                               width: 2,
                             ),
                             boxShadow: [
                               BoxShadow(
                                 color: _isUrgencyMode
-                                    ? AppColors.urgency.withOpacity(0.2)
-                                    : theme.shadowColor.withOpacity(0.05),
+                                    ? AppColors.urgency.withValues(alpha: 0.2)
+                                    : (seasonalState.hasActiveCampaign
+                                        ? seasonalState.searchBarBorderColor.withValues(alpha: 0.15)
+                                        : theme.shadowColor.withValues(alpha: 0.05)),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
@@ -866,7 +976,9 @@ class _HomePageState extends State<HomePage> {
                                     : Icons.search_rounded,
                                 color: _isUrgencyMode
                                     ? AppColors.urgency
-                                    : AppColors.primary,
+                                    : (seasonalState.hasActiveCampaign
+                                        ? seasonalState.searchBarBorderColor
+                                        : AppColors.primary),
                                 size: 26,
                               ),
                               const SizedBox(width: 8),
@@ -875,7 +987,7 @@ class _HomePageState extends State<HomePage> {
                                   l10n.homeSearchNeed,
                                   style: theme.textTheme.bodyLarge?.copyWith(
                                     color: theme.colorScheme.onSurface
-                                        .withOpacity(0.4),
+                                        .withValues(alpha: 0.4),
                                     fontStyle: FontStyle.italic,
                                     fontSize: 15,
                                   ),
@@ -886,7 +998,7 @@ class _HomePageState extends State<HomePage> {
                               Container(
                                 height: 24,
                                 width: 1,
-                                color: theme.dividerColor.withOpacity(0.2),
+                                color: theme.dividerColor.withValues(alpha: 0.2),
                               ),
                               const SizedBox(width: 6),
                               GestureDetector(
@@ -907,7 +1019,7 @@ class _HomePageState extends State<HomePage> {
                                         color: _isUrgencyMode
                                             ? AppColors.urgency
                                             : theme.colorScheme.onSurface
-                                                  .withOpacity(0.6),
+                                                  .withValues(alpha: 0.6),
                                       ),
                                     ),
                                     const SizedBox(width: 2),
@@ -940,156 +1052,250 @@ class _HomePageState extends State<HomePage> {
                       const SizedBox(height: 14),
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF0D2B45), Color(0xFF163E63)],
+                          gradient: LinearGradient(
+                            colors: seasonalState.hasActiveCampaign
+                                ? seasonalState.headerGradient
+                                : const [Color(0xFF0D2B45), Color(0xFF163E63)],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
                           borderRadius: BorderRadius.circular(18),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF0D2B45).withOpacity(0.25),
+                              color: (seasonalState.hasActiveCampaign
+                                      ? seasonalState.secondaryColor
+                                      : const Color(0xFF0D2B45))
+                                  .withValues(alpha: 0.25),
                               blurRadius: 12,
                               offset: const Offset(0, 4),
                             ),
                           ],
                         ),
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  width: 44,
-                                  height: 44,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.15),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.campaign_rounded,
-                                    color: Colors.white,
-                                    size: 24,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(18),
+                          child: Stack(
+                            children: [
+                              // Si hay imagen de banner cargada desde el backend, usarla como fondo del card
+                              if (seasonalState.campaign?.visuals.bannerImageUrl != null &&
+                                  seasonalState.campaign!.visuals.bannerImageUrl!.isNotEmpty) ...[
+                                Positioned.fill(
+                                  child: CachedNetworkImage(
+                                    imageUrl: seasonalState.campaign!.visuals.bannerImageUrl!,
+                                    fit: BoxFit.cover,
+                                    placeholder: (_, __) => const SizedBox.shrink(),
+                                    errorWidget: (_, __, ___) => const SizedBox.shrink(),
                                   ),
                                 ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        l10n.homeBannerTitle,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        l10n.homeBannerSubTitle,
-                                        style: const TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 14),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.primary,
-                                      foregroundColor: Colors.white,
-                                      elevation: 0,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 10,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                    onPressed: () async {
-                                      final res = await Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) =>
-                                              const CreatePublicJobPage(),
-                                        ),
-                                      );
-                                      if (res == true && mounted) {
-                                        context.read<NavigationBloc>().add(
-                                          const TabChanged(1),
-                                        );
-                                      }
-                                    },
-                                    icon: const Icon(
-                                      Icons.add_rounded,
-                                      size: 18,
-                                    ),
-                                    label: Text(
-                                      l10n.homeBtnRequest,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.white.withOpacity(
-                                        0.2,
-                                      ),
-                                      foregroundColor: Colors.white,
-                                      elevation: 0,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 10,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                    onPressed: () {
-                                      context.read<NavigationBloc>().add(
-                                        const TabChanged(1),
-                                      );
-                                    },
-                                    icon: const Icon(
-                                      Icons.list_alt_rounded,
-                                      size: 18,
-                                    ),
-                                    label: Text(
-                                      l10n.homeBtnMyRequests,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
+                                Positioned.fill(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          Colors.black.withValues(alpha: 0.65),
+                                          Colors.black.withValues(alpha: 0.28),
+                                          Colors.black.withValues(alpha: 0.05),
+                                        ],
+                                        stops: const [0.0, 0.55, 1.0],
+                                        begin: Alignment.centerLeft,
+                                        end: Alignment.centerRight,
                                       ),
                                     ),
                                   ),
                                 ),
                               ],
-                            ),
-                          ],
+                              if (seasonalState.hasActiveCampaign) ...[
+                                const Positioned.fill(
+                                  child: SeasonalParticlesOverlay(height: 150),
+                                ),
+                                if (seasonalState.showGarlandBottom)
+                                  const Positioned(
+                                    top: 0,
+                                    left: 0,
+                                    right: 0,
+                                    child: SeasonalTopGarland(
+                                      height: 28,
+                                      slot: GarlandSlot.bottom,
+                                    ),
+                                  ),
+                              ],
+                              Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Container(
+                                          width: 44,
+                                          height: 44,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withValues(alpha: 0.15),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Icon(
+                                            seasonalState.hasActiveCampaign
+                                                ? Icons.celebration_rounded
+                                                : Icons.campaign_rounded,
+                                            color: Colors.white,
+                                            size: 24,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 14),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                (seasonalState.campaign?.copy.promoBannerTitle != null &&
+                                                        seasonalState.campaign!.copy.promoBannerTitle!.isNotEmpty)
+                                                    ? seasonalState.campaign!.copy.promoBannerTitle!
+                                                    : l10n.homeBannerTitle,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 15,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                (seasonalState.campaign?.copy.promoBannerSubtitle != null &&
+                                                        seasonalState.campaign!.copy.promoBannerSubtitle!.isNotEmpty)
+                                                    ? seasonalState.campaign!.copy.promoBannerSubtitle!
+                                                    : l10n.homeBannerSubTitle,
+                                                style: const TextStyle(
+                                                  color: Colors.white70,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 14),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: seasonalState.hasActiveCampaign
+                                                  ? seasonalState.accentColor
+                                                  : AppColors.primary,
+                                              foregroundColor: Colors.white,
+                                              elevation: 0,
+                                              padding: const EdgeInsets.symmetric(
+                                                vertical: 10,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                            ),
+                                            onPressed: () async {
+                                              final copy = seasonalState.campaign?.copy;
+                                              if (seasonalState.hasActiveCampaign &&
+                                                  copy?.promoBannerActionType == 'SEARCH_TAG' &&
+                                                  copy?.promoBannerActionValue != null &&
+                                                  copy!.promoBannerActionValue!.isNotEmpty) {
+                                                final authState = context.read<AuthBloc>().state;
+                                                String? savedAddress;
+                                                double? savedLat;
+                                                double? savedLng;
+                                                if (authState is AuthAuthenticated) {
+                                                  savedAddress = authState.user.address;
+                                                  savedLat = authState.user.latitude;
+                                                  savedLng = authState.user.longitude;
+                                                }
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (_) => ProfessionalSearchPage(
+                                                      initialProfessionals: _filteredProfessionals,
+                                                      latitude: savedLat ?? _currentPosition?.latitude,
+                                                      longitude: savedLng ?? _currentPosition?.longitude,
+                                                      currentAddress: savedAddress ?? _currentAddress,
+                                                    ),
+                                                  ),
+                                                );
+                                                return;
+                                              }
+
+                                              final res = await Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      const CreatePublicJobPage(),
+                                                ),
+                                              );
+                                              if (res == true && mounted) {
+                                                context.read<NavigationBloc>().add(
+                                                  const TabChanged(1),
+                                                );
+                                              }
+                                            },
+                                            icon: const Icon(
+                                              Icons.add_rounded,
+                                              size: 18,
+                                            ),
+                                            label: Text(
+                                              (seasonalState.campaign?.copy.promoBannerCtaText != null &&
+                                                      seasonalState.campaign!.copy.promoBannerCtaText!.isNotEmpty)
+                                                  ? seasonalState.campaign!.copy.promoBannerCtaText!
+                                                  : l10n.homeBtnRequest,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.white.withValues(
+                                                alpha: 0.2,
+                                              ),
+                                              foregroundColor: Colors.white,
+                                              elevation: 0,
+                                              padding: const EdgeInsets.symmetric(
+                                                vertical: 10,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                            ),
+                                            onPressed: () {
+                                              context.read<NavigationBloc>().add(
+                                                const TabChanged(1),
+                                              );
+                                            },
+                                            icon: const Icon(
+                                              Icons.list_alt_rounded,
+                                              size: 18,
+                                            ),
+                                            label: Text(
+                                              l10n.homeBtnMyRequests,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
                 _buildNotificationsSection(),
-                const SizedBox(height: 24),
-                // Banner Carousel
-                // const HomeBannerCarousel(),
-                // const SizedBox(height: 10),
                 // Tag Selection (Chips)
                 HomeTagList(
                   tags: tags,

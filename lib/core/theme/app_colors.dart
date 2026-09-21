@@ -1,10 +1,35 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Brand Colors
-  static const Color primary = Color(0xFF0B6E4F); // Deep Blue (#0D2B45)
-  static const Color secondary = Color(0xFF0D2B45); // Green (#0B6E4F)
-  static const Color accent = Color(0xFFF28C28); // Orange (#F28C28)
+  // Brand Default Colors (Fijos corporativos Clanship)
+  static const Color defaultPrimary = Color(0xFF0B6E4F); // Green (#0B6E4F)
+  static const Color defaultSecondary = Color(0xFF0D2B45); // Deep Blue (#0D2B45)
+  static const Color defaultAccent = Color(0xFFF28C28); // Orange (#F28C28)
+
+  // Centralized Dynamic Colors (Responden al tema global y festividades)
+  static Color _primary = defaultPrimary;
+  static Color _secondary = defaultSecondary;
+  static Color _accent = defaultAccent;
+
+  static Color get primary => _primary;
+  static Color get secondary => _secondary;
+  static Color get accent => _accent;
+
+  static void setSeasonalOverrides({
+    Color? primary,
+    Color? secondary,
+    Color? accent,
+  }) {
+    _primary = primary ?? defaultPrimary;
+    _secondary = secondary ?? defaultSecondary;
+    _accent = accent ?? defaultAccent;
+  }
+
+  static void resetDefaults() {
+    _primary = defaultPrimary;
+    _secondary = defaultSecondary;
+    _accent = defaultAccent;
+  }
 
   // Neutral Colors (Slate Palette)
   static const Color slate50 = Color(0xFFF8FAFC);

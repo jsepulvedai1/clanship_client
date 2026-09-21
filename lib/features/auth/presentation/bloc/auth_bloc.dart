@@ -80,7 +80,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   /// Handles the update of the user's profile information.
   void _onProfileUpdated(ProfileUpdated event, Emitter<AuthState> emit) {
     if (state is AuthAuthenticated) {
-      emit(AuthAuthenticated(event.user));
+      final currentUser = (state as AuthAuthenticated).user;
+      final updatedUser = (event.user.avatarPath == null || event.user.avatarPath!.isEmpty) &&
+              (currentUser.avatarPath != null && currentUser.avatarPath!.isNotEmpty)
+          ? event.user.copyWith(avatarPath: currentUser.avatarPath)
+          : event.user;
+      emit(AuthAuthenticated(updatedUser));
     }
   }
 
@@ -101,6 +106,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         avatarPath: event.avatarPath,
         latitude: event.latitude,
         longitude: event.longitude,
+        referralCode: event.referralCode,
       ),
     );
 

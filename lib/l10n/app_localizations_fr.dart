@@ -743,4 +743,110 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get jobsConfirmAction => 'Confirmer';
+
+  @override
+  String get authTermsAndEula => 'Conditions & EULA';
+
+  @override
+  String get eulaTitle => 'Conditions Générales (EULA)';
+
+  @override
+  String get eulaSubtitle =>
+      'Contrat de Licence Utilisateur Final & Modération';
+
+  @override
+  String get eulaZeroToleranceTitle => 'POLITIQUE DE TOLÉRANCE ZÉRO';
+
+  @override
+  String get eulaZeroToleranceBody =>
+      'Clanship applique une politique stricte de TOLÉRANCE ZÉRO contre tout contenu répréhensible, offensant, discriminatoire, abusif, sexuel ou spam, ainsi que contre les utilisateurs ayant un comportement abusif.';
+
+  @override
+  String get eulaSection1Title =>
+      '1. Contrat de Licence Utilisateur Final (EULA)';
+
+  @override
+  String get eulaSection1Body =>
+      'En téléchargeant, installant, vous inscrivant ou utilisant l\'application Clanship, vous acceptez d\'être lié par ces Conditions d\'utilisation et ce Contrat de licence (EULA). Si vous n\'acceptez pas ces conditions, vous ne devez pas utiliser l\'application.';
+
+  @override
+  String get eulaSection2Title =>
+      '2. Règles de la communauté & Contenu interdit';
+
+  @override
+  String get eulaSection2Intro =>
+      'En tant que utilisateur, vous vous engagez à ne pas télécharger, publier, envoyer ni partager :';
+
+  @override
+  String get eulaSection2Bullet1 =>
+      'Contenu sexuellement explicite, pornographique ou violent.';
+
+  @override
+  String get eulaSection2Bullet2 =>
+      'Discours de haine, harcèlement, diffamation, menaces ou discrimination pour quelque motif que ce soit.';
+
+  @override
+  String get eulaSection2Bullet3 =>
+      'Informations fausses ou frauduleuses, escroqueries ou usurpation d\'identité.';
+
+  @override
+  String get eulaSection2Bullet4 =>
+      'Contenu portant atteinte à la propriété intellectuelle ou aux droits de tiers.';
+
+  @override
+  String get eulaSection3Title => '3. Outils de Signalement & Blocage';
+
+  @override
+  String get eulaSection3Intro =>
+      'Pour protéger notre communauté, Clanship fournit des outils accessibles sur l\'ensemble de la plateforme :';
+
+  @override
+  String get eulaSection3Bullet1 =>
+      'Bloquer les utilisateurs abusifs : Vous pouvez bloquer tout professionnel ou utilisateur immédiatement depuis le chat ou son profil. Une fois bloqué, son contenu et ses messages disparaîtront immédiatement de votre vue.';
+
+  @override
+  String get eulaSection3Bullet2 =>
+      'Signaler un contenu ou des utilisateurs : Vous pouvez signaler tout message, photo ou profil à l\'aide du bouton de signalement.';
+
+  @override
+  String get eulaSection3Bullet3 =>
+      'Engagement de modération sous 24 heures : Notre équipe examine chaque signalement dans les 24 heures. Tout contenu répréhensible sera supprimé et les utilisateurs contrevenants définitivement exclus.';
+
+  @override
+  String get eulaSection4Title => '4. Nature du Service & Responsabilité';
+
+  @override
+  String get eulaSection4Body =>
+      'Clanship opère en tant que plateforme technologique de mise en relation connectant clients et professionnels techniques indépendants. Chaque prestation est convenue directement entre les parties.';
+
+  @override
+  String get eulaSection5Title => '5. Confidentialité & Sécurité';
+
+  @override
+  String get eulaSection5Body =>
+      'Vos données personnelles et de localisation sont traitées conformément à notre Politique de confidentialité uniquement pour la fourniture des services demandés et des fins de sécurité.';
+
+  @override
+  String get eulaWebLink =>
+      'Consulter les conditions complètes sur le site officiel';
+
+  @override
+  String get eulaAcceptButton =>
+      'J\'accepte les conditions et la politique EULA';
+
+  @override
+  String get eulaCloseButton => 'Compris et Fermer';
+
+  @override
+  String get authReferralCodeLabel =>
+      'Code d\'associé ou d\'invitation (Facultatif)';
+
+  @override
+  String get authReferralCodeHint => 'Ex : CLAN-ABC12';
+
+  @override
+  String get authReferralValid => 'Code valide';
+
+  @override
+  String get authReferralInvalid => 'Code non trouvé ou inactif';
 }
