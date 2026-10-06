@@ -43,3 +43,11 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Agents and temporary scripts
+.agents/
+skills-lock.json
+*.py
+*.sh
+patch.dart
+.vscode/mcp.json

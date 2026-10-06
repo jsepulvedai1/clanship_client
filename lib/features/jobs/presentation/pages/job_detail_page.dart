@@ -7,6 +7,7 @@ import 'package:clanship_cliente/features/jobs/domain/entities/job_match.dart';
 import 'package:clanship_cliente/features/jobs/presentation/bloc/jobs_bloc.dart';
 import 'package:clanship_cliente/features/jobs/presentation/bloc/jobs_event.dart';
 import 'package:clanship_cliente/features/jobs/presentation/widgets/rating_dialog.dart';
+import 'package:clanship_cliente/features/jobs/presentation/widgets/create_job_claim_dialog.dart';
 import 'package:clanship_cliente/features/jobs/presentation/widgets/specialty_ui_helper.dart';
 import 'package:clanship_cliente/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
@@ -75,7 +76,14 @@ class JobDetailPage extends StatelessWidget {
 
                   // Rating Section for Completed Jobs
                   if (job.status == JobStatus.completed) ...[
+                    if (job.finalPrice != null || (job.tradesmanComments != null && job.tradesmanComments!.isNotEmpty) || (job.finishedPhotosUrls != null && job.finishedPhotosUrls!.isNotEmpty)) ...[
+                      _buildFinishedDetailsSection(context, theme, l10n),
+                      const SizedBox(height: 20),
+                    ],
+
                     _buildRatingSection(context, theme, l10n),
+                    const SizedBox(height: 20),
+                    _buildClaimSection(context, theme),
                     const SizedBox(height: 20),
                   ],
 
@@ -1015,6 +1023,155 @@ class JobDetailPage extends StatelessWidget {
           elevation: 0,
         ),
       ),
+    );
+  }
+
+  Widget _buildClaimSection(BuildContext context, ThemeData theme) {
+    if (job.hasClaim) {
+      return Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: AppColors.error.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.error.withValues(alpha: 0.3), width: 1.5),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.warning_rounded, color: AppColors.error, size: 22),
+                const SizedBox(width: 8),
+                Text(
+                  "Reclamo en proceso",
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.error,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Estado: ${job.claimStatus ?? 'Pendiente'}",
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              "Tu reclamo está siendo revisado por nuestro equipo de soporte.",
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: () {
+          final jobIdInt = int.tryParse(job.id) ?? 0;
+          if (jobIdInt != 0) {
+            showDialog(
+              context: context,
+              builder: (context) => CreateJobClaimDialog(
+                jobId: jobIdInt,
+                professionalName: job.professionalName,
+              ),
+            );
+          }
+        },
+        icon: const Icon(Icons.report_problem_rounded, color: AppColors.error),
+        label: const Text(
+          "Iniciar Reclamo",
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.error,
+          side: const BorderSide(color: AppColors.error),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFinishedDetailsSection(BuildContext context, ThemeData theme, AppLocalizations l10n) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader(
+          title: 'Detalles del Trabajo Finalizado',
+          icon: Icons.check_circle_outline,
+          theme: theme,
+        ),
+        const SizedBox(height: 10),
+        _buildContentCard(
+          theme: theme,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (job.finalPrice != null) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Valor Final:', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    Text(
+                      formatCurrency(job.finalPrice!),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+              ],
+              if (job.tradesmanComments != null && job.tradesmanComments!.isNotEmpty) ...[
+                Text('Comentarios del Profesional:', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(job.tradesmanComments!, style: theme.textTheme.bodyMedium),
+                const SizedBox(height: 12),
+              ],
+              if (job.finishedPhotosUrls != null && job.finishedPhotosUrls!.isNotEmpty) ...[
+                Text('Fotos del Trabajo:', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 100,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: job.finishedPhotosUrls!.length,
+                    separatorBuilder: (context, index) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      return ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          job.finishedPhotosUrls![index],
+                          width: 100,
+                          height: 100,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            width: 100,
+                            height: 100,
+                            color: Colors.grey[200],
+                            child: const Icon(Icons.broken_image, color: Colors.grey),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

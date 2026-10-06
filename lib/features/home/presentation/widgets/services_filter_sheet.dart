@@ -3,7 +3,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:clanship_cliente/core/theme/app_colors.dart';
 import 'package:clanship_cliente/l10n/app_localizations.dart';
 
-
 class ServicesFilterSheet extends StatefulWidget {
   final List<dynamic> specialties;
   final Set<int> initialSelectedTagIds;
@@ -199,32 +198,37 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
     final queryLower = _searchQuery.toLowerCase();
 
     for (final spec in widget.specialties) {
+      final specName = spec['name'] as String;
+      final bool specMatches = specName.toLowerCase().contains(queryLower);
       final tags = spec['tags'] as List<dynamic>? ?? [];
+
       for (final tag in tags) {
+        final tagName = tag['name'] as String;
+        final bool tagMatches = tagName.toLowerCase().contains(queryLower);
         final subtags = tag['subtags'] as List<dynamic>? ?? [];
+
         if (subtags.isEmpty) {
-          final tagName = tag['name'] as String;
-          if (tagName.toLowerCase().contains(queryLower)) {
+          if (specMatches || tagMatches) {
             results.add({
               'type': 'tag',
               'id': int.parse(tag['id'].toString()),
               'name': tagName,
               'tag_name': tagName,
-              'spec_name': spec['name'] as String,
+              'spec_name': specName,
             });
           }
         } else {
           for (final subtag in subtags) {
             final subtagName = subtag['name'] as String;
-            final tagName = tag['name'] as String;
-            if (subtagName.toLowerCase().contains(queryLower) ||
-                tagName.toLowerCase().contains(queryLower)) {
+            if (specMatches ||
+                tagMatches ||
+                subtagName.toLowerCase().contains(queryLower)) {
               results.add({
                 'type': 'subtag',
                 'id': int.parse(subtag['id'].toString()),
                 'name': subtagName,
                 'tag_name': tagName,
-                'spec_name': spec['name'] as String,
+                'spec_name': specName,
               });
             }
           }
@@ -239,7 +243,8 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
     final n = name.toLowerCase();
     if (n.contains('elec')) return Icons.bolt_rounded;
     if (n.contains('const') || n.contains('remod')) return Icons.home_rounded;
-    if (n.contains('gas') || n.contains('agua') || n.contains('fit')) return Icons.plumbing_rounded;
+    if (n.contains('gas') || n.contains('agua') || n.contains('fit'))
+      return Icons.plumbing_rounded;
     if (n.contains('pint')) return Icons.format_paint_rounded;
     if (n.contains('jard')) return Icons.local_florist_rounded;
     if (n.contains('limp')) return Icons.cleaning_services_rounded;
@@ -248,7 +253,12 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
     return Icons.work_outline_rounded;
   }
 
-  Widget _buildSpecialtyIconWidget(String name, String? iconUrl, {String? colorHex, double size = 22}) {
+  Widget _buildSpecialtyIconWidget(
+    String name,
+    String? iconUrl, {
+    String? colorHex,
+    double size = 22,
+  }) {
     final fallbackIcon = Icon(
       _getSpecialtyIcon(name),
       color: _getSpecialtyIconColor(name, colorHex),
@@ -291,8 +301,10 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
     }
     final n = name.toLowerCase();
     if (n.contains('elec')) return const Color(0xFFE2FBE9);
-    if (n.contains('const') || n.contains('remod')) return const Color(0xFFE3F2FD);
-    if (n.contains('gas') || n.contains('agua') || n.contains('fit')) return const Color(0xFFE0F7FA);
+    if (n.contains('const') || n.contains('remod'))
+      return const Color(0xFFE3F2FD);
+    if (n.contains('gas') || n.contains('agua') || n.contains('fit'))
+      return const Color(0xFFE0F7FA);
     if (n.contains('pint')) return const Color(0xFFF3E5F5);
     if (n.contains('jard')) return const Color(0xFFF1F8E9);
     if (n.contains('limp')) return const Color(0xFFFFF3E0);
@@ -308,8 +320,10 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
     }
     final n = name.toLowerCase();
     if (n.contains('elec')) return const Color(0xFF0F973D);
-    if (n.contains('const') || n.contains('remod')) return const Color(0xFF1565C0);
-    if (n.contains('gas') || n.contains('agua') || n.contains('fit')) return const Color(0xFF00838F);
+    if (n.contains('const') || n.contains('remod'))
+      return const Color(0xFF1565C0);
+    if (n.contains('gas') || n.contains('agua') || n.contains('fit'))
+      return const Color(0xFF00838F);
     if (n.contains('pint')) return const Color(0xFF6A1B9A);
     if (n.contains('jard')) return const Color(0xFF558B2F);
     if (n.contains('limp')) return const Color(0xFFEF6C00);
@@ -374,7 +388,8 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
     if (n.contains('especial')) return Icons.star_rounded;
     if (n.contains('albañ')) return Icons.foundation_rounded;
     if (n.contains('termin')) return Icons.architecture_rounded;
-    if (n.contains('techo') || n.contains('gotera')) return Icons.roofing_rounded;
+    if (n.contains('techo') || n.contains('gotera'))
+      return Icons.roofing_rounded;
     if (n.contains('piso')) return Icons.layers_rounded;
     if (n.contains('ventan')) return Icons.window_rounded;
     if (n.contains('cerraj')) return Icons.key_rounded;
@@ -425,17 +440,36 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
               theme,
               l10n,
               onPressedApply: () {
+                if (_totalSelectedCount == 0) {
+                  final results = _getFlatSearchResults();
+                  for (final item in results) {
+                    final id = item['id'] as int;
+                    if (item['type'] == 'tag') {
+                      _selectedTagIds.add(id);
+                    } else {
+                      _selectedSubtagIds.add(id);
+                    }
+                  }
+                }
                 Navigator.pop(context);
                 widget.onApply(_selectedTagIds, _selectedSubtagIds);
               },
               onPressedCancel: () {
                 _searchSheetController.clear();
               },
-              cancelText: l10n.exploreClearFilters(0).replaceAll('(0)', '').trim(),
+              cancelText: l10n
+                  .exploreClearFilters(0)
+                  .replaceAll('(0)', '')
+                  .trim(),
             ),
           ] else ...[
             if (_currentView == 0) ...[
-              _buildHeader(theme, l10n.searchFilterSpecialty, l10n, showClear: true),
+              _buildHeader(
+                theme,
+                l10n.searchFilterSpecialty,
+                l10n,
+                showClear: true,
+              ),
               _buildInfoTip(theme, l10n),
               Expanded(child: _buildCategoriesView(theme, l10n)),
               _buildBottomActionBar(
@@ -462,7 +496,11 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                   });
                 },
               ),
-              _buildBreadcrumb(theme, l10n.filterSheetCategoryBreadcrumb, _activeSpecialty!['name'] as String),
+              _buildBreadcrumb(
+                theme,
+                l10n.filterSheetCategoryBreadcrumb,
+                _activeSpecialty!['name'] as String,
+              ),
               Expanded(child: _buildSubcategoriesView(theme)),
               _buildBottomActionBar(
                 theme,
@@ -511,7 +549,9 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                   });
                 },
                 cancelText: l10n.filterSheetCancel,
-                selectedCountText: l10n.filterSheetSelectedServices(_getTagSelectedCount(_activeTag!)),
+                selectedCountText: l10n.filterSheetSelectedServices(
+                  _getTagSelectedCount(_activeTag!),
+                ),
               ),
             ],
           ],
@@ -521,7 +561,13 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
   }
 
   // Header Widget
-  Widget _buildHeader(ThemeData theme, String title, AppLocalizations l10n, {bool showClear = false, VoidCallback? onBack}) {
+  Widget _buildHeader(
+    ThemeData theme,
+    String title,
+    AppLocalizations l10n, {
+    bool showClear = false,
+    VoidCallback? onBack,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       child: Row(
@@ -669,7 +715,6 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
     );
   }
 
-
   // SCREEN 1: Categories View
   Widget _buildCategoriesView(ThemeData theme, AppLocalizations l10n) {
     return ListView.builder(
@@ -725,7 +770,12 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                       shape: BoxShape.circle,
                     ),
                     child: Center(
-                      child: _buildSpecialtyIconWidget(name, iconUrl, colorHex: specColorHex, size: 22),
+                      child: _buildSpecialtyIconWidget(
+                        name,
+                        iconUrl,
+                        colorHex: specColorHex,
+                        size: 22,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -750,7 +800,9 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                           l10n.filterSheetSubcategories(tags.length),
                           style: TextStyle(
                             fontSize: 13,
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.5,
+                            ),
                           ),
                         ),
                       ],
@@ -873,10 +925,14 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          subtags.isEmpty ? 'Servicio General' : '${subtags.length} servicios',
+                          subtags.isEmpty
+                              ? 'Servicio General'
+                              : '${subtags.length} servicios',
                           style: TextStyle(
                             fontSize: 13,
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.5,
+                            ),
                           ),
                         ),
                       ],
@@ -886,7 +942,9 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                   // Checkbox for empty-child fallback, or count badge for parent tag
                   if (subtags.isEmpty) ...[
                     Checkbox(
-                      value: _selectedTagIds.contains(int.parse(tag['id'].toString())),
+                      value: _selectedTagIds.contains(
+                        int.parse(tag['id'].toString()),
+                      ),
                       activeColor: AppColors.primary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4),
@@ -949,7 +1007,10 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
         final subtagId = int.parse(subtag['id'].toString());
         final isSelected = _selectedSubtagIds.contains(subtagId);
         final colorHex = subtag['color'] as String?;
-        final accentColor = _parseHexColor(colorHex, defaultColor: AppColors.primary);
+        final accentColor = _parseHexColor(
+          colorHex,
+          defaultColor: AppColors.primary,
+        );
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
@@ -1001,7 +1062,9 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                       name,
                       style: TextStyle(
                         fontSize: 15,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.normal,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -1035,9 +1098,14 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
         final specName = item['spec_name'] as String;
         final isTag = item['type'] == 'tag';
 
-        final isSelected = isTag ? _selectedTagIds.contains(id) : _selectedSubtagIds.contains(id);
+        final isSelected = isTag
+            ? _selectedTagIds.contains(id)
+            : _selectedSubtagIds.contains(id);
         final colorHex = item['color'] as String?;
-        final accentColor = _parseHexColor(colorHex, defaultColor: AppColors.primary);
+        final accentColor = _parseHexColor(
+          colorHex,
+          defaultColor: AppColors.primary,
+        );
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
@@ -1109,7 +1177,9 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                           name,
                           style: TextStyle(
                             fontSize: 15,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -1119,7 +1189,9 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                           '$specName > $tagName',
                           style: TextStyle(
                             fontSize: 12,
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.4,
+                            ),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -1145,7 +1217,12 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
     required String cancelText,
     String? selectedCountText,
   }) {
-    final countText = selectedCountText ?? l10n.filterSheetSelectedServices(_totalSelectedCount);
+    final countText =
+        selectedCountText ??
+        l10n.filterSheetSelectedServices(_totalSelectedCount);
+
+    final bool hasSelection = _totalSelectedCount > 0;
+    final String buttonText = hasSelection ? "Aplicar filtros" : "Buscar";
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -1185,7 +1262,7 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
                 ),
               ),
               child: Text(
-                l10n.filterSheetApply,
+                buttonText,
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -1215,4 +1292,3 @@ class _ServicesFilterSheetState extends State<ServicesFilterSheet> {
     );
   }
 }
-

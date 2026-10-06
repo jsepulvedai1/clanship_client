@@ -101,6 +101,14 @@ class JobRepositoryImpl implements JobRepository {
             rating
             comment
           }
+          hasClaim
+          finalPrice
+          tradesmanComments
+          finishedPhotosUrls
+
+          claim {
+            statusDisplay
+          }
           professional {
             id
             username
@@ -213,6 +221,12 @@ class JobRepositoryImpl implements JobRepository {
       hasBeenReviewed: data['hasBeenReviewed'] ?? false,
       givenRating: int.tryParse(data['review']?['rating']?.toString() ?? ''),
       reviewComment: data['review']?['comment']?.toString(),
+      hasClaim: data['hasClaim'] ?? false,
+      claimStatus: data['claim']?['statusDisplay']?.toString(),
+      finalPrice: double.tryParse(data['finalPrice']?.toString() ?? ''),
+      tradesmanComments: data['tradesmanComments']?.toString(),
+      finishedPhotosUrls: (data['finishedPhotosUrls'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
+
     );
   }
 
@@ -289,6 +303,12 @@ class JobRepositoryImpl implements JobRepository {
       'estimatedArrival': job.estimatedArrival,
       'workDescription': job.workDescription,
       'totalValue': job.totalValue,
+      'hasClaim': job.hasClaim,
+      'claimStatus': job.claimStatus,
+      'finalPrice': job.finalPrice,
+      'tradesmanComments': job.tradesmanComments,
+      'finishedPhotosUrls': job.finishedPhotosUrls,
+
     };
   }
 
@@ -310,6 +330,12 @@ class JobRepositoryImpl implements JobRepository {
       estimatedArrival: map['estimatedArrival'],
       workDescription: map['workDescription'],
       totalValue: (map['totalValue'] as num?)?.toDouble(),
+      hasClaim: map['hasClaim'] ?? false,
+      claimStatus: map['claimStatus'],
+      finalPrice: (map['finalPrice'] as num?)?.toDouble(),
+      tradesmanComments: map['tradesmanComments'],
+      finishedPhotosUrls: (map['finishedPhotosUrls'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
+
     );
   }
 
@@ -423,6 +449,14 @@ class JobRepositoryImpl implements JobRepository {
             review {
               rating
               comment
+            }
+            hasClaim
+          finalPrice
+          tradesmanComments
+          finishedPhotosUrls
+
+            claim {
+              statusDisplay
             }
           }
         }
@@ -547,6 +581,15 @@ class JobRepositoryImpl implements JobRepository {
             professionalName
             professionalAvatarUrl
             professionalRating
+            professional {
+              id
+            }
+            attachments {
+              id
+              file
+              fileType
+              fileName
+            }
           }
         }
       }
@@ -595,6 +638,40 @@ class JobRepositoryImpl implements JobRepository {
   }
 
   @override
+  Future<void> renegotiateJobPrice(int jobId, double proposedPrice) async {
+    const String mutation = r'''
+      mutation RenegotiateJobPrice($jobId: Int!, $agreedPrice: Decimal!) {
+        renegotiateJobPrice(jobId: $jobId, agreedPrice: $agreedPrice) {
+          success
+          job {
+            id
+            status
+            agreedPrice
+          }
+        }
+      }
+    ''';
+
+    final MutationOptions options = MutationOptions(
+      document: gql(mutation),
+      variables: {
+        'jobId': jobId,
+        'agreedPrice': proposedPrice.toString(),
+      },
+    );
+
+    final QueryResult result = await _graphQLService.client.mutate(options);
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
+    final success = result.data?['renegotiateJobPrice']?['success'] as bool? ?? false;
+    if (!success) {
+      throw Exception('Failed to renegotiate job price');
+    }
+    _updateStream();
+  }
+
+  @override
   Future<bool> cancelPublicJobRequest(int requestId) async {
     const String mutation = r'''
       mutation CancelPublicJobRequest($publicRequestId: Int!) {
@@ -614,5 +691,39 @@ class JobRepositoryImpl implements JobRepository {
       throw Exception(result.exception.toString());
     }
     return result.data?['cancelPublicJobRequest']?['success'] ?? false;
+  }
+
+  @override
+  Future<void> createJobClaim(int jobId, String details) async {
+    const String mutation = r'''
+      mutation CreateJobClaim($jobId: ID!, $details: String!) {
+        createJobClaim(jobId: $jobId, details: $details) {
+          success
+          message
+        }
+      }
+    ''';
+
+    final MutationOptions options = MutationOptions(
+      document: gql(mutation),
+      variables: {
+        'jobId': jobId,
+        'details': details,
+      },
+      fetchPolicy: FetchPolicy.networkOnly,
+    );
+
+    final QueryResult result = await _graphQLService.client.mutate(options);
+
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
+
+    final data = result.data?['createJobClaim'];
+    if (data == null || data['success'] != true) {
+      throw Exception(data?['message'] ?? 'Error creating claim');
+    }
+
+    _updateStream();
   }
 }

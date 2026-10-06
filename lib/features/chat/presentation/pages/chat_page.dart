@@ -44,10 +44,12 @@ class _ChatPageState extends State<ChatPage> {
   bool _isRecording = false;
   bool _hasPromptedRating = false;
   StreamSubscription? _socketSubscription;
+  late final ChatBloc _chatBloc;
 
   @override
   void initState() {
     super.initState();
+    _chatBloc = getIt<ChatBloc>()..add(LoadMessages(widget.professional.id, jobId: widget.jobId));
     _controller.addListener(() {
       if (mounted) setState(() {});
     });
@@ -55,11 +57,17 @@ class _ChatPageState extends State<ChatPage> {
     final socketService = getIt<JobsWebSocketService>();
     _socketSubscription = socketService.stream.listen((event) {
       final eventType =
-          (event['event']?.toString() ?? event['type']?.toString() ?? '').toLowerCase();
-      if (eventType == 'job_updated' || eventType == 'job_status_changed' || eventType == 'job_cancelled') {
+          (event['event']?.toString() ?? event['type']?.toString() ?? '')
+              .toLowerCase();
+      if (eventType == 'job_updated' ||
+          eventType == 'job_status_changed' ||
+          eventType == 'job_cancelled') {
         final jobId = event['job_id']?.toString() ?? event['jobId']?.toString();
         final status =
-            (event['status']?.toString() ?? event['new_status']?.toString() ?? '').toUpperCase();
+            (event['status']?.toString() ??
+                    event['new_status']?.toString() ??
+                    '')
+                .toUpperCase();
         if (widget.jobId != null &&
             jobId == widget.jobId &&
             (status == 'CANCELLED' || eventType == 'job_cancelled')) {
@@ -85,6 +93,7 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   void dispose() {
+    _chatBloc.close();
     _socketSubscription?.cancel();
     _controller.dispose();
     _scrollController.dispose();
@@ -115,7 +124,7 @@ class _ChatPageState extends State<ChatPage> {
       final String fileName = image.name;
 
       if (mounted) {
-        context.read<ChatBloc>().add(
+        _chatBloc.add(
           SendMessage(
             widget.professional.id,
             '',
@@ -185,7 +194,7 @@ class _ChatPageState extends State<ChatPage> {
               'audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
 
           if (mounted) {
-            context.read<ChatBloc>().add(
+            _chatBloc.add(
               SendMessage(
                 widget.professional.id,
                 '',
@@ -222,10 +231,8 @@ class _ChatPageState extends State<ChatPage> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    return BlocProvider(
-      create: (context) =>
-          getIt<ChatBloc>()
-            ..add(LoadMessages(widget.professional.id, jobId: widget.jobId)),
+    return BlocProvider.value(
+      value: _chatBloc,
       child: BlocListener<ChatBloc, ChatState>(
         listener: (context, state) {
           if (state is JobAcceptedState) {
@@ -256,11 +263,12 @@ class _ChatPageState extends State<ChatPage> {
             );
           } else if (state is ChatLoaded &&
               state.jobStatus == 'FINISHED' &&
+              !state.hasBeenReviewed &&
               !_hasPromptedRating &&
               widget.jobId != null) {
-            _hasPromptedRating = true;
             final jobIdInt = int.tryParse(widget.jobId!) ?? 0;
             if (jobIdInt != 0) {
+              _hasPromptedRating = true;
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted) {
                   showDialog(
@@ -351,6 +359,23 @@ class _ChatPageState extends State<ChatPage> {
                   },
                 ),
               ),
+              BlocBuilder<ChatBloc, ChatState>(
+                builder: (context, state) {
+                  if (state is ChatLoaded && state.isSendingAttachment) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8.0),
+                      child: Center(
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
               Builder(builder: (context) => _buildInputBar(context, l10n)),
             ],
           ),
@@ -429,7 +454,9 @@ class _ChatPageState extends State<ChatPage> {
         PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert_rounded),
           tooltip: 'Opciones de moderación y seguridad',
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           onSelected: (value) {
             if (value == 'report') {
               _showReportUserDialog(widget.professional.name);
@@ -456,7 +483,10 @@ class _ChatPageState extends State<ChatPage> {
                   SizedBox(width: 12),
                   Text(
                     'Bloquear a este profesional',
-                    style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      color: Colors.redAccent,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
@@ -478,14 +508,18 @@ class _ChatPageState extends State<ChatPage> {
             _buildActionButton(
               label: l10n.chatActionEnrich,
               icon: Icons.add_photo_alternate_outlined,
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.6),
               onTap: _showEnrichJobBottomSheet,
             )
           else
             _buildActionButton(
               label: l10n.chatActionJob,
               icon: Icons.work_outline_rounded,
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.6),
               onTap: () async {
                 final result = await showModalBottomSheet<dynamic>(
                   context: context,
@@ -598,7 +632,9 @@ class _ChatPageState extends State<ChatPage> {
                 boxShadow: [
                   if (Theme.of(context).brightness == Brightness.light)
                     BoxShadow(
-                      color: Theme.of(context).shadowColor.withValues(alpha: 0.04),
+                      color: Theme.of(
+                        context,
+                      ).shadowColor.withValues(alpha: 0.04),
                       blurRadius: 10,
                       offset: const Offset(0, 2),
                     ),
@@ -631,7 +667,9 @@ class _ChatPageState extends State<ChatPage> {
                       decoration: InputDecoration(
                         hintText: l10n.chatInputPlaceholder,
                         hintStyle: TextStyle(
-                          color: Theme.of(context).hintColor.withValues(alpha: 0.4),
+                          color: Theme.of(
+                            context,
+                          ).hintColor.withValues(alpha: 0.4),
                         ),
                         border: InputBorder.none,
                         focusedBorder: InputBorder.none,
@@ -651,7 +689,7 @@ class _ChatPageState extends State<ChatPage> {
                 if (_isRecording || _controller.text.isEmpty) {
                   _toggleRecording();
                 } else {
-                  context.read<ChatBloc>().add(
+                  _chatBloc.add(
                     SendMessage(widget.professional.id, _controller.text),
                   );
                   _controller.clear();
@@ -774,13 +812,19 @@ class _ChatPageState extends State<ChatPage> {
                                   Icon(
                                     Icons.add_a_photo_outlined,
                                     size: 36,
-                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withValues(alpha: 0.6),
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
                                     l10n.chatEnrichAttachPhoto,
                                     style: TextStyle(
-                                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface
+                                          .withValues(alpha: 0.6),
                                     ),
                                   ),
                                 ],
@@ -824,7 +868,7 @@ class _ChatPageState extends State<ChatPage> {
 
                               final messenger = ScaffoldMessenger.of(context);
                               final navigator = Navigator.of(context);
-                              final chatBloc = context.read<ChatBloc>();
+                              final chatBloc = _chatBloc;
 
                               try {
                                 String? base64Photo;
@@ -912,7 +956,10 @@ class _ChatPageState extends State<ChatPage> {
             Expanded(
               child: Text(
                 '¿Bloquear a ${widget.professional.name}?',
-                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -953,7 +1000,9 @@ class _ChatPageState extends State<ChatPage> {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.redAccent,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () async {
               Navigator.pop(dialogCtx);
@@ -964,7 +1013,8 @@ class _ChatPageState extends State<ChatPage> {
               await getIt<UgcSafetyService>().blockUser(
                 userId: widget.professional.id,
                 userName: widget.professional.name,
-                reason: 'Bloqueado desde la conversación de chat por conducta abusiva o contenido objetable',
+                reason:
+                    'Bloqueado desde la conversación de chat por conducta abusiva o contenido objetable',
               );
 
               navBloc.add(const TabChanged(0));
@@ -979,7 +1029,10 @@ class _ChatPageState extends State<ChatPage> {
                 ),
               );
             },
-            child: const Text('Bloquear y Salir', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Bloquear y Salir',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -1023,7 +1076,11 @@ class _ChatPageState extends State<ChatPage> {
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      Icon(Icons.flag_outlined, color: AppColors.primary, size: 24),
+                      Icon(
+                        Icons.flag_outlined,
+                        color: AppColors.primary,
+                        size: 24,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -1039,10 +1096,7 @@ class _ChatPageState extends State<ChatPage> {
                   const SizedBox(height: 8),
                   Text(
                     'Selecciona el motivo por el cual deseas reportar a este usuario en el chat (revisión obligatoria en 24h):',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 12),
                   ...[
@@ -1051,18 +1105,20 @@ class _ChatPageState extends State<ChatPage> {
                     'Comportamiento sospechoso o agresivo',
                     'Foto o contenido ofensivo',
                     'Otro motivo',
-                  ].map((reason) => RadioListTile<String>(
-                        title: Text(reason, style: const TextStyle(fontSize: 14)),
-                        value: reason,
-                        groupValue: selectedReason,
-                        activeColor: AppColors.primary,
-                        contentPadding: EdgeInsets.zero,
-                        onChanged: (val) {
-                          if (val != null) {
-                            setModalState(() => selectedReason = val);
-                          }
-                        },
-                      )),
+                  ].map(
+                    (reason) => RadioListTile<String>(
+                      title: Text(reason, style: const TextStyle(fontSize: 14)),
+                      value: reason,
+                      groupValue: selectedReason,
+                      activeColor: AppColors.primary,
+                      contentPadding: EdgeInsets.zero,
+                      onChanged: (val) {
+                        if (val != null) {
+                          setModalState(() => selectedReason = val);
+                        }
+                      },
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   TextField(
                     controller: detailController,
@@ -1072,7 +1128,10 @@ class _ChatPageState extends State<ChatPage> {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -1108,7 +1167,10 @@ class _ChatPageState extends State<ChatPage> {
                       },
                       child: const Text(
                         'Enviar Reporte',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),

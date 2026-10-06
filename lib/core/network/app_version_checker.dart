@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:clanship_cliente/core/config/shorebird_update_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
@@ -31,6 +32,7 @@ class AppVersionChecker {
         final String storeUrl = data['store_url'] ?? '';
         final String title = data['title'] ?? '';
         final String message = data['message'] ?? '';
+        final bool shorebirdMandatory = data['shorebird_mandatory'] ?? false;
 
         if (updateRequired && context.mounted) {
           _showBlockingUpdateDialog(
@@ -40,6 +42,10 @@ class AppVersionChecker {
             storeUrl: storeUrl,
           );
           return true; // Bloqueado
+        }
+
+        if (context.mounted) {
+          ShorebirdUpdateManager.checkForUpdate(context, isMandatory: shorebirdMandatory);
         }
       }
     } catch (_) {

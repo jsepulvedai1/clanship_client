@@ -8,6 +8,13 @@ import 'package:clanship_cliente/firebase_options.dart';
 import 'package:clanship_cliente/features/jobs/presentation/bloc/jobs_bloc.dart';
 import 'package:clanship_cliente/features/jobs/presentation/bloc/jobs_event.dart';
 import 'package:clanship_cliente/core/network/local_notification_service.dart';
+import 'package:clanship_cliente/core/navigation/bloc/navigation_bloc.dart';
+import 'package:clanship_cliente/core/navigation/bloc/navigation_event.dart';
+import 'package:flutter/material.dart';
+import 'package:clanship_cliente/features/chat/presentation/pages/chat_page.dart';
+import 'package:clanship_cliente/features/home/domain/entities/professional.dart';
+import 'package:clanship_cliente/features/jobs/presentation/bloc/jobs_state.dart';
+
 
 class FirebaseNotificationHelper {
   static Future<void> initialize() async {
@@ -41,13 +48,13 @@ class FirebaseNotificationHelper {
         debugPrint(
           'Foreground client push notification received: ${message.notification?.title} - ${message.notification?.body}',
         );
-        _handleIncomingMessage(message);
+        _handleIncomingMessage(message, openedFromTray: false);
       });
 
       // Handle notification taps when app is in background but not terminated
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
         debugPrint('Notification opened app: ${message.messageId}');
-        _handleIncomingMessage(message);
+        _handleIncomingMessage(message, openedFromTray: true);
       });
 
       // Check if the app was opened by a notification tap from terminated state
@@ -56,7 +63,7 @@ class FirebaseNotificationHelper {
           debugPrint(
             'App opened from terminated state via notification: ${message.messageId}',
           );
-          _handleIncomingMessage(message);
+          _handleIncomingMessage(message, openedFromTray: true);
         }
       });
 
@@ -79,17 +86,55 @@ class FirebaseNotificationHelper {
     }
   }
 
-  static void _handleIncomingMessage(RemoteMessage message) {
+  static void _handleIncomingMessage(RemoteMessage message, {bool openedFromTray = false}) {
     final title =
         message.notification?.title ?? message.data['title'] ?? 'Notificación';
     final body =
         message.notification?.body ??
         message.data['body'] ??
         'Tienes un nuevo mensaje';
-    LocalNotificationService.saveNotification(title, body);
+    LocalNotificationService.saveNotification(title, body, data: message.data);
 
     try {
       getIt<JobsBloc>().add(LoadJobs());
+
+      final event = message.data['event']?.toString();
+      if (openedFromTray) {
+        if (event == 'job_proposal_received' || event == 'public_job_created') {
+          final navBloc = getIt<NavigationBloc>();
+          navBloc.add(const TabChanged(1, targetJobTab: 'publicRequests'));
+        } else if (event == 'chat_message') {
+          final jobIdStr = message.data['job_id']?.toString();
+          if (jobIdStr != null && jobIdStr.isNotEmpty) {
+            Future.delayed(const Duration(milliseconds: 500), () {
+              final jobsState = getIt<JobsBloc>().state;
+              if (jobsState is JobsLoaded) {
+                final job = jobsState.jobs.where((j) => j.id == jobIdStr).firstOrNull;
+                if (job != null) {
+                  final navigator = getIt<NavigationBloc>().navigatorKey.currentState;
+                  if (navigator != null) {
+                    navigator.push(MaterialPageRoute(builder: (_) => ChatPage(
+                      professional: Professional(
+                        id: job.professionalId,
+                        name: job.professionalName,
+                        specialty: job.professionalSpecialty,
+                        rating: job.rating,
+                        distance: 0.0,
+                        latitude: 0.0,
+                        longitude: 0.0,
+                        imageUrl: job.professionalImageUrl,
+                        pricePerHour: job.pricePerHour,
+                        description: '',
+                      ),
+                      jobId: job.id,
+                    )));
+                  }
+                }
+              }
+            });
+          }
+        }
+      }
     } catch (_) {}
   }
 
@@ -106,7 +151,7 @@ class FirebaseNotificationHelper {
         message.notification?.body ??
         message.data['body'] ??
         'Tienes un nuevo mensaje';
-    await LocalNotificationService.saveNotification(title, body);
+    await LocalNotificationService.saveNotification(title, body, data: message.data);
   }
 
   static Future<void> uploadFcmToken() async {

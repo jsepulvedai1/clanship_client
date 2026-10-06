@@ -1,3 +1,4 @@
+import 'package:clanship_cliente/features/home/presentation/pages/notifications_page.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:clanship_cliente/core/network/firebase_notification_helper.dart';
@@ -16,9 +17,10 @@ import 'package:clanship_cliente/core/services/ugc_safety_service.dart';
 import 'package:clanship_cliente/features/home/domain/entities/professional.dart';
 import 'package:clanship_cliente/features/home/presentation/pages/professional_search_page.dart';
 import 'package:clanship_cliente/features/home/presentation/widgets/services_filter_sheet.dart';
-import 'package:clanship_cliente/features/home/presentation/widgets/home_tag_list.dart';
 import 'package:clanship_cliente/features/home/presentation/widgets/professional_card.dart';
 import 'package:clanship_cliente/features/home/presentation/widgets/address_selection_dialog.dart';
+import 'package:clanship_cliente/features/home/presentation/widgets/home_banner_carousel.dart';
+import 'package:clanship_cliente/features/home/presentation/widgets/service_categories_list.dart';
 import 'package:clanship_cliente/features/home/presentation/bloc/home_bloc.dart';
 import 'package:clanship_cliente/features/home/presentation/bloc/home_event.dart';
 import 'package:clanship_cliente/features/home/presentation/bloc/home_state.dart';
@@ -39,6 +41,9 @@ import 'package:clanship_cliente/core/theme/bloc/seasonal_theme_bloc.dart';
 import 'package:clanship_cliente/core/theme/widgets/seasonal_logo_badge.dart';
 import 'package:clanship_cliente/core/theme/widgets/seasonal_particles.dart';
 import 'package:clanship_cliente/core/theme/widgets/seasonal_top_garland.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:clanship_cliente/core/utils/tutorial_keys.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -53,17 +58,66 @@ class _HomePageState extends State<HomePage> {
   String _currentAddress = 'Calle 123, Villa Puerto, Puerto Montt';
   Position? _currentPosition;
   List<LocalNotificationItem> _localNotifications = [];
-  bool _showAllNotifications = false;
   StreamSubscription? _notificationSubscription;
   bool _isOpeningFilter = false;
   bool _isUrgencyMode = false;
+
+  List<ServiceCategory> get _categories {
+    final cached = getIt<SpecialtiesCacheService>().getSpecialties();
+    if (cached.isNotEmpty) {
+      return cached.map((c) {
+        final data = c as Map<String, dynamic>;
+        Color color = AppColors.primary;
+        if (data['color'] != null && data['color'].toString().isNotEmpty) {
+          try {
+            color = Color(
+              int.parse(data['color'].toString().replaceFirst('#', '0xFF')),
+            );
+          } catch (_) {}
+        }
+        return ServiceCategory(
+          id: data['id']?.toString() ?? '',
+          name: data['name']?.toString() ?? '',
+          iconUrl: data['iconUrl']?.toString(),
+          color: color,
+        );
+      }).toList();
+    }
+    // Fallback while loading
+    return [
+      ServiceCategory(
+        id: '1',
+        name: 'Construcción',
+        icon: Icons.handyman_rounded,
+        color: Colors.blue,
+      ),
+      ServiceCategory(
+        id: '2',
+        name: 'Gasfitería',
+        icon: Icons.water_drop_rounded,
+        color: Colors.cyan,
+      ),
+      ServiceCategory(
+        id: '3',
+        name: 'Electricidad',
+        icon: Icons.bolt_rounded,
+        color: Colors.amber,
+      ),
+    ];
+  }
+
+  late TutorialCoachMark _tutorialCoachMark;
+  List<TargetFocus> _targets = [];
+  final ScrollController _scrollController = ScrollController();
 
   VoidCallback? _blockedUsersListener;
 
   @override
   void initState() {
     super.initState();
-    getIt<SpecialtiesCacheService>().preloadOrRefresh();
+    getIt<SpecialtiesCacheService>().preloadOrRefresh().then((_) {
+      if (mounted) setState(() {});
+    });
     _checkLocationPermission();
     FirebaseNotificationHelper.uploadFcmToken();
     _loadLocalNotifications();
@@ -74,16 +128,210 @@ class _HomePageState extends State<HomePage> {
     _blockedUsersListener = () {
       if (mounted) setState(() {});
     };
-    getIt<UgcSafetyService>().blockedUserIdsNotifier.addListener(_blockedUsersListener!);
+    getIt<UgcSafetyService>().blockedUserIdsNotifier.addListener(
+      _blockedUsersListener!,
+    );
   }
 
   @override
   void dispose() {
     _notificationSubscription?.cancel();
     if (_blockedUsersListener != null) {
-      getIt<UgcSafetyService>().blockedUserIdsNotifier.removeListener(_blockedUsersListener!);
+      getIt<UgcSafetyService>().blockedUserIdsNotifier.removeListener(
+        _blockedUsersListener!,
+      );
     }
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _checkAndShowTutorial() async {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is! AuthAuthenticated) return;
+
+    final userId = authState.user.id;
+    final prefs = await SharedPreferences.getInstance();
+    final prefsKey = 'hasSeenHomeTutorial_$userId';
+    final hasSeenTutorial = prefs.getBool(prefsKey) ?? false;
+
+    if (!hasSeenTutorial && mounted) {
+      _initTargets();
+      prefs.setBool(prefsKey, true);
+      _showTutorial();
+    }
+  }
+
+  void _showTutorial() {
+    _tutorialCoachMark = TutorialCoachMark(
+      targets: _targets,
+      colorShadow: const Color(0xFF1A1A1A),
+      textSkip: "Omitir",
+      paddingFocus: 10,
+      opacityShadow: 0.85,
+      onFinish: () => debugPrint("Tutorial completado"),
+      onSkip: () => true,
+      onClickTarget: (target) {
+        if (target.identify == "navInicioKey") {
+          _scrollToBottom();
+        }
+      },
+      onClickOverlay: (target) {
+        if (target.identify == "navInicioKey") {
+          _scrollToBottom();
+        }
+      },
+    );
+
+    _tutorialCoachMark.show(context: context);
+  }
+
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  void _initTargets() {
+    _targets = [
+      TargetFocus(
+        identify: "searchKey",
+        keyTarget: TutorialKeys.homeSearchKey,
+        shape: ShapeLightFocus.RRect,
+        radius: 16,
+        alignSkip: Alignment.bottomRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) => _buildTooltipContent(
+              title: "Encuentra Maestros",
+              description:
+                  "Usa el buscador para encontrar exactamente el servicio que necesitas.",
+            ),
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "categoriesKey",
+        keyTarget: TutorialKeys.homeCategoriesKey,
+        shape: ShapeLightFocus.RRect,
+        radius: 16,
+        alignSkip: Alignment.bottomRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) => _buildTooltipContent(
+              title: "Categorías",
+              description:
+                  "Explora las diferentes categorías de servicios disponibles.",
+            ),
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "navInicioKey",
+        keyTarget: TutorialKeys.navInicioKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) => _buildTooltipContent(
+              title: "Inicio",
+              description:
+                  "Vuelve al menú principal para buscar más servicios.",
+            ),
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "navJobsKey",
+        keyTarget: TutorialKeys.navJobsKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) => _buildTooltipContent(
+              title: "Tus Trabajos",
+              description:
+                  "Aquí puedes ver el estado de todas tus solicitudes.",
+            ),
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "navExploreKey",
+        keyTarget: TutorialKeys.navExploreKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) => _buildTooltipContent(
+              title: "Explorar Mapa",
+              description:
+                  "Descubre maestros cercanos a tu ubicación en el mapa.",
+            ),
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "navFavoritesKey",
+        keyTarget: TutorialKeys.navFavoritesKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) => _buildTooltipContent(
+              title: "Favoritos",
+              description:
+                  "Guarda a los mejores profesionales para contactarlos más tarde.",
+            ),
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "navSettingsKey",
+        keyTarget: TutorialKeys.navSettingsKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) => _buildTooltipContent(
+              title: "Ajustes",
+              description:
+                  "Administra tu cuenta y direcciones. ¡Puedes repetir el tutorial aquí!",
+            ),
+          ),
+        ],
+      ),
+    ];
+  }
+
+  Widget _buildTooltipContent({
+    required String title,
+    required String description,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          description,
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+        ),
+      ],
+    );
   }
 
   Future<void> _loadLocalNotifications() async {
@@ -331,7 +579,9 @@ class _HomePageState extends State<HomePage> {
     final state = context.watch<HomeBloc>().state;
     if (state is HomeLoaded) {
       final blockedIds = getIt<UgcSafetyService>().getBlockedUserIds();
-      return state.professionals.where((p) => !blockedIds.contains(p.id)).toList();
+      return state.professionals
+          .where((p) => !blockedIds.contains(p.id))
+          .toList();
     }
     return []; // Return empty or show loading if preferred
   }
@@ -355,8 +605,12 @@ class _HomePageState extends State<HomePage> {
       if (tagOffset >= 0 && tagOffset < featuredTags.length) {
         final targetTagName = featuredTags[tagOffset].name.toLowerCase();
         list = list.where((p) {
-          final matchesSpecialty = p.specialty.toLowerCase().contains(targetTagName);
-          final matchesTags = p.tags.any((t) => t.toLowerCase().contains(targetTagName));
+          final matchesSpecialty = p.specialty.toLowerCase().contains(
+            targetTagName,
+          );
+          final matchesTags = p.tags.any(
+            (t) => t.toLowerCase().contains(targetTagName),
+          );
           return matchesSpecialty || matchesTags;
         }).toList();
       }
@@ -368,9 +622,7 @@ class _HomePageState extends State<HomePage> {
     if (_localNotifications.isEmpty) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
-    final displayedCount = _showAllNotifications
-        ? _localNotifications.length
-        : (_localNotifications.length > 3 ? 3 : _localNotifications.length);
+    final count = _localNotifications.length;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
@@ -402,236 +654,141 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
           const SizedBox(height: 8),
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: displayedCount,
-            itemBuilder: (context, index) {
-              final notif = _localNotifications[index];
-              return Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    width: 1,
+          SizedBox(
+            height: 88, // Total height to account for stack shifts
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Card 3 (Bottom)
+                if (count > 2)
+                  Positioned(
+                    left: 16,
+                    right: 16,
+                    top: 16,
+                    child: Opacity(
+                      opacity: 0.4,
+                      child: Container(
+                        height: 72,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                // Card 2 (Middle)
+                if (count > 1)
+                  Positioned(
+                    left: 8,
+                    right: 8,
+                    top: 8,
+                    child: Opacity(
+                      opacity: 0.7,
+                      child: Container(
+                        height: 72,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                // Card 1 (Top/Interactive)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        width: 1,
+                      ),
+                    ),
+                    child: ListTile(
+                      onTap: () {
+                        _showLocalNotificationsBottomSheet();
+                      },
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 0,
+                      ),
+                      leading: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: AppColors.primary.withValues(
+                          alpha: 0.1,
+                        ),
+                        child: Icon(
+                          Icons.notifications_active_rounded,
+                          color: AppColors.primary,
+                          size: 18,
+                        ),
+                      ),
+                      title: Text(
+                        _localNotifications[0].title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      subtitle: Text(
+                        _localNotifications[0].body,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.7,
+                          ),
+                          fontSize: 11,
+                        ),
+                      ),
+                      trailing: IconButton(
+                        icon: Icon(
+                          Icons.close_rounded,
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.4,
+                          ),
+                          size: 18,
+                        ),
+                        onPressed: () async {
+                          await LocalNotificationService.deleteNotification(
+                            _localNotifications[0].id,
+                          );
+                          _loadLocalNotifications();
+                        },
+                      ),
+                    ),
                   ),
                 ),
-                child: ListTile(
-                  onTap: () {
-                    context.read<NavigationBloc>().add(const TabChanged(1));
-                  },
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 4,
-                  ),
-                  leading: CircleAvatar(
-                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                    child: Icon(
-                      Icons.notifications_active_rounded,
-                      color: AppColors.primary,
-                      size: 20,
-                    ),
-                  ),
-                  title: Text(
-                    notif.title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                  subtitle: Text(
-                    notif.body,
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                      fontSize: 12,
-                    ),
-                  ),
-                  trailing: IconButton(
-                    icon: Icon(
-                      Icons.close_rounded,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                      size: 20,
-                    ),
-                    onPressed: () async {
-                      await LocalNotificationService.deleteNotification(
-                        notif.id,
-                      );
-                      _loadLocalNotifications();
-                    },
-                  ),
-                ),
-              );
-            },
-          ),
-          if (_localNotifications.length > 3)
-            Align(
-              alignment: Alignment.center,
-              child: TextButton(
-                onPressed: () {
-                  setState(() {
-                    _showAllNotifications = !_showAllNotifications;
-                  });
-                },
-                child: Text(
-                  _showAllNotifications
-                      ? 'Ver menos'
-                      : 'Ver todas (${_localNotifications.length})',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
+              ],
             ),
+          ),
         ],
       ),
     );
   }
 
+
   void _showLocalNotificationsBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  topRight: Radius.circular(24),
-                ),
-              ),
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Notificaciones',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () async {
-                          await LocalNotificationService.clearAll();
-                          await _loadLocalNotifications();
-                          setSheetState(() {});
-                        },
-                        child: Text(
-                          'Limpiar todo',
-                          style: TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  if (_localNotifications.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 40),
-                      child: Center(
-                        child: Text(
-                          'No tienes nuevas notificaciones',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ),
-                    )
-                  else
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxHeight: MediaQuery.of(context).size.height * 0.5,
-                      ),
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: _localNotifications.length,
-                        itemBuilder: (context, index) {
-                          final notif = _localNotifications[index];
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.05),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: AppColors.primary.withValues(alpha: 0.1),
-                                width: 1,
-                              ),
-                            ),
-                            child: ListTile(
-                              onTap: () {
-                                Navigator.of(context).pop();
-                                context.read<NavigationBloc>().add(
-                                  const TabChanged(1),
-                                );
-                              },
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 4,
-                              ),
-                              leading: CircleAvatar(
-                                backgroundColor: AppColors.primary.withValues(
-                                  alpha: 0.1,
-                                ),
-                                child: Icon(
-                                  Icons.notifications_active_rounded,
-                                  color: AppColors.primary,
-                                  size: 20,
-                                ),
-                              ),
-                              title: Text(
-                                notif.title,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              subtitle: Text(
-                                notif.body,
-                                style: TextStyle(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface.withValues(alpha: 0.7),
-                                  fontSize: 12,
-                                ),
-                              ),
-                              trailing: IconButton(
-                                icon: Icon(
-                                  Icons.close_rounded,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface.withValues(alpha: 0.4),
-                                  size: 20,
-                                ),
-                                onPressed: () async {
-                                  await LocalNotificationService.deleteNotification(
-                                    notif.id,
-                                  );
-                                  await _loadLocalNotifications();
-                                  setSheetState(() {});
-                                },
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const NotificationsPage()),
+    ).then((_) {
+      _loadLocalNotifications();
+    });
   }
 
   @override
@@ -639,9 +796,6 @@ class _HomePageState extends State<HomePage> {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final seasonalState = context.watch<SeasonalThemeBloc>().state;
-
-    final featuredTagNames = seasonalState.campaign?.featuredTags.map((t) => t.name).toList() ?? [];
-    final tags = [l10n.homeTagNear, l10n.homeTagTopRated, ...featuredTagNames];
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -654,10 +808,7 @@ class _HomePageState extends State<HomePage> {
                 bottom: false,
                 child: Align(
                   alignment: Alignment.topCenter,
-                  child: SeasonalTopGarland(
-                    height: 28,
-                    slot: GarlandSlot.top,
-                  ),
+                  child: SeasonalTopGarland(height: 28, slot: GarlandSlot.top),
                 ),
               )
             : null,
@@ -669,7 +820,8 @@ class _HomePageState extends State<HomePage> {
             }
 
             final greetingPrefix = seasonalState.campaign?.copy.greetingPrefix;
-            final displayGreeting = (greetingPrefix != null && greetingPrefix.isNotEmpty)
+            final displayGreeting =
+                (greetingPrefix != null && greetingPrefix.isNotEmpty)
                 ? '$greetingPrefix $name'
                 : l10n.homeGreeting(name);
 
@@ -818,10 +970,11 @@ class _HomePageState extends State<HomePage> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: (seasonalState.hasActiveCampaign
-                                  ? seasonalState.accentColor
-                                  : AppColors.primary)
-                              .withValues(alpha: 0.2),
+                          color:
+                              (seasonalState.hasActiveCampaign
+                                      ? seasonalState.accentColor
+                                      : AppColors.primary)
+                                  .withValues(alpha: 0.2),
                           width: 2,
                         ),
                       ),
@@ -859,17 +1012,39 @@ class _HomePageState extends State<HomePage> {
           },
         ),
       ),
-      body: BlocListener<AuthBloc, AuthState>(
-        listener: (context, state) {
-          if (state is AuthAuthenticated) {
-            final user = state.user;
-            if (user.address != null && user.address!.isNotEmpty) {
-              setState(() {
-                _currentAddress = user.address!;
-              });
-            }
-          }
-        },
+      body: MultiBlocListener(
+        listeners: [
+          BlocListener<AuthBloc, AuthState>(
+            listener: (context, state) {
+              if (state is AuthAuthenticated) {
+                final user = state.user;
+                if (user.address != null && user.address!.isNotEmpty) {
+                  setState(() {
+                    _currentAddress = user.address!;
+                  });
+                }
+              }
+            },
+          ),
+          BlocListener<NavigationBloc, int>(
+            listener: (context, currentIndex) {
+              if (currentIndex == 0) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _checkAndShowTutorial();
+                });
+              }
+            },
+          ),
+          BlocListener<HomeBloc, HomeState>(
+            listener: (context, state) {
+              if (state is HomeLoaded) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _checkAndShowTutorial();
+                });
+              }
+            },
+          ),
+        ],
         child: RefreshIndicator(
           onRefresh: () async {
             final authState = context.read<AuthBloc>().state;
@@ -904,9 +1079,10 @@ class _HomePageState extends State<HomePage> {
             }
           },
           child: SingleChildScrollView(
+            controller: _scrollController,
             physics:
                 const AlwaysScrollableScrollPhysics(), // Important for RefreshIndicator
-            padding: const EdgeInsets.symmetric(vertical: 0),
+            padding: const EdgeInsets.only(bottom: 120),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -922,6 +1098,7 @@ class _HomePageState extends State<HomePage> {
                       const SizedBox(height: 16),
                       // Standalone Search Bar
                       GestureDetector(
+                        key: TutorialKeys.homeSearchKey,
                         onTap: () {
                           final authState = context.read<AuthBloc>().state;
                           String? savedAddress;
@@ -952,8 +1129,8 @@ class _HomePageState extends State<HomePage> {
                               color: _isUrgencyMode
                                   ? AppColors.urgency
                                   : (seasonalState.hasActiveCampaign
-                                      ? seasonalState.searchBarBorderColor
-                                      : AppColors.primary),
+                                        ? seasonalState.searchBarBorderColor
+                                        : AppColors.primary),
                               width: 2,
                             ),
                             boxShadow: [
@@ -961,8 +1138,11 @@ class _HomePageState extends State<HomePage> {
                                 color: _isUrgencyMode
                                     ? AppColors.urgency.withValues(alpha: 0.2)
                                     : (seasonalState.hasActiveCampaign
-                                        ? seasonalState.searchBarBorderColor.withValues(alpha: 0.15)
-                                        : theme.shadowColor.withValues(alpha: 0.05)),
+                                          ? seasonalState.searchBarBorderColor
+                                                .withValues(alpha: 0.15)
+                                          : theme.shadowColor.withValues(
+                                              alpha: 0.05,
+                                            )),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
@@ -977,8 +1157,8 @@ class _HomePageState extends State<HomePage> {
                                 color: _isUrgencyMode
                                     ? AppColors.urgency
                                     : (seasonalState.hasActiveCampaign
-                                        ? seasonalState.searchBarBorderColor
-                                        : AppColors.primary),
+                                          ? seasonalState.searchBarBorderColor
+                                          : AppColors.primary),
                                 size: 26,
                               ),
                               const SizedBox(width: 8),
@@ -998,7 +1178,9 @@ class _HomePageState extends State<HomePage> {
                               Container(
                                 height: 24,
                                 width: 1,
-                                color: theme.dividerColor.withValues(alpha: 0.2),
+                                color: theme.dividerColor.withValues(
+                                  alpha: 0.2,
+                                ),
                               ),
                               const SizedBox(width: 6),
                               GestureDetector(
@@ -1049,7 +1231,73 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 14),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const HomeBannerCarousel(),
+                const SizedBox(height: 8),
+                ServiceCategoriesList(
+                  categories: _categories,
+                  onCategorySelected: (cat) {
+                    final specialties = getIt<SpecialtiesCacheService>()
+                        .getSpecialties();
+                    final selectedSpec = specialties.firstWhere(
+                      (s) => s['id']?.toString() == cat.id,
+                      orElse: () => null,
+                    );
+
+                    final Set<int> tagIds = {};
+                    final Set<int> subtagIds = {};
+
+                    if (selectedSpec != null) {
+                      final tags = selectedSpec['tags'] as List<dynamic>? ?? [];
+                      for (final tag in tags) {
+                        if (tag['id'] != null) {
+                          tagIds.add(int.parse(tag['id'].toString()));
+                        }
+                        final subtags = tag['subtags'] as List<dynamic>? ?? [];
+                        for (final subtag in subtags) {
+                          if (subtag['id'] != null) {
+                            subtagIds.add(int.parse(subtag['id'].toString()));
+                          }
+                        }
+                      }
+                    }
+
+                    final authState = context.read<AuthBloc>().state;
+                    String? savedAddress;
+                    double? savedLat;
+                    double? savedLng;
+                    if (authState is AuthAuthenticated) {
+                      savedAddress = authState.user.address;
+                      savedLat = authState.user.latitude;
+                      savedLng = authState.user.longitude;
+                    }
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ProfessionalSearchPage(
+                          initialProfessionals: _currentProfessionals,
+                          latitude: savedLat ?? _currentPosition?.latitude,
+                          longitude: savedLng ?? _currentPosition?.longitude,
+                          currentAddress: savedAddress ?? _currentAddress,
+                          initialSelectedTagIds: tagIds,
+                          initialSelectedSubtagIds: subtagIds,
+                        ),
+                      ),
+                    );
+                  },
+                  onViewAll: () {
+                    _openFilterThenSearch(context);
+                  },
+                ),
+                /* const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    children: [
                       Container(
                         width: double.infinity,
                         decoration: BoxDecoration(
@@ -1229,7 +1477,7 @@ class _HomePageState extends State<HomePage> {
                                               );
                                               if (res == true && mounted) {
                                                 context.read<NavigationBloc>().add(
-                                                  const TabChanged(1),
+                                                  const TabChanged(1, targetJobTab: 'publicRequests'),
                                                 );
                                               }
                                             },
@@ -1294,44 +1542,79 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ],
                   ),
-                ),
+                ), */
                 _buildNotificationsSection(),
-                // Tag Selection (Chips)
-                HomeTagList(
-                  tags: tags,
-                  selectedIndex: _selectedTagIndex,
-                  onSelected: (index) {
-                    setState(() {
-                      _selectedTagIndex = index;
-                    });
-                  },
-                  onViewAll: () {
-                    // Future Implementation for All view
-                  },
-                ),
-                const SizedBox(height: 16),
-                // Normal Grid View
+                const SizedBox(height: 24),
+                // Título Trabajadores destacados
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: BlocBuilder<HomeBloc, HomeState>(
-                    builder: (context, state) {
-                      if (state is HomeLoading) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      if (state is HomeFailure) {
-                        return Center(
-                          child: Text('Error: ${state.errorMessage}'),
-                        );
-                      }
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Trabajadores destacados',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ProfessionalSearchPage(
+                                initialProfessionals: _filteredProfessionals,
+                                latitude: _currentPosition?.latitude,
+                                longitude: _currentPosition?.longitude,
+                                currentAddress: _currentAddress,
+                              ),
+                            ),
+                          );
+                        },
+                        child: Row(
+                          children: [
+                            Text(
+                              'Ver todos',
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.arrow_forward_rounded,
+                              color: AppColors.primary,
+                              size: 16,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Horizontal List View
+                BlocBuilder<HomeBloc, HomeState>(
+                  builder: (context, state) {
+                    if (state is HomeLoading) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (state is HomeFailure) {
+                      return Center(
+                        child: Text('Error: ${state.errorMessage}'),
+                      );
+                    }
 
-                      final pros = _filteredProfessionals;
-                      if (pros.isEmpty) {
-                        return const Center(
-                          child: Text('No se encontraron profesionales cerca.'),
-                        );
-                      }
+                    final pros = _filteredProfessionals;
+                    if (pros.isEmpty) {
+                      return const Center(
+                        child: Text('No se encontraron profesionales cerca.'),
+                      );
+                    }
 
-                      return GridView.builder(
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: GridView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         gridDelegate:
@@ -1345,15 +1628,40 @@ class _HomePageState extends State<HomePage> {
                         itemBuilder: (context, index) {
                           return ProfessionalCard(professional: pros[index]);
                         },
-                      );
-                    },
-                  ),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 32),
 
                 const SizedBox(height: 24),
               ],
             ),
+          ),
+        ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: AppColors.primary,
+        elevation: 4,
+        onPressed: () async {
+          final res = await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const CreatePublicJobPage()),
+          );
+          if (res == true && mounted) {
+            context.read<NavigationBloc>().add(
+              const TabChanged(1, targetJobTab: 'publicRequests'),
+            );
+          }
+        },
+        icon: const Icon(Icons.add_rounded, color: Colors.white, size: 22),
+        label: const Text(
+          'Cotizar',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+            fontSize: 13,
           ),
         ),
       ),

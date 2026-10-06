@@ -22,6 +22,9 @@ import 'package:clanship_cliente/features/auth/data/models/user_model.dart';
 import 'package:clanship_cliente/features/auth/data/mappers/user_mapper.dart';
 import 'package:clanship_cliente/features/auth/presentation/widgets/terms_and_eula_dialog.dart';
 import 'package:clanship_cliente/core/services/ugc_safety_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:clanship_cliente/core/navigation/bloc/navigation_bloc.dart';
+import 'package:clanship_cliente/core/navigation/bloc/navigation_event.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -270,20 +273,45 @@ class _SettingsPageState extends State<SettingsPage> {
                           l10n,
                         ),
                       ),
+                      // _SettingsItem(
+                      //   icon: Icons.dark_mode_outlined,
+                      //   title: l10n.settingsDarkMode,
+                      //   trailing: Switch(
+                      //     value: theme.brightness == Brightness.dark,
+                      //     onChanged: (val) {
+                      //       context.read<SettingsBloc>().add(
+                      //         UpdateTheme(
+                      //           val ? ThemeMode.dark : ThemeMode.light,
+                      //         ),
+                      //       );
+                      //     },
+                      //     activeColor: AppColors.primary,
+                      //   ),
+                      // ),
                       _SettingsItem(
-                        icon: Icons.dark_mode_outlined,
-                        title: l10n.settingsDarkMode,
-                        trailing: Switch(
-                          value: theme.brightness == Brightness.dark,
-                          onChanged: (val) {
-                            context.read<SettingsBloc>().add(
-                              UpdateTheme(
-                                val ? ThemeMode.dark : ThemeMode.light,
+                        icon: Icons.replay_circle_filled_outlined,
+                        title: "Repetir Tutorial",
+
+                        onTap: () async {
+                          final authState = context.read<AuthBloc>().state;
+                          if (authState is! AuthAuthenticated) return;
+
+                          final userId = authState.user.id;
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.remove('hasSeenHomeTutorial_$userId');
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Iniciando tutorial...'),
+                                backgroundColor: Colors.green,
                               ),
                             );
-                          },
-                          activeColor: AppColors.primary,
-                        ),
+                            // Navigate back to the home tab to trigger tutorial listener
+                            context.read<NavigationBloc>().add(
+                              const TabChanged(0),
+                            );
+                          }
+                        },
                       ),
                     ],
                   ),

@@ -2,6 +2,7 @@ import 'package:clanship_cliente/core/theme/app_colors.dart';
 import 'package:clanship_cliente/features/home/domain/entities/professional.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'document_viewer_page.dart';
 
 class ProfessionalDocumentsPage extends StatelessWidget {
   final Professional professional;
@@ -95,7 +96,7 @@ class ProfessionalDocumentsPage extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: () => _launchURL(context, doc.fileUrl),
+          onTap: () => _launchURL(context, doc.fileUrl, doc.name, isPdf),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -219,29 +220,21 @@ class ProfessionalDocumentsPage extends StatelessWidget {
     }
   }
 
-  Future<void> _launchURL(BuildContext context, String urlString) async {
+  void _launchURL(BuildContext context, String urlString, String documentName, bool isPdf) {
     if (urlString.isEmpty) return;
     String processedUrl = urlString.trim();
     if (!processedUrl.startsWith('http://') && !processedUrl.startsWith('https://')) {
       processedUrl = 'https://$processedUrl';
     }
-    final Uri url = Uri.parse(processedUrl);
-    try {
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
-      } else {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('No se pudo abrir el documento: $urlString')),
-          );
-        }
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('No se pudo abrir el documento. Por favor, intenta de nuevo.')),
-        );
-      }
-    }
+    
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => DocumentViewerPage(
+          url: processedUrl,
+          title: documentName,
+          isPdf: isPdf,
+        ),
+      ),
+    );
   }
 }

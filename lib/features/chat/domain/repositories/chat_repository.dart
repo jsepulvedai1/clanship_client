@@ -4,8 +4,14 @@ class ChatRoomInfo {
   final String roomId;
   final String? jobId;
   final String? jobStatus;
+  final bool hasBeenReviewed;
 
-  ChatRoomInfo({required this.roomId, this.jobId, this.jobStatus});
+  ChatRoomInfo({
+    required this.roomId,
+    this.jobId,
+    this.jobStatus,
+    this.hasBeenReviewed = false,
+  });
 }
 
 abstract class ChatRepository {

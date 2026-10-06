@@ -53,6 +53,7 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
   final Set<int> _selectedTagIds = {};
   final Set<int> _selectedSubtagIds = {};
   List<dynamic> _specialties = [];
+  bool _isFiltersExpanded = false;
 
   Future<void> _fetchSpecialties() async {
     try {
@@ -549,10 +550,29 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    'Resumen de selección',
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      fontWeight: FontWeight.bold,
+                                  GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        _isFiltersExpanded = !_isFiltersExpanded;
+                                      });
+                                    },
+                                    child: Row(
+                                      children: [
+                                        Text(
+                                          'Resumen de selección',
+                                          style: theme.textTheme.bodyMedium?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Icon(
+                                          _isFiltersExpanded 
+                                              ? Icons.keyboard_arrow_up_rounded 
+                                              : Icons.keyboard_arrow_down_rounded,
+                                          size: 20,
+                                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                   GestureDetector(
@@ -574,69 +594,71 @@ class _ProfessionalSearchPageState extends State<ProfessionalSearchPage> {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: _resolveSelectedFilterPaths().map((
-                                  path,
-                                ) {
-                                  return Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primary.withValues(
-                                        alpha: 0.08,
+                              if (_isFiltersExpanded) ...[
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: _resolveSelectedFilterPaths().map((
+                                    path,
+                                  ) {
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
                                       ),
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(
+                                      decoration: BoxDecoration(
                                         color: AppColors.primary.withValues(
-                                          alpha: 0.2,
+                                          alpha: 0.08,
+                                        ),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(
+                                          color: AppColors.primary.withValues(
+                                            alpha: 0.2,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Flexible(
-                                          child: Text(
-                                            path['text'] as String,
-                                            style: TextStyle(
-                                              color: AppColors.primary,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              path['text'] as String,
+                                              style: TextStyle(
+                                                color: AppColors.primary,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
                                             ),
-                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        GestureDetector(
-                                          onTap: () {
-                                            setState(() {
-                                              final id = path['id'] as int;
-                                              if (path['type'] == 'tag') {
-                                                _selectedTagIds.remove(id);
-                                              } else {
-                                                _selectedSubtagIds.remove(id);
-                                              }
-                                            });
-                                            _performSearch(
-                                              _searchController.text,
-                                            );
-                                          },
-                                          child: Icon(
-                                            Icons.close_rounded,
-                                            size: 14,
-                                            color: AppColors.primary,
+                                          const SizedBox(width: 6),
+                                          GestureDetector(
+                                            onTap: () {
+                                              setState(() {
+                                                final id = path['id'] as int;
+                                                if (path['type'] == 'tag') {
+                                                  _selectedTagIds.remove(id);
+                                                } else {
+                                                  _selectedSubtagIds.remove(id);
+                                                }
+                                              });
+                                              _performSearch(
+                                                _searchController.text,
+                                              );
+                                            },
+                                            child: Icon(
+                                              Icons.close_rounded,
+                                              size: 14,
+                                              color: AppColors.primary,
+                                            ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
                             ],
                           ),
                         ),

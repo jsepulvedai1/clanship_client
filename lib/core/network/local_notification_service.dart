@@ -7,12 +7,14 @@ class LocalNotificationItem {
   final String title;
   final String body;
   final DateTime timestamp;
+  final Map<String, dynamic>? data;
 
   LocalNotificationItem({
     required this.id,
     required this.title,
     required this.body,
     required this.timestamp,
+    this.data,
   });
 
   Map<String, dynamic> toJson() => {
@@ -20,6 +22,7 @@ class LocalNotificationItem {
         'title': title,
         'body': body,
         'timestamp': timestamp.toIso8601String(),
+        'data': data,
       };
 
   factory LocalNotificationItem.fromJson(Map<String, dynamic> json) =>
@@ -28,6 +31,7 @@ class LocalNotificationItem {
         title: json['title'] as String,
         body: json['body'] as String,
         timestamp: DateTime.parse(json['timestamp'] as String),
+        data: json['data'] as Map<String, dynamic>?,
       );
 }
 
@@ -52,7 +56,7 @@ class LocalNotificationService {
     }
   }
 
-  static Future<void> saveNotification(String title, String body) async {
+  static Future<void> saveNotification(String title, String body, {Map<String, dynamic>? data}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final notifications = await getNotifications();
@@ -69,6 +73,7 @@ class LocalNotificationService {
         title: title,
         body: body,
         timestamp: now,
+        data: data,
       );
       notifications.insert(0, newItem);
       // Keep only last 50 notifications

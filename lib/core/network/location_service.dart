@@ -47,8 +47,8 @@ class LocationService {
     } catch (_) {}
 
     return await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.low,
-    ).timeout(const Duration(seconds: 5), onTimeout: () {
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+    ).timeout(const Duration(seconds: 15), onTimeout: () {
       throw 'Location timeout';
     });
   }

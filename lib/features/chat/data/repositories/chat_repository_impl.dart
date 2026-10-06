@@ -28,6 +28,7 @@ class ChatRepositoryImpl implements ChatRepository {
             job {
               id
               status
+              hasBeenReviewed
             }
           }
         }
@@ -58,11 +59,13 @@ class ChatRepositoryImpl implements ChatRepository {
     final jobData = roomData['job'];
     final roomJobId = jobData?['id']?.toString();
     final roomJobStatus = jobData?['status']?.toString();
+    final roomHasBeenReviewed = jobData?['hasBeenReviewed'] ?? false;
 
     return ChatRoomInfo(
       roomId: roomId,
       jobId: roomJobId,
       jobStatus: roomJobStatus,
+      hasBeenReviewed: roomHasBeenReviewed,
     );
   }
 

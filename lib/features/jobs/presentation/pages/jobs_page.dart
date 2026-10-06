@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'package:clanship_cliente/core/di/injection.dart';
+import 'package:clanship_cliente/core/navigation/bloc/navigation_bloc.dart';
+import 'package:clanship_cliente/core/network/jobs_websocket_service.dart';
 import 'package:clanship_cliente/core/theme/app_colors.dart';
 import 'package:clanship_cliente/features/jobs/domain/entities/job_match.dart';
 import 'package:clanship_cliente/features/jobs/domain/repositories/job_repository.dart';
@@ -32,11 +35,36 @@ class _JobsPageState extends State<JobsPage> {
   JobStatus? _specificStatusFilter; // null means all
   final Set<String> _promptedJobRatingIds = {};
   int _publicRequestsCount = 0;
+  int _publicRequestsRefreshCounter = 0;
+  StreamSubscription? _socketSub;
 
   @override
   void initState() {
     super.initState();
+    final navBloc = getIt<NavigationBloc>();
+    if (navBloc.targetJobTab == 'publicRequests') {
+      navBloc.targetJobTab = null;
+      _selectedCategory = JobFilterCategory.publicRequests;
+    }
     _fetchPublicRequestsCount();
+
+    final socketService = getIt<JobsWebSocketService>();
+    _socketSub = socketService.stream.listen((data) {
+      if (mounted) {
+        _fetchPublicRequestsCount();
+        if (_selectedCategory == JobFilterCategory.publicRequests) {
+          setState(() {
+            _publicRequestsRefreshCounter++;
+          });
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _socketSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _fetchPublicRequestsCount() async {
@@ -44,8 +72,11 @@ class _JobsPageState extends State<JobsPage> {
       final repo = getIt<JobRepository>();
       final list = await repo.getMyPublicJobRequests();
       if (mounted) {
+        final openCount = list
+            .where((r) => (r['status']?.toString() ?? 'OPEN') == 'OPEN')
+            .length;
         setState(() {
-          _publicRequestsCount = list.length;
+          _publicRequestsCount = openCount;
         });
       }
     } catch (_) {}
@@ -56,95 +87,89 @@ class _JobsPageState extends State<JobsPage> {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 16),
+    return BlocListener<NavigationBloc, int>(
+      listener: (context, currentIndex) {
+        if (currentIndex == 1) {
+          final navBloc = context.read<NavigationBloc>();
+          if (navBloc.targetJobTab == 'publicRequests') {
+            navBloc.targetJobTab = null;
+            setState(() {
+              _selectedCategory = JobFilterCategory.publicRequests;
+              _publicRequestsRefreshCounter++;
+            });
+            _fetchPublicRequestsCount();
+          }
+        }
+      },
+      child: Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        body: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 16),
 
-            // Header Section: "Gestión y Seguimiento", "Mis Solicitudes" + Help Icon
-            _buildHeader(theme),
-            const SizedBox(height: 18),
+              // Header Section: "Gestión y Seguimiento", "Mis Solicitudes" + Help Icon
+              _buildHeader(theme),
+              const SizedBox(height: 18),
 
-            // 2 Primary Tabs (TODAS y ABIERTAS) + Status Filter Chips
-            BlocBuilder<JobsBloc, JobsState>(
-              builder: (context, state) {
-                final allJobs = state is JobsLoaded ? state.jobs : <JobMatch>[];
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildPrimaryFilterPills(theme, allJobs),
-                    if (_selectedCategory == JobFilterCategory.all) ...[
-                      const SizedBox(height: 12),
-                      _buildSpecificStatusChips(theme, allJobs),
-                    ],
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 16),
-
-            // Content List / View
-            Expanded(
-              child: BlocConsumer<JobsBloc, JobsState>(
-                listener: (context, state) {
-                  if (state is JobsLoaded) {
-                    _checkPendingRatings(state.jobs);
-                  }
-                },
+              // 2 Primary Tabs (TODAS y ABIERTAS) + Status Filter Chips
+              BlocBuilder<JobsBloc, JobsState>(
                 builder: (context, state) {
-                  if (_selectedCategory == JobFilterCategory.publicRequests) {
-                    return const MyPublicRequestsWidget();
-                  }
-
-                  if (state is JobsLoading) {
-                    return Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primary,
-                      ),
-                    );
-                  } else if (state is JobsLoaded) {
-                    final filteredJobs = _filterAndSortJobs(state.jobs);
-
-                    if (filteredJobs.isEmpty) {
-                      return _buildEmptyState(context, l10n, theme);
-                    }
-
-                    return _buildTimelineList(context, filteredJobs);
-                  } else if (state is JobsError) {
-                    return _buildErrorState(context, state.message, theme);
-                  }
-
-                  return const SizedBox.shrink();
+                  final allJobs = state is JobsLoaded
+                      ? state.jobs
+                      : <JobMatch>[];
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [_buildPrimaryFilterPills(theme, allJobs)],
+                  );
                 },
               ),
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.primary,
-        elevation: 4,
-        onPressed: () async {
-          final res = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const CreatePublicJobPage()),
-          );
-          if (res == true && mounted) {
-            _fetchPublicRequestsCount();
-            setState(() => _selectedCategory = JobFilterCategory.publicRequests);
-          }
-        },
-        icon: const Icon(Icons.add_rounded, color: Colors.white, size: 22),
-        label: const Text(
-          'NUEVA SOLICITUD',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
-            fontSize: 13,
+              const SizedBox(height: 16),
+
+              // Content List / View
+              Expanded(
+                child: BlocConsumer<JobsBloc, JobsState>(
+                  listener: (context, state) {
+                    if (state is JobsLoaded) {
+                      _checkPendingRatings(state.jobs);
+                    }
+                  },
+                  builder: (context, state) {
+                    if (_selectedCategory == JobFilterCategory.publicRequests) {
+                      return MyPublicRequestsWidget(
+                        key: ValueKey(
+                          'public_requests_$_publicRequestsRefreshCounter',
+                        ),
+                        onRequestsChanged: () {
+                          _fetchPublicRequestsCount();
+                        },
+                      );
+                    }
+
+                    if (state is JobsLoading) {
+                      return Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primary,
+                        ),
+                      );
+                    } else if (state is JobsLoaded) {
+                      final filteredJobs = _filterAndSortJobs(state.jobs);
+
+                      if (filteredJobs.isEmpty) {
+                        return _buildEmptyState(context, l10n, theme);
+                      }
+
+                      return _buildTimelineList(context, filteredJobs);
+                    } else if (state is JobsError) {
+                      return _buildErrorState(context, state.message, theme);
+                    }
+
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -159,7 +184,7 @@ class _JobsPageState extends State<JobsPage> {
         children: [
           Expanded(
             child: Text(
-              'Mis Solicitudes',
+              'Mis Requerimientos',
               style: theme.textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: theme.colorScheme.onSurface,
@@ -203,12 +228,10 @@ class _JobsPageState extends State<JobsPage> {
       child: Row(
         children: [
           Expanded(
-            child: _buildPillButton(
-              title: allCount > 0 ? 'TODAS ($allCount)' : 'TODAS',
-              icon: Icons.list_alt_rounded,
+            child: _buildTabButton(
+              title: 'TRABAJOS',
+              count: allCount,
               isSelected: _selectedCategory == JobFilterCategory.all,
-              activeBgColor: AppColors.primary,
-              activeTextColor: Colors.white,
               onTap: () {
                 setState(() {
                   _selectedCategory = JobFilterCategory.all;
@@ -218,21 +241,19 @@ class _JobsPageState extends State<JobsPage> {
               theme: theme,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           Expanded(
-            child: _buildPillButton(
-              title: _publicRequestsCount > 0
-                  ? 'ABIERTAS ($_publicRequestsCount)'
-                  : 'ABIERTAS',
-              icon: Icons.campaign_rounded,
+            child: _buildTabButton(
+              title: 'COTIZACIONES',
+              count: _publicRequestsCount,
               isSelected: _selectedCategory == JobFilterCategory.publicRequests,
-              activeBgColor: const Color(0xFFE86A38),
-              activeTextColor: Colors.white,
               onTap: () {
                 setState(() {
                   _selectedCategory = JobFilterCategory.publicRequests;
                   _specificStatusFilter = null;
+                  _publicRequestsRefreshCounter++;
                 });
+                _fetchPublicRequestsCount();
               },
               theme: theme,
             ),
@@ -242,190 +263,71 @@ class _JobsPageState extends State<JobsPage> {
     );
   }
 
-  Widget _buildPillButton({
+  Widget _buildTabButton({
     required String title,
-    IconData? icon,
+    required int count,
     required bool isSelected,
-    required Color activeBgColor,
-    required Color activeTextColor,
     required VoidCallback onTap,
     required ThemeData theme,
   }) {
-    final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = AppColors.primary;
+    final textColor = isSelected
+        ? primaryColor
+        : theme.colorScheme.onSurface.withValues(alpha: 0.5);
 
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-        alignment: Alignment.center,
+      child: Container(
+        padding: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
-          color: isSelected
-              ? activeBgColor
-              : isDark
-                  ? theme.colorScheme.surface
-                  : Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: isSelected
-                ? activeBgColor
-                : isDark
-                    ? Colors.white12
-                    : theme.dividerColor.withValues(alpha: 0.4),
-            width: isSelected ? 1.5 : 1.0,
+          border: Border(
+            bottom: BorderSide(
+              color: isSelected ? primaryColor : Colors.transparent,
+              width: 3,
+            ),
           ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: activeBgColor.withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
           children: [
-            if (icon != null) ...[
-              Icon(
-                icon,
-                size: 17,
-                color: isSelected
-                    ? activeTextColor
-                    : theme.colorScheme.onSurface.withValues(alpha: 0.7),
-              ),
-              const SizedBox(width: 6),
-            ],
             Flexible(
               child: Text(
                 title,
                 style: TextStyle(
-                  color: isSelected
-                    ? activeTextColor
-                    : theme.colorScheme.onSurface.withValues(alpha: 0.8),
+                  color: textColor,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                  fontSize: 12.5,
-                  letterSpacing: 0.4,
+                  fontSize: 14,
+                  letterSpacing: 0.5,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+            if (count >= 0) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? primaryColor
+                      : theme.dividerColor.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  count.toString(),
+                  style: TextStyle(
+                    color: isSelected
+                        ? Colors.white
+                        : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
-  }
-
-  Widget _buildSpecificStatusChips(ThemeData theme, List<JobMatch> allJobs) {
-    final pendingCount =
-        allJobs.where((j) => j.status == JobStatus.pending).length;
-    final scheduledCount =
-        allJobs.where((j) => j.status == JobStatus.scheduled).length;
-    final acceptedCount =
-        allJobs.where((j) => j.status == JobStatus.accepted).length;
-    final completedCount =
-        allJobs.where((j) => j.status == JobStatus.completed).length;
-    final rejectedCount =
-        allJobs.where((j) => j.status == JobStatus.rejected).length;
-
-    final availableStatuses = [
-      null,
-      JobStatus.pending,
-      JobStatus.scheduled,
-      JobStatus.accepted,
-      JobStatus.completed,
-      JobStatus.rejected,
-    ];
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Row(
-        children: availableStatuses.map((status) {
-          final isSelected = _specificStatusFilter == status;
-          final count = status == null
-              ? allJobs.length
-              : (status == JobStatus.pending
-                  ? pendingCount
-                  : status == JobStatus.scheduled
-                      ? scheduledCount
-                      : status == JobStatus.accepted
-                          ? acceptedCount
-                          : status == JobStatus.completed
-                              ? completedCount
-                              : rejectedCount);
-
-          final label = _getStatusChipLabel(status, count);
-          final chipColor = _getStatusChipColor(status);
-
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: ChoiceChip(
-              label: Text(label),
-              selected: isSelected,
-              onSelected: (_) {
-                setState(() => _specificStatusFilter = status);
-              },
-              labelStyle: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected
-                    ? Colors.white
-                    : theme.colorScheme.onSurface.withValues(alpha: 0.75),
-              ),
-              selectedColor: chipColor,
-              backgroundColor: theme.colorScheme.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(
-                  color: isSelected
-                      ? chipColor
-                      : theme.dividerColor.withValues(alpha: 0.2),
-                ),
-              ),
-              showCheckmark: false,
-              visualDensity: VisualDensity.compact,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  String _getStatusChipLabel(JobStatus? status, int count) {
-    final countStr = count > 0 ? ' ($count)' : '';
-    if (status == null) return 'Todos$countStr';
-    switch (status) {
-      case JobStatus.pending:
-        return 'Cotización$countStr';
-      case JobStatus.scheduled:
-        return 'En camino$countStr';
-      case JobStatus.accepted:
-        return 'En proceso$countStr';
-      case JobStatus.completed:
-        return 'Finalizados$countStr';
-      case JobStatus.rejected:
-        return 'Rechazados$countStr';
-    }
-  }
-
-  Color _getStatusChipColor(JobStatus? status) {
-    if (status == null) return AppColors.primary;
-    switch (status) {
-      case JobStatus.pending:
-        return AppColors.primary;
-      case JobStatus.scheduled:
-        return const Color(0xFFE86A38);
-      case JobStatus.accepted:
-        return const Color(0xFF0D2B45);
-      case JobStatus.completed:
-        return const Color(0xFF16A34A);
-      case JobStatus.rejected:
-        return const Color(0xFFEF4444);
-    }
   }
 
   List<JobMatch> _filterAndSortJobs(List<JobMatch> jobs) {
@@ -433,7 +335,9 @@ class _JobsPageState extends State<JobsPage> {
 
     // Filter by specific status if selected
     if (_specificStatusFilter != null) {
-      filtered = filtered.where((j) => j.status == _specificStatusFilter).toList();
+      filtered = filtered
+          .where((j) => j.status == _specificStatusFilter)
+          .toList();
     } else {
       filtered = List<JobMatch>.from(filtered);
     }
@@ -533,18 +437,28 @@ class _JobsPageState extends State<JobsPage> {
     );
   }
 
-  Widget _buildErrorState(BuildContext context, String message, ThemeData theme) {
+  Widget _buildErrorState(
+    BuildContext context,
+    String message,
+    ThemeData theme,
+  ) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline_rounded, size: 48, color: Color(0xFFEF4444)),
+            const Icon(
+              Icons.error_outline_rounded,
+              size: 48,
+              color: Color(0xFFEF4444),
+            ),
             const SizedBox(height: 12),
             Text(
               'Ocurrió un error',
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
@@ -576,6 +490,7 @@ class _JobsPageState extends State<JobsPage> {
           !job.hasBeenReviewed &&
           !_promptedJobRatingIds.contains(job.id)) {
         _promptedJobRatingIds.add(job.id);
+
         final jobIdInt = int.tryParse(job.id) ?? 0;
         if (jobIdInt != 0) {
           WidgetsBinding.instance.addPostFrameCallback((_) {

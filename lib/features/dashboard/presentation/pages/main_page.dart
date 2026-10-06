@@ -20,6 +20,7 @@ import 'package:clanship_cliente/l10n/app_localizations.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:clanship_cliente/core/theme/bloc/seasonal_theme_bloc.dart';
 import 'package:clanship_cliente/core/theme/bloc/seasonal_theme_state.dart';
+import 'package:clanship_cliente/core/utils/tutorial_keys.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -179,6 +180,7 @@ class _ClanshipBottomBar extends StatelessWidget {
               activeIcon: Icons.home_rounded,
               label: l10n.navHome,
               theme: theme,
+              key: TutorialKeys.navInicioKey,
             ),
             _buildNavItem(
               index: 1,
@@ -187,14 +189,20 @@ class _ClanshipBottomBar extends StatelessWidget {
               label: l10n.navJobs,
               theme: theme,
               showBadge: hasUnreadJobs,
+              key: TutorialKeys.navJobsKey,
             ),
-            _buildCenterButton(theme),
+            GestureDetector(
+              key: TutorialKeys.navExploreKey,
+              onTap: () => onTap(2),
+              child: _buildCenterButton(theme),
+            ),
             _buildNavItem(
               index: 3,
               icon: Icons.favorite_outline_rounded,
               activeIcon: Icons.favorite_rounded,
               label: l10n.navFavorites,
               theme: theme,
+              key: TutorialKeys.navFavoritesKey,
             ),
             _buildNavItem(
               index: 4,
@@ -202,6 +210,7 @@ class _ClanshipBottomBar extends StatelessWidget {
               activeIcon: Icons.person_rounded,
               label: l10n.navSettings,
               theme: theme,
+              key: TutorialKeys.navSettingsKey,
             ),
           ],
         ),
@@ -216,9 +225,11 @@ class _ClanshipBottomBar extends StatelessWidget {
     required String label,
     required ThemeData theme,
     bool showBadge = false,
+    Key? key,
   }) {
     final isSelected = currentIndex == index;
     return GestureDetector(
+      key: key,
       onTap: () => onTap(index),
       behavior: HitTestBehavior.opaque,
       child: SizedBox(

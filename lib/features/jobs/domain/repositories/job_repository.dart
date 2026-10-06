@@ -45,4 +45,6 @@ abstract class JobRepository {
   Future<List<Map<String, dynamic>>> getMyPublicJobRequests();
   Future<bool> acceptJobProposal(int proposalId);
   Future<bool> cancelPublicJobRequest(int requestId);
+  Future<void> renegotiateJobPrice(int jobId, double proposedPrice);
+  Future<void> createJobClaim(int jobId, String details);
 }

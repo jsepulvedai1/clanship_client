@@ -27,6 +27,13 @@ class JobMatch extends Equatable {
   final bool hasBeenReviewed;
   final int? givenRating;
   final String? reviewComment;
+  final bool hasClaim;
+  final String? claimStatus;
+  
+  // Datos de finalización
+  final double? finalPrice;
+  final String? tradesmanComments;
+  final List<String>? finishedPhotosUrls;
 
   const JobMatch({
     required this.id,
@@ -47,6 +54,11 @@ class JobMatch extends Equatable {
     this.hasBeenReviewed = false,
     this.givenRating,
     this.reviewComment,
+    this.hasClaim = false,
+    this.claimStatus,
+    this.finalPrice,
+    this.tradesmanComments,
+    this.finishedPhotosUrls,
   });
 
   @override
@@ -69,6 +81,11 @@ class JobMatch extends Equatable {
         hasBeenReviewed,
         givenRating,
         reviewComment,
+        hasClaim,
+        claimStatus,
+        finalPrice,
+        tradesmanComments,
+        finishedPhotosUrls,
       ];
 
   JobMatch copyWith({
@@ -83,6 +100,11 @@ class JobMatch extends Equatable {
     bool? hasBeenReviewed,
     int? givenRating,
     String? reviewComment,
+    bool? hasClaim,
+    String? claimStatus,
+    double? finalPrice,
+    String? tradesmanComments,
+    List<String>? finishedPhotosUrls,
   }) {
     return JobMatch(
       id: id,
@@ -103,6 +125,11 @@ class JobMatch extends Equatable {
       hasBeenReviewed: hasBeenReviewed ?? this.hasBeenReviewed,
       givenRating: givenRating ?? this.givenRating,
       reviewComment: reviewComment ?? this.reviewComment,
+      hasClaim: hasClaim ?? this.hasClaim,
+      claimStatus: claimStatus ?? this.claimStatus,
+      finalPrice: finalPrice ?? this.finalPrice,
+      tradesmanComments: tradesmanComments ?? this.tradesmanComments,
+      finishedPhotosUrls: finishedPhotosUrls ?? this.finishedPhotosUrls,
     );
   }
 }

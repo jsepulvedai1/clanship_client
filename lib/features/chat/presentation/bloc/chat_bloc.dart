@@ -24,7 +24,7 @@ class SendMessage extends ChatEvent {
   final String? messageType;
 
   SendMessage(
-    this.professionalId, 
+    this.professionalId,
     this.text, {
     this.fileBase64,
     this.fileName,
@@ -38,30 +38,49 @@ class UpdateMessages extends ChatEvent {
 }
 
 class TriggerJobCancelled extends ChatEvent {}
+
 class AcceptJobProposal extends ChatEvent {}
+
 class RejectJobProposal extends ChatEvent {
   final String? cancellationReason;
   RejectJobProposal({this.cancellationReason});
+}
+
+class RenegotiateJobProposal extends ChatEvent {
+  final double proposedPrice;
+  RenegotiateJobProposal({required this.proposedPrice});
 }
 
 // States
 abstract class ChatState {}
 
 class ChatInitial extends ChatState {}
+
 class ChatLoading extends ChatState {}
+
 class ChatLoaded extends ChatState {
   final List<ChatMessage> messages;
   final String? jobStatus;
-  ChatLoaded(this.messages, {this.jobStatus});
+  final bool hasBeenReviewed;
+  final bool isSendingAttachment;
+  ChatLoaded(
+    this.messages, {
+    this.jobStatus,
+    this.hasBeenReviewed = false,
+    this.isSendingAttachment = false,
+  });
 }
+
 class ChatError extends ChatState {
   final String message;
   ChatError(this.message);
 }
+
 class JobCancelledState extends ChatState {
   final bool byMe;
   JobCancelledState({required this.byMe});
 }
+
 class JobAcceptedState extends ChatState {}
 
 // Bloc
@@ -74,6 +93,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   String? _currentRoomId;
   String? _currentJobId;
   String? _currentJobStatus;
+  bool _currentHasBeenReviewed = false;
+  bool _isSendingAttachment = false;
 
   ChatBloc(this._repository) : super(ChatInitial()) {
     on<LoadMessages>((event, emit) async {
@@ -83,10 +104,15 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
       try {
         final professionalIdInt = int.parse(event.professionalId);
-        final jobIdInt = event.jobId != null ? int.tryParse(event.jobId!) : null;
+        final jobIdInt = event.jobId != null
+            ? int.tryParse(event.jobId!)
+            : null;
         _currentJobId = event.jobId;
 
-        final roomInfo = await _repository.getOrCreateChatRoom(professionalIdInt, jobId: jobIdInt);
+        final roomInfo = await _repository.getOrCreateChatRoom(
+          professionalIdInt,
+          jobId: jobIdInt,
+        );
         _currentRoomId = roomInfo.roomId;
         if (roomInfo.jobId != null) {
           _currentJobId = roomInfo.jobId;
@@ -94,21 +120,32 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         if (roomInfo.jobStatus != null) {
           _currentJobStatus = roomInfo.jobStatus;
         }
+        _currentHasBeenReviewed = roomInfo.hasBeenReviewed;
 
-        _subscription = _repository.getMessages(_currentRoomId!).listen(
-          (messages) => add(UpdateMessages(messages)),
-        );
+        _subscription = _repository
+            .getMessages(_currentRoomId!)
+            .listen((messages) => add(UpdateMessages(messages)));
 
-        _jobStatusSubscription = _repository.getJobStatusEvents(_currentRoomId!).listen((event) {
-          final newStatus = event['new_status']?.toString();
-          if (newStatus != null && newStatus.isNotEmpty && newStatus != _currentJobStatus) {
-            _currentJobStatus = newStatus;
-            if (state is ChatLoaded) {
-              final currentState = state as ChatLoaded;
-              emit(ChatLoaded(currentState.messages, jobStatus: newStatus));
-            }
-          }
-        });
+        _jobStatusSubscription = _repository
+            .getJobStatusEvents(_currentRoomId!)
+            .listen((event) {
+              final newStatus = event['new_status']?.toString();
+              if (newStatus != null &&
+                  newStatus.isNotEmpty &&
+                  newStatus != _currentJobStatus) {
+                _currentJobStatus = newStatus;
+                if (state is ChatLoaded) {
+                  final currentState = state as ChatLoaded;
+                  emit(
+                    ChatLoaded(
+                      currentState.messages,
+                      jobStatus: newStatus,
+                      hasBeenReviewed: _currentHasBeenReviewed,
+                    ),
+                  );
+                }
+              }
+            });
       } catch (e) {
         emit(ChatError('Lo sentimos, hubo un error en el chat.'));
       }
@@ -116,26 +153,27 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
     on<UpdateMessages>((event, emit) {
       if (_currentJobStatus == 'REQUESTED' || _currentJobStatus == null) {
-        final hasNewProposal = event.messages.any(
-          (m) => !m.isMe && m.text.startsWith('Propuesta de visita:'),
-        );
-        if (hasNewProposal) {
-          final hasAcceptance = event.messages.any(
-            (m) => m.text.contains('Propuesta de visita aceptada'),
-          );
-          final hasRejection = event.messages.any(
-            (m) => m.text.contains('Propuesta de visita rechazada'),
-          );
-          if (hasAcceptance) {
+        if (event.messages.isNotEmpty) {
+          final lastMsg = event.messages.last;
+          if (lastMsg.text.contains('Propuesta de visita aceptada')) {
             _currentJobStatus = 'AGREED';
-          } else if (hasRejection) {
+          } else if (lastMsg.text.contains('Propuesta de visita rechazada') || lastMsg.text.contains('cancelada')) {
             _currentJobStatus = 'CANCELLED';
-          } else {
+          } else if (!lastMsg.isMe && lastMsg.text.startsWith('Propuesta de visita:')) {
             _currentJobStatus = 'SCHEDULED';
+          } else if (lastMsg.isMe && lastMsg.text.startsWith('Contraoferta de visita')) {
+            _currentJobStatus = 'REQUESTED';
           }
         }
       }
-      emit(ChatLoaded(event.messages, jobStatus: _currentJobStatus));
+      emit(
+        ChatLoaded(
+          event.messages,
+          jobStatus: _currentJobStatus,
+          hasBeenReviewed: _currentHasBeenReviewed,
+          isSendingAttachment: _isSendingAttachment,
+        ),
+      );
     });
 
     on<TriggerJobCancelled>((event, emit) {
@@ -157,7 +195,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             final currentState = state as ChatLoaded;
             emit(ChatLoaded(currentState.messages, jobStatus: 'AGREED'));
           }
-          await _repository.sendMessage(_currentRoomId!, 'Propuesta de visita aceptada por el cliente.');
+          await _repository.sendMessage(
+            _currentRoomId!,
+            'Propuesta de visita aceptada por el cliente.',
+          );
           emit(JobAcceptedState());
         } catch (_) {}
       }
@@ -180,7 +221,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           }
           await _repository.sendMessage(
             _currentRoomId!,
-            event.cancellationReason != null && event.cancellationReason!.isNotEmpty
+            event.cancellationReason != null &&
+                    event.cancellationReason!.isNotEmpty
                 ? 'Propuesta de visita rechazada por el cliente. Motivo: ${event.cancellationReason}'
                 : 'Propuesta de visita rechazada por el cliente.',
           );
@@ -188,11 +230,45 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       }
     });
 
+    on<RenegotiateJobProposal>((event, emit) async {
+      if (_currentJobId != null && _currentRoomId != null) {
+        try {
+          final jobRepository = getIt<JobRepository>();
+          final jobIdInt = int.parse(_currentJobId!);
+          await jobRepository.renegotiateJobPrice(
+            jobIdInt,
+            event.proposedPrice,
+          );
+          _currentJobStatus = 'REQUESTED';
+          if (state is ChatLoaded) {
+            final currentState = state as ChatLoaded;
+            emit(ChatLoaded(currentState.messages, jobStatus: 'REQUESTED'));
+          }
+          await _repository.sendMessage(
+            _currentRoomId!,
+            'Contraoferta de visita | Precio: \$${event.proposedPrice.toInt()}',
+          );
+        } catch (_) {}
+      }
+    });
+
     on<SendMessage>((event, emit) async {
       if (_currentRoomId != null) {
+        if (state is ChatLoaded && event.fileBase64 != null) {
+          _isSendingAttachment = true;
+          final currentState = state as ChatLoaded;
+          emit(
+            ChatLoaded(
+              currentState.messages,
+              jobStatus: _currentJobStatus,
+              hasBeenReviewed: _currentHasBeenReviewed,
+              isSendingAttachment: true,
+            ),
+          );
+        }
         try {
           await _repository.sendMessage(
-            _currentRoomId!, 
+            _currentRoomId!,
             event.text,
             fileBase64: event.fileBase64,
             fileName: event.fileName,
@@ -200,6 +276,19 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           );
         } catch (e) {
           debugPrint('Error sending message: $e');
+        } finally {
+          if (state is ChatLoaded && event.fileBase64 != null) {
+            _isSendingAttachment = false;
+            final currentState = state as ChatLoaded;
+            emit(
+              ChatLoaded(
+                currentState.messages,
+                jobStatus: _currentJobStatus,
+                hasBeenReviewed: _currentHasBeenReviewed,
+                isSendingAttachment: false,
+              ),
+            );
+          }
         }
       }
     });

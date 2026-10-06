@@ -8,6 +8,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:clanship_cliente/core/navigation/bloc/navigation_bloc.dart';
 import 'package:clanship_cliente/core/navigation/bloc/navigation_event.dart';
 import 'package:clanship_cliente/core/utils/currency_formatter.dart';
+import 'package:clanship_cliente/features/chat/presentation/pages/chat_page.dart';
+import 'package:clanship_cliente/features/jobs/presentation/pages/proposal_detail_page.dart';
+import 'package:clanship_cliente/features/home/domain/entities/professional.dart';
 
 class MyPublicRequestsPage extends StatelessWidget {
   const MyPublicRequestsPage({super.key});
@@ -26,7 +29,9 @@ class MyPublicRequestsPage extends StatelessWidget {
 }
 
 class MyPublicRequestsWidget extends StatefulWidget {
-  const MyPublicRequestsWidget({super.key});
+  final VoidCallback? onRequestsChanged;
+
+  const MyPublicRequestsWidget({super.key, this.onRequestsChanged});
 
   @override
   State<MyPublicRequestsWidget> createState() => _MyPublicRequestsWidgetState();
@@ -43,7 +48,7 @@ class _MyPublicRequestsWidgetState extends State<MyPublicRequestsWidget> {
     _fetchRequests();
     final socketService = getIt<JobsWebSocketService>();
     _socketSubscription = socketService.stream.listen((_) {
-      if (mounted) _fetchRequests();
+      if (mounted) _fetchRequests(showLoading: false);
     });
   }
 
@@ -53,8 +58,10 @@ class _MyPublicRequestsWidgetState extends State<MyPublicRequestsWidget> {
     super.dispose();
   }
 
-  Future<void> _fetchRequests() async {
-    setState(() => _isLoading = true);
+  Future<void> _fetchRequests({bool showLoading = true}) async {
+    if (showLoading && _requests.isEmpty) {
+      setState(() => _isLoading = true);
+    }
     try {
       final repo = getIt<JobRepository>();
       final list = await repo.getMyPublicJobRequests();
@@ -113,6 +120,7 @@ class _MyPublicRequestsWidgetState extends State<MyPublicRequestsWidget> {
           ),
         );
         _fetchRequests();
+        widget.onRequestsChanged?.call();
       }
     } catch (e) {
       if (mounted) {
@@ -132,6 +140,7 @@ class _MyPublicRequestsWidgetState extends State<MyPublicRequestsWidget> {
           context,
         ).showSnackBar(const SnackBar(content: Text('Solicitud cancelada.')));
         _fetchRequests();
+        widget.onRequestsChanged?.call();
       }
     } catch (_) {}
   }
@@ -306,140 +315,86 @@ class _MyPublicRequestsWidgetState extends State<MyPublicRequestsWidget> {
                     Column(
                       children: proposals.map((prop) {
                         final pId = int.tryParse(prop['id'].toString()) ?? 0;
-                        final profName =
-                            prop['professionalName'] ?? 'Profesional';
-                        final rating =
-                            prop['professionalRating']?.toString() ?? '0.0';
+                        final profName = prop['professionalName'] ?? 'Profesional';
+                        final rating = prop['professionalRating']?.toString() ?? '0.0';
                         final price = prop['estimatedPrice'] ?? '0';
                         final propStatus = prop['status']?.toString();
-
-                        return Container(
-                          margin: const EdgeInsets.symmetric(vertical: 6),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  const CircleAvatar(
-                                    radius: 16,
-                                    backgroundColor: Colors.grey,
-                                    child: Icon(
-                                      Icons.person,
-                                      size: 20,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          profName,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        Row(
-                                          children: [
-                                            const Icon(
-                                              Icons.star_rounded,
-                                              size: 14,
-                                              color: Colors.amber,
-                                            ),
-                                            Text(
-                                              ' $rating',
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Text(
-                                    formatCurrency(price),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      color: Colors.green,
-                                    ),
-                                  ),
-                                ],
+                        final isAccepted = propStatus == 'ACCEPTED';
+                        
+                        return InkWell(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ProposalDetailPage(
+                                  request: req,
+                                  proposal: prop,
+                                  onAccept: _acceptProposal,
+                                ),
                               ),
-                              if (prop['message'] != null &&
-                                  prop['message'].toString().isNotEmpty) ...[
-                                const SizedBox(height: 6),
-                                Text(
-                                  '💬 "${prop['message']}"',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontStyle: FontStyle.italic,
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(vertical: 6),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isAccepted ? Colors.green.shade50 : Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: isAccepted ? Colors.green.shade200 : Colors.grey.shade300),
+                              boxShadow: [
+                                BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2))
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 20,
+                                  backgroundImage: prop['professionalAvatarUrl'] != null 
+                                      ? NetworkImage(prop['professionalAvatarUrl']) 
+                                      : null,
+                                  backgroundColor: Colors.grey.shade200,
+                                  child: prop['professionalAvatarUrl'] == null
+                                      ? const Icon(Icons.person, color: Colors.grey)
+                                      : null,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        profName,
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.star_rounded, size: 14, color: Colors.amber),
+                                          Text(' $rating', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      formatCurrency(price),
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isAccepted ? Colors.green.shade700 : Colors.green),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        Text(isAccepted ? '✅ Aceptada' : 'Ver Detalle', style: TextStyle(fontSize: 12, color: isAccepted ? Colors.green : Colors.blue)),
+                                        if (!isAccepted) const Icon(Icons.chevron_right, size: 16, color: Colors.blue),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ],
-                              const SizedBox(height: 6),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      '📅 ${prop['scheduledDate']} a las ${prop['scheduledTime']}',
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ),
-                                  if (status == 'OPEN' &&
-                                      propStatus == 'PENDING')
-                                    InkWell(
-                                      onTap: () =>
-                                          _acceptProposal(pId, profName),
-                                      borderRadius: BorderRadius.circular(10),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 14,
-                                          vertical: 8,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.green,
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                        ),
-                                        child: const Text(
-                                          'Aceptar Cotización',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                    )
-                                  else if (propStatus == 'ACCEPTED')
-                                    const Text(
-                                      '✅ Aceptada',
-                                      style: TextStyle(
-                                        color: Colors.green,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ],
+                            ),
                           ),
                         );
                       }).toList(),

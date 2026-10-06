@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:clanship_cliente/core/config/shorebird_update_manager.dart';
 import 'package:clanship_cliente/core/config/app_startup.dart';
 import 'package:clanship_cliente/core/config/env_config.dart';
 import 'package:clanship_cliente/features/chat/presentation/pages/chat_page.dart';
@@ -49,13 +50,30 @@ class ClanshipApp extends StatefulWidget {
   State<ClanshipApp> createState() => _ClanshipAppState();
 }
 
-class _ClanshipAppState extends State<ClanshipApp> {
+class _ClanshipAppState extends State<ClanshipApp> with WidgetsBindingObserver {
   StreamSubscription<String>? _sessionSub;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _sessionSub?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final context = getIt<NavigationBloc>().navigatorKey.currentContext;
+      if (context != null) {
+        ShorebirdUpdateManager.checkForUpdate(context);
+      }
+    }
   }
 
   void _listenSessionInvalidation(BuildContext context) {

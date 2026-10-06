@@ -271,7 +271,15 @@ class ChatBubble extends StatelessWidget {
                   ),
                   body: Center(
                     child: InteractiveViewer(
-                      child: Image.network(fileUrl),
+                      child: Image.network(
+                        fileUrl,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return const Center(
+                            child: CircularProgressIndicator(color: Colors.white),
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
@@ -284,6 +292,22 @@ class ChatBubble extends StatelessWidget {
                 fileUrl,
                 width: 220,
                 fit: BoxFit.cover,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Container(
+                    width: 220,
+                    height: 150,
+                    color: Colors.grey[300],
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                                (loadingProgress.expectedTotalBytes ?? 1)
+                            : null,
+                      ),
+                    ),
+                  );
+                },
                 errorBuilder: (context, error, stackTrace) => Container(
                   width: 220,
                   height: 150,
@@ -406,11 +430,13 @@ class ChatBubble extends StatelessWidget {
                   size: 18,
                 ),
                 const SizedBox(width: 6),
-                Text(
-                  'Propuesta Aceptada',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.green.shade800,
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    'Propuesta Aceptada',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: Colors.green.shade800,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
@@ -426,21 +452,24 @@ class ChatBubble extends StatelessWidget {
                   size: 18,
                 ),
                 const SizedBox(width: 6),
-                Text(
-                  'Propuesta Rechazada',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.red.shade800,
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    'Propuesta Rechazada',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: Colors.red.shade800,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
             ),
           ] else if (showActions) ...[
             const SizedBox(height: 16),
-            Row(
+            Column(
               key: const ValueKey('actions'),
               children: [
-                Expanded(
+                SizedBox(
+                  width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
                       context.read<ChatBloc>().add(AcceptJobProposal());
@@ -463,26 +492,53 @@ class ChatBubble extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => _showRejectionDialog(context),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
-                      side: const BorderSide(color: Colors.red),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => _showRenegotiateDialog(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange.shade700,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Renegociar',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
                       ),
                     ),
-                    child: const Text(
-                      'Rechazar',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => _showRejectionDialog(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Rechazar',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
@@ -497,17 +553,84 @@ class ChatBubble extends StatelessWidget {
                   size: 18,
                 ),
                 const SizedBox(width: 6),
-                Text(
-                  'Propuesta Anterior / Reemplazada',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
+                Expanded(
+                  child: Text(
+                    'Propuesta Anterior / Reemplazada',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
               ],
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+
+  void _showRenegotiateDialog(BuildContext context) {
+    final priceController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Renegociar Precio'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Ingresa tu propuesta de precio para la visita:',
+              style: TextStyle(fontSize: 14, color: Colors.black87),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: priceController,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                hintText: 'Ej. 15000',
+                prefixIcon: const Icon(Icons.attach_money),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                contentPadding: const EdgeInsets.all(12),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange.shade700,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: () {
+              final priceText = priceController.text.trim();
+              final price = double.tryParse(priceText);
+              if (price != null && price > 0) {
+                Navigator.pop(dialogContext);
+                context.read<ChatBloc>().add(
+                  RenegotiateJobProposal(proposedPrice: price),
+                );
+              } else {
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  const SnackBar(content: Text('Ingresa un precio válido')),
+                );
+              }
+            },
+            child: const Text('Enviar Propuesta'),
+          ),
         ],
       ),
     );

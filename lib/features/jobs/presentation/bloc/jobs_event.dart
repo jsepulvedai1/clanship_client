@@ -53,3 +53,12 @@ class RateJobEvent extends JobsEvent {
   @override
   List<Object?> get props => [jobId, rating, comment];
 }
+
+class CreateJobClaimEvent extends JobsEvent {
+  final int jobId;
+  final String details;
+  const CreateJobClaimEvent({required this.jobId, required this.details});
+
+  @override
+  List<Object?> get props => [jobId, details];
+}
